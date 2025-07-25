@@ -1,0 +1,11 @@
+.git
+.claude
+node_modules
+dist
+npm-debug.log
+.env
+README.md
+CLAUDE.md
+docs/
+test/
+coverage/
