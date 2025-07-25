@@ -1,31 +1,52 @@
-ARG CACHE_BUSTER=1
-# 必要なものが全て揃っているフルバージョンのNode.jsイメージを使用
-FROM node:20
+# ---- 1. ビルダー・ステージ ----
+# Node.jsの公式イメージをベースにする。'alpine'タグは軽量
+FROM node:20-alpine AS builder
 
-# アプリケーションの作業ディレクトリを作成
+# pnpmを有効化
+RUN corepack enable
+
+# 作業ディレクトリを設定
 WORKDIR /usr/src/app
 
-# package.json と package-lock.json (あれば) をコピー
-# これでキャッシュが効き、毎回全ライブラリをインストールするのを防ぐ
-COPY package.json* ./
+# 依存関係の定義ファイルをコピー
+COPY package.json pnpm-lock.yaml ./
 
-# npm を使って依存関係をインストール
-# これで sqlite3 がLinux環境で正しくビルドされる
-RUN npm install
+# 開発依存関係も含めて、すべての依存関係をインストール
+# --frozen-lockfile は pnpm-lock.yaml との整合性を保証する
+RUN pnpm install --frozen-lockfile
 
-# ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-# ★ これが最後の切り札：sqlite3だけをソースコードから強制的に再ビルドする ★
-# ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-RUN npm rebuild sqlite3 --build-from-source
-
-# アプリケーションのソースコードをコピー
+# ソースコードをコピー
 COPY . .
 
-# アプリケーションをビルド
-RUN npm run build
+# TypeScriptをJavaScriptにトランスパイル
+RUN pnpm run build
+
+# 本番用の依存関係のみを再インストール
+# これにより、devDependenciesが最終イメージから除外される
+RUN pnpm prune --prod
+
+
+# ---- 2. 本番ステージ ----
+# 再び軽量なAlpineイメージから開始
+FROM node:20-alpine AS production
+
+# 作業ディレクトリを設定
+WORKDIR /usr/src/app
+
+# ビルダー・ステージから必要なファイルのみをコピー
+# - package.json: 実行に必要
+# - dist: トランスパイルされたJSコード
+# - node_modules: 本番用の依存関係
+COPY --from=builder /usr/src/app/package.json ./
+COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/node_modules ./node_modules
+
+# アプリケーションを実行するユーザーを作成し、権限を制限（セキュリティ向上）
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
 
 # アプリケーションがリッスンするポートを公開
 EXPOSE 3000
 
-# コンテナ起動時に実行するコマンド
-CMD ["npm", "run", "start:prod"]
+# アプリケーションの起動コマンド
+CMD [ "node", "dist/main.js" ]
