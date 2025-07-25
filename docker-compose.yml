@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sokubutsu_app
+    restart: always
+    volumes:
+      - .:/usr/src/app
+      - node_modules_volume:/usr/src/app/node_modules
+    ports:
+      - '${PORT:-13000}:${PORT:-13000}'
+    command: npm run start:dev
+    env_file:
+      - .env
+volumes:
+  node_modules_volume:
