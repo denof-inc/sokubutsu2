@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Browser, BrowserContext, chromium, Cookie } from 'playwright';
 import { botProtectionConfig } from '../config/bot-protection.config';
 
@@ -18,7 +18,7 @@ interface RateLimitData {
 }
 
 @Injectable()
-export class BotProtectionService {
+export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BotProtectionService.name);
   private browser: Browser | null = null;
   private sessions: Map<string, SessionData> = new Map();
@@ -115,47 +115,65 @@ export class BotProtectionService {
   /**
    * Google経由でサイトにアクセス
    */
-  async accessViaGoogle(targetUrl: string, searchQuery: string): Promise<void> {
+  async accessViaGoogle(targetUrl: string, searchQuery: string): Promise<boolean> {
     const domain = new URL(targetUrl).hostname;
     const context = await this.getOrCreateSession(domain);
     const page = await context.newPage();
 
     try {
-      // Google検索ページにアクセス
-      await page.goto('https://www.google.com', {
-        waitUntil: 'domcontentloaded',
-        timeout: 30000,
+      // Step 1: Bot検知テストサイトへのアクセス
+      await page.goto('https://bot.sannysoft.com', {
+        waitUntil: 'networkidle',
+        timeout: 30000
       });
-
-      // 人間らしい遅延
-      await this.humanDelay();
-
-      // 検索ボックスに入力
-      const searchBox = await page.locator('input[name="q"]');
-      await searchBox.click();
-      await searchBox.type(searchQuery, { delay: this.getRandomTypingDelay() });
-
-      // 検索実行
-      await this.humanDelay();
-      await page.keyboard.press('Enter');
-
-      // 検索結果を待つ
-      await page.waitForSelector('#search', { timeout: 10000 });
-      await this.humanDelay();
-
-      // 目的のサイトへのリンクを探してクリック
-      const targetLink = await page.locator(`a[href*="${domain}"]`).first();
-      if (await targetLink.isVisible()) {
-        await targetLink.click();
-        await page.waitForLoadState('domcontentloaded');
-        this.logger.log(`Successfully accessed ${targetUrl} via Google`);
-      } else {
-        throw new Error(`Could not find link to ${domain} in search results`);
+      
+      // Step 2: 3秒間の待機（重要：この待機時間は必須）
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Step 3: Googleへのアクセス
+      await page.goto('https://www.google.com', {
+        waitUntil: 'networkidle',
+        timeout: 30000
+      });
+      
+      // Step 4: 検索実行
+      // Googleの検索ボックスを複数のセレクタで試行
+      let searchBox;
+      try {
+        searchBox = await page.waitForSelector('input[name="q"]', { timeout: 5000 });
+      } catch {
+        // 別のセレクタを試行
+        searchBox = await page.waitForSelector('textarea[name="q"]', { timeout: 5000 });
       }
-
+      
+      await searchBox.type(searchQuery, { delay: 100 });
+      await searchBox.press('Enter');
+      
+      // Step 5: 検索結果の待機
+      await page.waitForSelector('#search', { timeout: 15000 });
+      
+      // Step 6: 目的サイトのリンクを探してクリック
+      const targetDomain = new URL(targetUrl).hostname;
+      const links = await page.$$eval('a[href]', (elements, domain) => {
+        return elements
+          .filter(el => (el as HTMLAnchorElement).href.includes(domain))
+          .map(el => ({ href: (el as HTMLAnchorElement).href, text: el.textContent }));
+      }, targetDomain);
+      
+      if (links.length === 0) {
+        throw new Error(`No links found for domain: ${targetDomain}`);
+      }
+      
+      // Step 7: 最初のリンクをクリック
+      await page.click(`a[href*="${targetDomain}"]`);
+      await page.waitForLoadState('networkidle');
+      
+      this.logger.log(`Successfully accessed ${targetUrl} via Google`);
+      return true;
+      
     } catch (error) {
-      this.logger.error(`Failed to access ${targetUrl} via Google: ${error.message}`);
-      throw error;
+      this.logger.error(`Google経由アクセス失敗: ${error.message}`);
+      return false;
     } finally {
       await page.close();
     }

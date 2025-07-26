@@ -11,6 +11,7 @@ interface ScrapeResult {
   hash: string | null;
   method: 'http' | 'jsdom' | 'playwright' | 'google-playwright';
   error?: string;
+  success?: boolean;
 }
 
 interface ScrapeOptions {
@@ -18,6 +19,15 @@ interface ScrapeOptions {
   searchQuery?: string;
   testBotDetection?: boolean;
 }
+
+interface RetryConfig {
+  maxRetries: number;
+  baseDelay: number;
+  maxDelay: number;
+  backoffMultiplier: number;
+}
+
+type ErrorType = 'RECOVERABLE' | 'UNRECOVERABLE' | 'BOT_DETECTED';
 
 @Injectable()
 export class ScrapingService {
@@ -40,27 +50,86 @@ export class ScrapingService {
       this.logger.log(`Bot detection test for ${domain}:`, detectionResult);
     }
 
-    // Google経由アクセスが必要な場合
-    if (options.useGoogleSearch && options.searchQuery) {
+    // リトライ設定
+    const retryConfig: RetryConfig = {
+      maxRetries: 3,
+      baseDelay: 1000,
+      maxDelay: 30000,
+      backoffMultiplier: 2
+    };
+
+    try {
+      return await this.scrapeWithRetry(url, selector, options, retryConfig);
+    } catch (error) {
+      this.logger.error(`[${url}] スクレイピング完全失敗: ${error.message}`);
+      return null;
+    }
+  }
+
+  private async scrapeWithRetry(
+    url: string,
+    selector: string,
+    options: ScrapeOptions,
+    config: RetryConfig
+  ): Promise<string | null> {
+    let lastError: Error | undefined;
+    
+    for (let attempt = 1; attempt <= config.maxRetries; attempt++) {
       try {
-        await this.botProtectionService.accessViaGoogle(url, options.searchQuery);
-        const result = await this.scrapeWithPlaywrightSession(url, selector);
-        return result.hash;
+        // Google経由アクセスが必要な場合
+        if (options.useGoogleSearch && options.searchQuery) {
+          const success = await this.botProtectionService.accessViaGoogle(url, options.searchQuery);
+          if (success) {
+            const result = await this.scrapeWithPlaywrightSession(url, selector);
+            if (result.hash) {
+              return result.hash;
+            }
+          }
+        }
+
+        // 通常の段階的スクレイピング
+        const result = await this.scrapeWithStrategy(url, selector);
+        
+        if (result.hash) {
+          this.logger.log(`[${url}] スクレイピング成功 (方法: ${result.method})`);
+          return result.hash;
+        }
+        
+        // エラー分類
+        const errorType = this.classifyError(result.error || 'Unknown error');
+        
+        // 回復不可能なエラーの場合は即座に失敗
+        if (errorType === 'UNRECOVERABLE') {
+          throw new Error(`回復不可能なエラー: ${result.error}`);
+        }
+        
+        // リトライ可能なエラーの場合は待機後に再試行
+        if (attempt < config.maxRetries) {
+          const delay = Math.min(
+            config.baseDelay * Math.pow(config.backoffMultiplier, attempt - 1),
+            config.maxDelay
+          );
+          
+          this.logger.warn(`スクレイピング失敗 (試行 ${attempt}/${config.maxRetries}): ${result.error}. ${delay}ms後に再試行`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+        
       } catch (error) {
-        this.logger.error(`Google経由アクセス失敗: ${error.message}`);
+        lastError = error;
+        
+        if (attempt < config.maxRetries) {
+          const delay = Math.min(
+            config.baseDelay * Math.pow(config.backoffMultiplier, attempt - 1),
+            config.maxDelay
+          );
+          
+          this.logger.warn(`スクレイピング例外 (試行 ${attempt}/${config.maxRetries}): ${error.message}. ${delay}ms後に再試行`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
       }
     }
-
-    // 通常の段階的スクレイピング
-    const result = await this.scrapeWithStrategy(url, selector);
     
-    if (result.hash) {
-      this.logger.log(`[${url}] スクレイピング成功 (方法: ${result.method})`);
-    } else {
-      this.logger.error(`[${url}] すべてのスクレイピング手法が失敗しました`);
-    }
-    
-    return result.hash;
+    throw new Error(`全ての再試行が失敗: ${lastError?.message || 'Unknown error'}`);
   }
 
   private async scrapeWithStrategy(url: string, selector: string): Promise<ScrapeResult> {
@@ -221,10 +290,6 @@ export class ScrapingService {
     }
   }
 
-  private getRandomUserAgent(): string {
-    return this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
-  }
-
   private async randomDelay(min: number, max: number): Promise<void> {
     const delay = Math.floor(Math.random() * (max - min + 1)) + min;
     await new Promise(resolve => setTimeout(resolve, delay));
@@ -319,5 +384,30 @@ export class ScrapingService {
 
   private getRandomUserAgent(): string {
     return botProtectionConfig.userAgents[Math.floor(Math.random() * botProtectionConfig.userAgents.length)];
+  }
+
+  private classifyError(error: string): ErrorType {
+    // 405 Method Not Allowed - Bot対策の可能性が高い
+    if (error.includes('405') || error.includes('Method Not Allowed')) {
+      return 'BOT_DETECTED';
+    }
+    
+    // タイムアウト系エラー - 一時的な問題の可能性
+    if (error.includes('timeout') || error.includes('Timeout')) {
+      return 'RECOVERABLE';
+    }
+    
+    // ネットワーク系エラー - 一時的な問題の可能性
+    if (error.includes('ECONNRESET') || error.includes('ENOTFOUND')) {
+      return 'RECOVERABLE';
+    }
+    
+    // セレクタ待機失敗 - サイト構造変更の可能性
+    if (error.includes('waiting for selector') || error.includes('が見つかりませんでした')) {
+      return 'UNRECOVERABLE';
+    }
+    
+    // その他のエラー - 回復可能として扱う
+    return 'RECOVERABLE';
   }
 }
