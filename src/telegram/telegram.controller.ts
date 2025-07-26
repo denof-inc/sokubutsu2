@@ -6,6 +6,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { TelegramAuthGuard } from '../auth/guards/telegram-auth.guard';
+import { TelegramWebhookGuard } from './guards/telegram-webhook.guard';
+import { RateLimitGuard } from './guards/rate-limit.guard';
 import { CurrentUser, TelegramUser, IsNewUser } from '../auth/decorators/telegram-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { TelegramUpdate, TelegramUser as ITelegramUser } from '../auth/interfaces/telegram-user.interface';
@@ -25,7 +27,7 @@ export class TelegramController {
    * Telegram Webhook エンドポイント
    */
   @Post('webhook')
-  @UseGuards(TelegramAuthGuard)
+  @UseGuards(TelegramWebhookGuard, TelegramAuthGuard, RateLimitGuard)
   async handleUpdate(
     @Body() update: TelegramUpdate,
     @CurrentUser() user: User,
@@ -272,7 +274,7 @@ export class TelegramController {
 📅 登録日: ${user.createdAt.toLocaleDateString('ja-JP')}
 🔍 監視中URL: 2件
 ⏸️ 一時停止中: 1件
-🔔 通知設定: ${user.notificationSettings.enabled ? 'ON' : 'OFF'}
+🔔 通知設定: ${user.settings?.notifications?.enabled ? 'ON' : 'OFF'}
 
 最終チェック: 5分前
 次回チェック: 10分後
