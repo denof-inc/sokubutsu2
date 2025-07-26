@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { User, UserSettings } from '../users/entities/user.entity';
 import { TelegramUser } from './interfaces/telegram-user.interface';
+import { UserUpdateData } from './interfaces/user-update-data.interface';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { 
   TelegramAuthException, 
@@ -32,7 +33,7 @@ export class AuthService {
         // 既存ユーザーの場合、最終アクティブ時刻と情報を更新
         this.logger.debug(`Existing user found: ${telegramId}`);
 
-        const updateData: any = {
+        const updateData: UserUpdateData = {
           lastActiveAt: new Date(),
           username: telegramUser.username,
           firstName: telegramUser.first_name,
