@@ -1,15 +1,13 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Url } from './url.entity';
+import { DatabaseService } from '../database/database.service';
+import { Url } from './url.interface';
 
 @Injectable()
 export class UrlService implements OnModuleInit {
   private readonly logger = new Logger(UrlService.name);
 
   constructor(
-    @InjectRepository(Url)
-    private readonly urlRepository: Repository<Url>,
+    private readonly databaseService: DatabaseService,
   ) {}
 
   async onModuleInit() {
@@ -19,28 +17,34 @@ export class UrlService implements OnModuleInit {
   private async seedInitialData() {
     const testUrlString = 'https://www.athome.co.jp/buy_other/hiroshima/list/?pref=34&cities=hiroshima_naka,hiroshima_higashi,hiroshima_minami,hiroshima_nishi,hiroshima_asaminami,hiroshima_asakita,hiroshima_aki,hiroshima_saeki,kure,takehara,mihara,onomichi,fukuyama,fuchu,miyoshi,shobara,otake,higashihiroshima,hatsukaichi,akitakata,etajima,aki_fuchu,aki_kaita,aki_kumano,aki_saka,yamagata_akiota,yamagata_kitahiroshima,toyota_osakikamijima,sera_sera,jinseki_jinsekikogen&basic=kp401,kp522,kt201,kf201,ke001,kn001,kj001&tsubo=0&tanka=0&kod=&q=1';
 
-    const existingUrl = await this.urlRepository.findOne({
-      where: { url: testUrlString },
-    });
+    const existingUrl = this.databaseService.findOne<Url>(
+      'SELECT * FROM urls WHERE url = ?',
+      [testUrlString],
+    );
 
     if (!existingUrl) {
       this.logger.log('テスト用のURLデータをデータベースに登録します...');
-      const testUrl = this.urlRepository.create({
-        name: '広島県のテスト物件',
-        url: testUrlString,
-        selector: '#item-list',
-        isActive: true,
-      });
-      await this.urlRepository.save(testUrl);
+      this.databaseService.execute(
+        'INSERT INTO urls (name, url, selector, is_active) VALUES (?, ?, ?, ?)',
+        ['広島県のテスト物件', testUrlString, '#item-list', 1],
+      );
       this.logger.log('テストデータの登録が完了しました。');
     }
   }
 
   findAllActive(): Promise<Url[]> {
-    return this.urlRepository.find({ where: { isActive: true } });
+    const results = this.databaseService.query<Url>(
+      'SELECT * FROM urls WHERE is_active = ?',
+      [1],
+    );
+    return Promise.resolve(results);
   }
 
   updateHash(id: number, hash: string): Promise<any> {
-    return this.urlRepository.update(id, { contentHash: hash });
+    const result = this.databaseService.execute(
+      'UPDATE urls SET content_hash = ? WHERE id = ?',
+      [hash, id],
+    );
+    return Promise.resolve(result);
   }
 }
