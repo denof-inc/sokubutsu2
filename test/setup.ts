@@ -37,6 +37,7 @@ expect.extend({
 
 // TypeScript型定義の拡張
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace jest {
     interface Matchers<R> {
       toBeValidUrl(): R;
@@ -67,7 +68,8 @@ export const createMockUrl = () => ({
 });
 
 // 非同期テスト用のヘルパー
-export const waitFor = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+export const waitFor = (ms: number) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 // モック用のファクトリー関数
 export const createMockRepository = () => ({

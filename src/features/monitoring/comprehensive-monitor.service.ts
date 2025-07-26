@@ -44,54 +44,62 @@ export class ComprehensiveMonitorService {
   }
 
   private startResourceMonitoring(): void {
-    const interval = setInterval(async () => {
-      try {
-        const metrics = await this.metricsCollector.collectSystemMetrics();
-        await this.evaluateSystemMetrics(metrics);
-      } catch (error) {
-        this.logger.error(`システムメトリクス収集失敗: ${error.message}`);
-      }
+    const interval = setInterval(() => {
+      void (async () => {
+        try {
+          const metrics = await this.metricsCollector.collectSystemMetrics();
+          await this.evaluateSystemMetrics(metrics);
+        } catch (error) {
+          this.logger.error(`システムメトリクス収集失敗: ${error.message}`);
+        }
+      })();
     }, 30000);
 
     this.monitoringIntervals.set('resource', interval);
   }
 
   private startBotProtectionMonitoring(): void {
-    const interval = setInterval(async () => {
-      try {
-        const metrics =
-          await this.metricsCollector.collectBotProtectionMetrics();
-        await this.evaluateBotProtectionMetrics(metrics);
-      } catch (error) {
-        this.logger.error(`Bot対策メトリクス収集失敗: ${error.message}`);
-      }
+    const interval = setInterval(() => {
+      void (async () => {
+        try {
+          const metrics =
+            await this.metricsCollector.collectBotProtectionMetrics();
+          await this.evaluateBotProtectionMetrics(metrics);
+        } catch (error) {
+          this.logger.error(`Bot対策メトリクス収集失敗: ${error.message}`);
+        }
+      })();
     }, 300000);
 
     this.monitoringIntervals.set('bot-protection', interval);
   }
 
   private startResponseTimeMonitoring(): void {
-    const interval = setInterval(async () => {
-      try {
-        const metrics =
-          await this.metricsCollector.collectResponseTimeMetrics();
-        await this.evaluateResponseTimeMetrics(metrics);
-      } catch (error) {
-        this.logger.error(`応答時間メトリクス収集失敗: ${error.message}`);
-      }
+    const interval = setInterval(() => {
+      void (async () => {
+        try {
+          const metrics =
+            await this.metricsCollector.collectResponseTimeMetrics();
+          await this.evaluateResponseTimeMetrics(metrics);
+        } catch (error) {
+          this.logger.error(`応答時間メトリクス収集失敗: ${error.message}`);
+        }
+      })();
     }, 60000);
 
     this.monitoringIntervals.set('response-time', interval);
   }
 
   private startProcessMonitoring(): void {
-    const interval = setInterval(async () => {
-      try {
-        const metrics = await this.metricsCollector.collectProcessMetrics();
-        await this.evaluateProcessMetrics(metrics);
-      } catch (error) {
-        this.logger.error(`プロセスメトリクス収集失敗: ${error.message}`);
-      }
+    const interval = setInterval(() => {
+      void (async () => {
+        try {
+          const metrics = await this.metricsCollector.collectProcessMetrics();
+          await this.evaluateProcessMetrics(metrics);
+        } catch (error) {
+          this.logger.error(`プロセスメトリクス収集失敗: ${error.message}`);
+        }
+      })();
     }, 60000);
 
     this.monitoringIntervals.set('process', interval);

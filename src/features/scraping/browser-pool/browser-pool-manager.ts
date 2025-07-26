@@ -242,8 +242,8 @@ export class BrowserPoolManager implements OnModuleDestroy {
    * メンテナンスタスクの開始
    */
   private startMaintenanceTask(): void {
-    setInterval(async () => {
-      await this.performMaintenance();
+    setInterval(() => {
+      void this.performMaintenance();
     }, 30000); // 30秒ごと
   }
 

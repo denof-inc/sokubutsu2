@@ -17,11 +17,11 @@ describe('DatabaseService', () => {
       transaction: jest.fn(),
     };
 
-    const Database = require('better-sqlite3');
-    Database.mockReturnValue(mockDb);
+    jest.doMock('better-sqlite3', () => jest.fn(() => mockDb));
 
-    const fs = require('fs');
-    fs.readFileSync.mockReturnValue('CREATE TABLE test;');
+    jest.doMock('fs', () => ({
+      readFileSync: jest.fn().mockReturnValue('CREATE TABLE test;'),
+    }));
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [DatabaseService],
@@ -41,8 +41,7 @@ describe('DatabaseService', () => {
 
   describe('onModuleInit', () => {
     it('データベース接続を確立し、スキーマを初期化すること', () => {
-      const Database = require('better-sqlite3');
-      const fs = require('fs');
+      // Mocks are already set up in beforeEach
 
       expect(Database).toHaveBeenCalledWith(
         expect.stringContaining('sokubutsu.sqlite'),

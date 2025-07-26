@@ -373,7 +373,7 @@ export class AutoRecoveryService {
           message: 'Waiting for browser pool availability',
         };
 
-      case 'rate_limit':
+      case 'rate_limit': {
         // レート制限
         const backoffDelay = 60000 * (context.attemptNumber + 1); // 1分、2分、3分...
         return {
@@ -382,6 +382,7 @@ export class AutoRecoveryService {
           delay: backoffDelay,
           message: `Rate limit recovery with ${backoffDelay / 1000}s delay`,
         };
+      }
 
       case 'cpu':
         // CPU使用率高

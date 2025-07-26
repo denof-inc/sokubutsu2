@@ -35,10 +35,10 @@ export class BrowserStealthService {
 
       // ChromeDriverの痕跡を除去
       const originalQuery = window.navigator.permissions.query;
-      window.navigator.permissions.query = function (parameters: any) {
-        return parameters.name === 'notifications'
+      window.navigator.permissions.query = function (...args: any[]) {
+        return args[0]?.name === 'notifications'
           ? Promise.resolve({ state: 'default' } as any)
-          : originalQuery.apply(this, arguments as any);
+          : originalQuery.apply(this, args);
       };
     });
   }
@@ -239,7 +239,7 @@ export class BrowserStealthService {
 
       // Canvas フィンガープリンティング対策
       const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
-      HTMLCanvasElement.prototype.toDataURL = function () {
+      HTMLCanvasElement.prototype.toDataURL = function (...args: any[]) {
         const context = this.getContext('2d');
         if (context) {
           // わずかなノイズを追加
@@ -253,7 +253,7 @@ export class BrowserStealthService {
           }
           context.putImageData(imageData, 0, 0);
         }
-        return originalToDataURL.apply(this, arguments as any);
+        return originalToDataURL.apply(this, args);
       };
 
       // AudioContext フィンガープリンティング対策

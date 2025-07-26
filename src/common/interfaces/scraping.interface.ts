@@ -52,7 +52,7 @@ export interface ScrapingConfig {
   userAgent?: string;
   headers?: Record<string, string>;
   enableJavaScript?: boolean;
-  enableBot protection?: boolean;
+  enableBotProtection?: boolean;
 }
 
 // 型ガード関数

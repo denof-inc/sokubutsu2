@@ -42,7 +42,7 @@ export class StealthConfig {
 
     // Chrome検知回避
     await page.addInitScript(() => {
-      // @ts-ignore
+      // @ts-expect-error Chrome API mock
       window.chrome = {
         runtime: {},
         loadTimes: function () {},
