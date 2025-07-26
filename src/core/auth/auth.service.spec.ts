@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
-import { UsersService } from '../users/users.service';
-import { TelegramUser } from './interfaces/telegram-user.interface';
-import { User } from '../users/entities/user.entity';
-import { InvalidTelegramDataException } from './exceptions/auth.exceptions';
+import { UsersService } from '../../domain/users/users.service';
+import { TelegramUser } from '../../common/interfaces/telegram-user.interface';
+import { User } from '../../domain/users/entities/user.entity';
+import { InvalidTelegramDataException } from '../../common/exceptions/auth.exceptions';
 
 describe('AuthService', () => {
   let service: AuthService;

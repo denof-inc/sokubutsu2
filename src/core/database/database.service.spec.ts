@@ -1,12 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DatabaseService } from './database.service';
+import type { Database as BetterSqlite3Database } from 'better-sqlite3';
 
 jest.mock('better-sqlite3');
 jest.mock('fs');
 
+type MockDatabase = {
+  pragma: jest.Mock;
+  exec: jest.Mock;
+  prepare: jest.Mock;
+  close: jest.Mock;
+  transaction: jest.Mock;
+};
+
 describe('DatabaseService', () => {
   let service: DatabaseService;
-  let mockDb: any;
+  let mockDb: MockDatabase;
 
   beforeEach(async () => {
     mockDb = {
@@ -43,6 +52,8 @@ describe('DatabaseService', () => {
     it('データベース接続を確立し、スキーマを初期化すること', () => {
       // Mocks are already set up in beforeEach
 
+      const Database = jest.requireMock('better-sqlite3');
+      const fs = jest.requireMock('fs');
       expect(Database).toHaveBeenCalledWith(
         expect.stringContaining('sokubutsu.sqlite'),
       );
@@ -67,7 +78,7 @@ describe('DatabaseService', () => {
       const mockStmt = {
         all: jest.fn().mockReturnValue([{ id: 1 }, { id: 2 }]),
       };
-      mockDb.prepare.mockReturnValue(mockStmt as any);
+      mockDb.prepare.mockReturnValue(mockStmt);
 
       const result = service.query('SELECT * FROM test WHERE active = ?', [
         true,
@@ -86,7 +97,7 @@ describe('DatabaseService', () => {
       const mockStmt = {
         get: jest.fn().mockReturnValue({ id: 1, name: 'test' }),
       };
-      mockDb.prepare.mockReturnValue(mockStmt as any);
+      mockDb.prepare.mockReturnValue(mockStmt);
 
       const result = service.findOne('SELECT * FROM test WHERE id = ?', [1]);
 
@@ -101,7 +112,7 @@ describe('DatabaseService', () => {
       const mockStmt = {
         get: jest.fn().mockReturnValue(undefined),
       };
-      mockDb.prepare.mockReturnValue(mockStmt as any);
+      mockDb.prepare.mockReturnValue(mockStmt);
 
       const result = service.findOne('SELECT * FROM test WHERE id = ?', [999]);
 
@@ -115,7 +126,7 @@ describe('DatabaseService', () => {
       const mockStmt = {
         run: jest.fn().mockReturnValue(mockRunResult),
       };
-      mockDb.prepare.mockReturnValue(mockStmt as any);
+      mockDb.prepare.mockReturnValue(mockStmt);
 
       const result = service.execute('INSERT INTO test (name) VALUES (?)', [
         'test',
@@ -133,7 +144,7 @@ describe('DatabaseService', () => {
     it('トランザクション内で関数を実行すること', () => {
       const mockFn = jest.fn().mockReturnValue('result');
       const mockTransaction = jest.fn().mockReturnValue('result');
-      mockDb.transaction.mockReturnValue(mockTransaction as any);
+      mockDb.transaction.mockReturnValue(mockTransaction);
 
       const result = service.transaction(mockFn);
 

@@ -1,6 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Page } from 'playwright';
 
+interface ExtendedWindow extends Window {
+  chrome?: {
+    runtime?: any;
+  };
+  __playwright?: any;
+  __pw_manual?: any;
+  __PW_inspect?: any;
+}
+
 @Injectable()
 export class BrowserStealthService {
   private readonly logger = new Logger(BrowserStealthService.name);
@@ -24,20 +33,21 @@ export class BrowserStealthService {
       });
 
       // Chrome DevTools Protocol の隠蔽
-      if ((window as any).chrome) {
-        (window as any).chrome.runtime = undefined;
+      const win = window as ExtendedWindow;
+      if (win.chrome) {
+        win.chrome.runtime = undefined;
       }
 
       // Playwright特有のプロパティの隠蔽
-      delete (window as any).__playwright;
-      delete (window as any).__pw_manual;
-      delete (window as any).__PW_inspect;
+      delete win.__playwright;
+      delete win.__pw_manual;
+      delete win.__PW_inspect;
 
       // ChromeDriverの痕跡を除去
       const originalQuery = window.navigator.permissions.query;
       window.navigator.permissions.query = function (...args: any[]) {
         return args[0]?.name === 'notifications'
-          ? Promise.resolve({ state: 'default' } as any)
+          ? Promise.resolve({ state: 'default' as PermissionState })
           : originalQuery.apply(this, args);
       };
     });
@@ -258,7 +268,12 @@ export class BrowserStealthService {
 
       // AudioContext フィンガープリンティング対策
       const AudioContext =
-        window.AudioContext || (window as any).webkitAudioContext;
+        window.AudioContext ||
+        (
+          window as ExtendedWindow & {
+            webkitAudioContext?: typeof AudioContext;
+          }
+        ).webkitAudioContext;
       if (AudioContext) {
         const originalCreateOscillator =
           AudioContext.prototype.createOscillator;

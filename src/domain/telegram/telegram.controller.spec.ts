@@ -1,15 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TelegramController } from './telegram.controller';
-import { AuthService } from '../auth/auth.service';
+import { AuthService } from '../../core/auth/auth.service';
 import { TelegramService } from './telegram.service';
 import { User } from '../users/entities/user.entity';
 import {
   TelegramUpdate,
   TelegramUser,
-} from '../auth/interfaces/telegram-user.interface';
-import { TelegramWebhookGuard } from './guards/telegram-webhook.guard';
-import { TelegramAuthGuard } from '../auth/guards/telegram-auth.guard';
-import { RateLimitGuard } from './guards/rate-limit.guard';
+} from '../../common/interfaces/telegram-user.interface';
+import { TelegramWebhookGuard } from '../../common/guards/telegram-webhook.guard';
+import { TelegramAuthGuard } from '../../common/guards/telegram-auth.guard';
+import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 
 describe('TelegramController', () => {
   let controller: TelegramController;

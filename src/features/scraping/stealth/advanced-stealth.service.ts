@@ -1,6 +1,95 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Page } from 'playwright';
 
+interface ExtendedWindow extends Window {
+  webdriver?: any;
+  chrome?: {
+    app: {
+      isInstalled: boolean;
+      InstallState: {
+        DISABLED: string;
+        INSTALLED: string;
+        NOT_INSTALLED: string;
+      };
+      getDetails: () => null;
+      getIsInstalled: () => boolean;
+      runningState: () => string;
+    };
+    runtime: {
+      OnInstalledReason: {
+        CHROME_UPDATE: string;
+        INSTALL: string;
+        SHARED_MODULE_UPDATE: string;
+        UPDATE: string;
+      };
+      OnRestartRequiredReason: {
+        APP_UPDATE: string;
+        OS_UPDATE: string;
+        PERIODIC: string;
+      };
+      PlatformArch: {
+        ARM: string;
+        ARM64: string;
+        MIPS: string;
+        MIPS64: string;
+        X86_32: string;
+        X86_64: string;
+      };
+      PlatformNaclArch: {
+        ARM: string;
+        MIPS: string;
+        MIPS64: string;
+        X86_32: string;
+        X86_64: string;
+      };
+      PlatformOs: {
+        ANDROID: string;
+        CROS: string;
+        LINUX: string;
+        MAC: string;
+        OPENBSD: string;
+        WIN: string;
+      };
+      RequestUpdateCheckStatus: {
+        NO_UPDATE: string;
+        THROTTLED: string;
+        UPDATE_AVAILABLE: string;
+      };
+      connect: () => void;
+      sendMessage: () => void;
+    };
+    loadTimes: () => {
+      commitLoadTime: number;
+      connectionInfo: number;
+      finishDocumentLoadTime: number;
+      finishLoadTime: number;
+      firstPaintAfterLoadTime: number;
+      firstPaintTime: number;
+      navigationType: string;
+      npnNegotiatedProtocol: string;
+      requestTime: number;
+      startLoadTime: number;
+      wasAlternateProtocolAvailable: boolean;
+      wasFetchedViaSpdy: boolean;
+      wasNpnNegotiated: boolean;
+    };
+    csi: () => {
+      onloadT: number;
+      pageT: number;
+      startE: number;
+      tran: number;
+    };
+  };
+}
+
+interface ExtendedNavigator extends Omit<Navigator, 'webdriver'> {
+  webdriver?: any;
+  connection?: {
+    rtt?: number;
+  };
+  getBattery?: any;
+}
+
 @Injectable()
 export class AdvancedStealthService {
   private readonly logger = new Logger(AdvancedStealthService.name);
@@ -14,14 +103,14 @@ export class AdvancedStealthService {
       });
 
       // webdriver関連プロパティの完全削除
-      delete (window as any).webdriver;
-      delete (navigator as any).webdriver;
+      delete (window as ExtendedWindow).webdriver;
+      delete (navigator as ExtendedNavigator).webdriver;
     });
 
     // 2. Chrome検知回避（より高度）
     await page.addInitScript(() => {
       // 実際のChromeブラウザと同じオブジェクト構造を作成
-      (window as any).chrome = {
+      (window as ExtendedWindow).chrome = {
         app: {
           isInstalled: false,
           InstallState: {
@@ -29,17 +118,52 @@ export class AdvancedStealthService {
             INSTALLED: 'installed',
             NOT_INSTALLED: 'not_installed',
           },
-          RunningState: {
-            CANNOT_RUN: 'cannot_run',
-            READY_TO_RUN: 'ready_to_run',
-            RUNNING: 'running',
-          },
+          getDetails: () => null,
+          getIsInstalled: () => false,
+          runningState: () => 'ready_to_run',
         },
         runtime: {
-          onConnect: null,
-          onMessage: null,
-          onConnectExternal: null,
-          onMessageExternal: null,
+          OnInstalledReason: {
+            CHROME_UPDATE: 'chrome_update',
+            INSTALL: 'install',
+            SHARED_MODULE_UPDATE: 'shared_module_update',
+            UPDATE: 'update',
+          },
+          OnRestartRequiredReason: {
+            APP_UPDATE: 'app_update',
+            OS_UPDATE: 'os_update',
+            PERIODIC: 'periodic',
+          },
+          PlatformArch: {
+            ARM: 'arm',
+            ARM64: 'arm64',
+            MIPS: 'mips',
+            MIPS64: 'mips64',
+            X86_32: 'x86-32',
+            X86_64: 'x86-64',
+          },
+          PlatformNaclArch: {
+            ARM: 'arm',
+            MIPS: 'mips',
+            MIPS64: 'mips64',
+            X86_32: 'x86-32',
+            X86_64: 'x86-64',
+          },
+          PlatformOs: {
+            ANDROID: 'android',
+            CROS: 'cros',
+            LINUX: 'linux',
+            MAC: 'mac',
+            OPENBSD: 'openbsd',
+            WIN: 'win',
+          },
+          RequestUpdateCheckStatus: {
+            NO_UPDATE: 'no_update',
+            THROTTLED: 'throttled',
+            UPDATE_AVAILABLE: 'update_available',
+          },
+          connect: () => {},
+          sendMessage: () => {},
         },
         loadTimes: function () {
           return {
@@ -55,7 +179,7 @@ export class AdvancedStealthService {
             wasNpnNegotiated: false,
             npnNegotiatedProtocol: 'unknown',
             wasAlternateProtocolAvailable: false,
-            connectionInfo: 'unknown',
+            connectionInfo: 0,
           };
         },
         csi: function () {
@@ -142,13 +266,13 @@ export class AdvancedStealthService {
     await page.addInitScript(() => {
       const originalGetContext = HTMLCanvasElement.prototype.getContext;
       const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
-      const originalGetImageData =
+      const _originalGetImageData =
         CanvasRenderingContext2D.prototype.getImageData;
 
       // Canvas getContext偽装
       HTMLCanvasElement.prototype.getContext = function (
         type: string,
-        attributes?: any,
+        attributes?: CanvasRenderingContext2DSettings,
       ) {
         const context = originalGetContext.call(this, type, attributes);
 
@@ -247,7 +371,12 @@ export class AdvancedStealthService {
     // 7. AudioContext フィンガープリント対策
     await page.addInitScript(() => {
       const AudioContext =
-        (window as any).AudioContext || (window as any).webkitAudioContext;
+        window.AudioContext ||
+        (
+          window as ExtendedWindow & {
+            webkitAudioContext?: typeof AudioContext;
+          }
+        ).webkitAudioContext;
       if (AudioContext) {
         const originalCreateAnalyser = AudioContext.prototype.createAnalyser;
         AudioContext.prototype.createAnalyser = function () {
@@ -298,7 +427,8 @@ export class AdvancedStealthService {
     // 10. Battery API無効化
     await page.addInitScript(() => {
       if ('getBattery' in navigator) {
-        delete (navigator as any).getBattery;
+        delete (navigator as ExtendedNavigator & { getBattery?: any })
+          .getBattery;
       }
     });
 

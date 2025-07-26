@@ -40,10 +40,10 @@ export class UrlService implements OnModuleInit {
   }
 
   updateHash(id: number, hash: string): Promise<void> {
-    const result = this.databaseService.execute(
+    this.databaseService.execute(
       'UPDATE urls SET content_hash = ? WHERE id = ?',
       [hash, id],
     );
-    return Promise.resolve(result);
+    return Promise.resolve();
   }
 }
