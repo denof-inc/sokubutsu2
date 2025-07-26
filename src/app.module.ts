@@ -10,6 +10,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
 import { BotProtectionModule } from './bot-protection/bot-protection.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
+import { DataAcquisitionModule } from './data-acquisition/data-acquisition.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { MonitoringModule } from './monitoring/monitoring.module';
     UrlModule,
     ScrapingModule,
     NotificationModule,
+    DataAcquisitionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

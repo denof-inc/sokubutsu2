@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { Browser, BrowserContext, chromium, Cookie } from 'playwright';
+import { Browser, BrowserContext, chromium, Cookie, Page } from 'playwright';
 import { botProtectionConfig } from '../config/bot-protection.config';
+import { BrowserStealthService } from '../scraping/browser-stealth.service';
 
 interface SessionData {
   context: BrowserContext;
@@ -28,6 +29,10 @@ export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
   private readonly MAX_ERROR_COUNT = 5;
   private readonly BASE_DELAY_MS = 1000;
   private readonly MAX_DELAY_MS = 60000; // 最大1分
+  
+  constructor(
+    private readonly browserStealthService: BrowserStealthService
+  ) {}
 
   async onModuleInit() {
     await this.initializeBrowser();
@@ -273,5 +278,79 @@ export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
 
   private getRandomTypingDelay(): number {
     return 50 + Math.random() * 150; // 50〜200ms/文字
+  }
+  
+  /**
+   * 高度なBot対策を実行
+   */
+  async performAdvancedBotProtection(page: Page, targetUrl: string): Promise<boolean> {
+    try {
+      // Step 1: ブラウザステルス機能の適用
+      await this.browserStealthService.applyStealthMeasures(page);
+      
+      // Step 2: 段階的なサイトアクセス
+      const success = await this.graduatedAccess(page, targetUrl);
+      
+      if (!success) {
+        // Step 3: Google経由アクセスの実行
+        return await this.accessViaGoogle(targetUrl, this.generateSearchQuery(targetUrl));
+      }
+      
+      return true;
+      
+    } catch (error) {
+      this.logger.error(`高度なBot対策実行失敗: ${error.message}`);
+      return false;
+    }
+  }
+  
+  private async graduatedAccess(page: Page, targetUrl: string): Promise<boolean> {
+    const domain = new URL(targetUrl).hostname;
+    
+    try {
+      // Step 1: ドメインのトップページにアクセス
+      const topPageUrl = `https://${domain}`;
+      await page.goto(topPageUrl, { waitUntil: 'networkidle', timeout: 30000 });
+      await this.browserStealthService.simulateHumanInteraction(page);
+      
+      // Step 2: サイト内の別ページにアクセス
+      const internalLinks = await page.$$eval('a[href]', (links, currentDomain) => {
+        return links
+          .filter(link => {
+            const href = (link as HTMLAnchorElement).href;
+            return href.includes(currentDomain) && href !== window.location.href;
+          })
+          .slice(0, 3)
+          .map(link => (link as HTMLAnchorElement).href);
+      }, domain);
+      
+      if (internalLinks.length > 0) {
+        const randomLink = internalLinks[Math.floor(Math.random() * internalLinks.length)];
+        await page.goto(randomLink, { waitUntil: 'networkidle', timeout: 30000 });
+        await this.browserStealthService.simulateHumanInteraction(page);
+      }
+      
+      // Step 3: 目的のページにアクセス
+      await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 30000 });
+      
+      return true;
+      
+    } catch (error) {
+      this.logger.warn(`段階的アクセス失敗: ${error.message}`);
+      return false;
+    }
+  }
+  
+  private generateSearchQuery(targetUrl: string): string {
+    const domain = new URL(targetUrl).hostname;
+    
+    const siteQueries: { [key: string]: string } = {
+      'athome.co.jp': 'アットホーム 賃貸 物件検索',
+      'suumo.jp': 'SUUMO スーモ 不動産',
+      'homes.co.jp': 'ホームズ 賃貸 マンション',
+      'chintai.mynavi.jp': 'マイナビ賃貸 物件情報'
+    };
+    
+    return siteQueries[domain] || `${domain} 不動産 物件`;
   }
 }
