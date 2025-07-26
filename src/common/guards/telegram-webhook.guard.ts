@@ -1,6 +1,12 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac } from 'crypto';
+// import { createHmac } from 'crypto'; // TODO: 将来的にHMAC検証を実装
 
 @Injectable()
 export class TelegramWebhookGuard implements CanActivate {
@@ -9,8 +15,8 @@ export class TelegramWebhookGuard implements CanActivate {
   constructor(private readonly configService: ConfigService) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest();
-    
+    const request = context.switchToHttp().getRequest<any>();
+
     // 開発環境では検証をスキップ
     if (this.configService.get('NODE_ENV') === 'development') {
       return true;
@@ -22,8 +28,10 @@ export class TelegramWebhookGuard implements CanActivate {
       return true; // 設定されていない場合は通す
     }
 
-    const telegramSignature = request.headers['x-telegram-bot-api-secret-token'];
-    
+    const telegramSignature = request.headers[
+      'x-telegram-bot-api-secret-token'
+    ] as string;
+
     if (!telegramSignature) {
       this.logger.warn('Missing Telegram signature header');
       throw new UnauthorizedException('Missing Telegram signature');

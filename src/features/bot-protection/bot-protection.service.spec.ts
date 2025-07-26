@@ -70,13 +70,13 @@ describe('BotProtectionService', () => {
 
     it('既存のセッションを再利用すること', async () => {
       const domain = 'example.com';
-      
+
       // 最初のセッション作成
       const context1 = await service.getOrCreateSession(domain);
-      
+
       // 2回目は同じセッションを返す
       const context2 = await service.getOrCreateSession(domain);
-      
+
       expect(context1).toBe(context2);
       expect(mockBrowser.newContext).toHaveBeenCalledTimes(1);
     });
@@ -89,7 +89,10 @@ describe('BotProtectionService', () => {
 
       await service.accessViaGoogle(targetUrl, searchQuery);
 
-      expect(mockPage.goto).toHaveBeenCalledWith('https://www.google.com', expect.any(Object));
+      expect(mockPage.goto).toHaveBeenCalledWith(
+        'https://www.google.com',
+        expect.any(Object),
+      );
       expect(mockPage.locator).toHaveBeenCalledWith('input[name="q"]');
       expect(mockPage.keyboard.press).toHaveBeenCalledWith('Enter');
     });
@@ -98,27 +101,27 @@ describe('BotProtectionService', () => {
   describe('getAdaptiveDelay', () => {
     it('エラー時にディレイを増加させること', async () => {
       const domain = 'example.com';
-      
+
       const delay1 = await service.getAdaptiveDelay(domain, false);
       const delay2 = await service.getAdaptiveDelay(domain, true);
       const delay3 = await service.getAdaptiveDelay(domain, true);
-      
+
       expect(delay2).toBeGreaterThan(delay1);
       expect(delay3).toBeGreaterThan(delay2);
     });
 
     it('成功時にディレイを減少させること', async () => {
       const domain = 'example.com';
-      
+
       // エラーでディレイを増加
       await service.getAdaptiveDelay(domain, true);
       const delayAfterError = await service.getAdaptiveDelay(domain, false);
-      
+
       // 時間経過をシミュレート（テスト用に短縮）
       jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 6 * 60 * 1000);
-      
+
       const delayAfterSuccess = await service.getAdaptiveDelay(domain, false);
-      
+
       expect(delayAfterSuccess).toBeLessThan(delayAfterError);
     });
   });
@@ -127,13 +130,13 @@ describe('BotProtectionService', () => {
     it('Cookieを保存・復元できること', async () => {
       const domain = 'example.com';
       const mockCookies = [{ name: 'test', value: 'value', domain }];
-      
+
       mockContext.cookies.mockResolvedValue(mockCookies);
-      
+
       await service.getOrCreateSession(domain);
       await service.saveCookies(domain);
       await service.restoreCookies(domain);
-      
+
       expect(mockContext.cookies).toHaveBeenCalled();
       expect(mockContext.addCookies).toHaveBeenCalledWith(mockCookies);
     });

@@ -17,13 +17,13 @@ export class UltraFastScrapingOrchestrator {
 
   constructor(
     private readonly provenStrategy: ProvenGoogleAccessStrategy,
-    private readonly advancedStealth: AdvancedStealthService
+    private readonly advancedStealth: AdvancedStealthService,
   ) {}
 
   async executeUltraFast(url: string): Promise<ScrapingResult> {
     const startTime = Date.now();
     const cacheKey = this.generateCacheKey(url);
-    
+
     // Phase 1: キャッシュチェック（即座）
     const cachedResult = this.resultCache.get(cacheKey);
     if (cachedResult && !this.isCacheExpired(cachedResult)) {
@@ -35,7 +35,7 @@ export class UltraFastScrapingOrchestrator {
     const fastPromises = [
       this.executeWithTimeout(() => this.tryDirectAccess(url), 3000),
       this.executeWithTimeout(() => this.tryLightweightScraping(url), 4000),
-      this.executeWithTimeout(() => this.tryCachedProxy(url), 2000)
+      this.executeWithTimeout(() => this.tryCachedProxy(url), 2000),
     ];
 
     try {
@@ -52,10 +52,10 @@ export class UltraFastScrapingOrchestrator {
     // Phase 3: 実証済みGoogle経由（15秒以内）
     try {
       const provenResult = await this.executeWithTimeout(
-        () => this.executeProvenGoogleAccess(url), 
-        15000
+        () => this.executeProvenGoogleAccess(url),
+        15000,
       );
-      
+
       if (provenResult.success) {
         this.cacheResult(cacheKey, provenResult);
         this.logPerformance('proven-google', startTime, provenResult);
@@ -68,10 +68,10 @@ export class UltraFastScrapingOrchestrator {
     // Phase 4: 高度ステルス（25秒以内）
     try {
       const stealthResult = await this.executeWithTimeout(
-        () => this.executeAdvancedStealth(url), 
-        25000
+        () => this.executeAdvancedStealth(url),
+        25000,
       );
-      
+
       if (stealthResult.success) {
         this.cacheResult(cacheKey, stealthResult);
         this.logPerformance('advanced-stealth', startTime, stealthResult);
@@ -87,63 +87,66 @@ export class UltraFastScrapingOrchestrator {
       success: false,
       method: 'ultra-fast-orchestrator',
       executionTime: totalTime,
-      error: `All strategies failed after ${totalTime}ms`
+      error: `All strategies failed after ${totalTime}ms`,
     };
   }
 
-  private async executeProvenGoogleAccess(url: string): Promise<ScrapingResult> {
+  private async executeProvenGoogleAccess(
+    url: string,
+  ): Promise<ScrapingResult> {
     this.logger.debug(`Executing proven Google access for: ${url}`);
-    
+
     // 実証済みパターンの厳密な実装
     const browser = await chromium.launch({
       headless: false, // 成功例と同じ
       args: [
         '--no-sandbox',
-        '--disable-setuid-sandbox', 
+        '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-web-security',
         '--disable-features=VizDisplayCompositor',
         '--no-first-run',
-        '--disable-default-apps'
-      ]
+        '--disable-default-apps',
+      ],
     });
 
     try {
       const page = await browser.newPage();
-      
+
       // 成功例と同じ設定
       await page.setExtraHTTPHeaders({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       });
       await page.setViewportSize({ width: 1366, height: 768 });
-      
+
       // 高度ステルス設定
       await this.advancedStealth.setupUltimateStealthMode(page);
 
       // 成功例の厳密な再現
-      await page.goto("https://bot.sannysoft.com", {
+      await page.goto('https://bot.sannysoft.com', {
         waitUntil: 'networkidle',
-        timeout: 10000
+        timeout: 10000,
       });
-      
+
       // 重要: 成功例と同じ3秒待機
-      await new Promise(r => setTimeout(r, 3000));
-      
-      await page.goto("https://www.google.com", {
+      await new Promise((r) => setTimeout(r, 3000));
+
+      await page.goto('https://www.google.com', {
         waitUntil: 'networkidle',
-        timeout: 10000
+        timeout: 10000,
       });
-      
+
       // 成功例と同じ400ms待機
-      await new Promise(r => setTimeout(r, 400));
-      
+      await new Promise((r) => setTimeout(r, 400));
+
       // 自然な行動パターン
       await this.advancedStealth.simulateNaturalBehavior(page);
-      
+
       // 目的サイトへ
       await page.goto(url, {
         waitUntil: 'networkidle',
-        timeout: 15000
+        timeout: 15000,
       });
 
       // CAPTCHA検出
@@ -152,7 +155,7 @@ export class UltraFastScrapingOrchestrator {
       }
 
       const content = await page.content();
-      
+
       return {
         success: true,
         content,
@@ -160,10 +163,9 @@ export class UltraFastScrapingOrchestrator {
         executionTime: Date.now(),
         metadata: {
           pattern: 'bot.sannysoft.com → Google → target',
-          finalUrl: page.url()
-        }
+          finalUrl: page.url(),
+        },
       };
-
     } finally {
       await browser.close();
     }
@@ -174,31 +176,33 @@ export class UltraFastScrapingOrchestrator {
     try {
       const response = await fetch(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'ja-JP,ja;q=0.9,en;q=0.8'
-        }
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'ja-JP,ja;q=0.9,en;q=0.8',
+        },
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      
+
       const content = await response.text();
-      
+
       return {
         success: true,
         content,
         method: 'direct-fetch',
         executionTime: Date.now() - startTime,
-        metadata: { finalUrl: url }
+        metadata: { finalUrl: url },
       };
     } catch (error) {
       return {
         success: false,
         method: 'direct-fetch',
         executionTime: Date.now() - startTime,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -209,7 +213,11 @@ export class UltraFastScrapingOrchestrator {
     try {
       const browser = await chromium.launch({
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-javascript']
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-javascript',
+        ],
       });
 
       const page = await browser.newPage();
@@ -222,14 +230,14 @@ export class UltraFastScrapingOrchestrator {
         content,
         method: 'lightweight-scraping',
         executionTime: Date.now() - startTime,
-        metadata: { finalUrl: page.url() }
+        metadata: { finalUrl: page.url() },
       };
     } catch (error) {
       return {
         success: false,
         method: 'lightweight-scraping',
         executionTime: Date.now() - startTime,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -241,8 +249,9 @@ export class UltraFastScrapingOrchestrator {
       const googleCacheUrl = `https://webcache.googleusercontent.com/search?q=cache:${encodeURIComponent(url)}`;
       const response = await fetch(googleCacheUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
-        }
+          'User-Agent':
+            'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+        },
       });
 
       if (!response.ok) {
@@ -256,17 +265,17 @@ export class UltraFastScrapingOrchestrator {
         content,
         method: 'cached-proxy',
         executionTime: Date.now() - startTime,
-        metadata: { 
+        metadata: {
           finalUrl: googleCacheUrl,
-          originalUrl: url 
-        }
+          originalUrl: url,
+        },
       };
     } catch (error) {
       return {
         success: false,
         method: 'cached-proxy',
         executionTime: Date.now() - startTime,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -280,18 +289,18 @@ export class UltraFastScrapingOrchestrator {
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-accelerated-2d-canvas',
-        '--disable-gpu'
-      ]
+        '--disable-gpu',
+      ],
     });
 
     try {
       const page = await browser.newPage();
       await this.advancedStealth.setupUltimateStealthMode(page);
-      
+
       // 直接アクセス（Google経由を避ける）
       await page.goto(url, {
         waitUntil: 'networkidle',
-        timeout: 20000
+        timeout: 20000,
       });
 
       await this.advancedStealth.simulateNaturalBehavior(page);
@@ -303,28 +312,30 @@ export class UltraFastScrapingOrchestrator {
         content,
         method: 'advanced-stealth',
         executionTime: Date.now() - startTime,
-        metadata: { finalUrl: page.url() }
+        metadata: { finalUrl: page.url() },
       };
     } catch (error) {
       return {
         success: false,
         method: 'advanced-stealth',
         executionTime: Date.now() - startTime,
-        error: error.message
+        error: error.message,
       };
     } finally {
       await browser.close();
     }
   }
 
-  private async raceWithFirstSuccess(promises: Promise<ScrapingResult>[]): Promise<ScrapingResult> {
+  private async raceWithFirstSuccess(
+    promises: Promise<ScrapingResult>[],
+  ): Promise<ScrapingResult> {
     return new Promise((resolve, reject) => {
       let completed = 0;
       const errors: Error[] = [];
 
-      promises.forEach(promise => {
+      promises.forEach((promise) => {
         promise
-          .then(result => {
+          .then((result) => {
             if (result.success) {
               resolve(result);
             } else {
@@ -334,11 +345,15 @@ export class UltraFastScrapingOrchestrator {
               }
             }
           })
-          .catch(error => {
+          .catch((error) => {
             errors.push(error);
             completed++;
             if (completed === promises.length) {
-              reject(new Error(`All fast strategies failed: ${errors.map(e => e.message).join(', ')}`));
+              reject(
+                new Error(
+                  `All fast strategies failed: ${errors.map((e) => e.message).join(', ')}`,
+                ),
+              );
             }
           });
       });
@@ -347,13 +362,16 @@ export class UltraFastScrapingOrchestrator {
 
   private async executeWithTimeout<T>(
     operation: () => Promise<T>,
-    timeoutMs: number
+    timeoutMs: number,
   ): Promise<T> {
     return Promise.race([
       operation(),
-      new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error(`Operation timeout after ${timeoutMs}ms`)), timeoutMs)
-      )
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Operation timeout after ${timeoutMs}ms`)),
+          timeoutMs,
+        ),
+      ),
     ]);
   }
 
@@ -368,11 +386,15 @@ export class UltraFastScrapingOrchestrator {
   private cacheResult(key: string, result: ScrapingResult): void {
     this.resultCache.set(key, {
       result,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 
-  private logPerformance(phase: string, startTime: number, result: ScrapingResult): void {
+  private logPerformance(
+    phase: string,
+    startTime: number,
+    result: ScrapingResult,
+  ): void {
     const executionTime = Date.now() - startTime;
     this.logger.debug(`${phase} completed in ${executionTime}ms`);
   }

@@ -6,8 +6,8 @@ import { User } from '../../../domain/users/entities/user.entity';
  */
 export const CurrentUser = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): User => {
-    const request = ctx.switchToHttp().getRequest();
-    return request.user;
+    const request = ctx.switchToHttp().getRequest<any>();
+    return request.user as User;
   },
 );
 
@@ -16,7 +16,7 @@ export const CurrentUser = createParamDecorator(
  */
 export const TelegramUser = createParamDecorator(
   (data: unknown, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest();
+    const request = ctx.switchToHttp().getRequest<any>();
     return request.telegramUser;
   },
 );
@@ -26,7 +26,7 @@ export const TelegramUser = createParamDecorator(
  */
 export const IsNewUser = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): boolean => {
-    const request = ctx.switchToHttp().getRequest();
-    return request.isNewUser || false;
+    const request = ctx.switchToHttp().getRequest<any>();
+    return (request.isNewUser as boolean) || false;
   },
 );

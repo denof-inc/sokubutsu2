@@ -33,9 +33,7 @@ type ErrorType = 'RECOVERABLE' | 'UNRECOVERABLE' | 'BOT_DETECTED';
 export class ScrapingService {
   private readonly logger = new Logger(ScrapingService.name);
 
-  constructor(
-    private readonly botProtectionService: BotProtectionService,
-  ) {}
+  constructor(private readonly botProtectionService: BotProtectionService) {}
 
   async scrapeAndGetHash(
     url: string,
@@ -55,7 +53,7 @@ export class ScrapingService {
       maxRetries: 3,
       baseDelay: 1000,
       maxDelay: 30000,
-      backoffMultiplier: 2
+      backoffMultiplier: 2,
     };
 
     try {
@@ -70,17 +68,23 @@ export class ScrapingService {
     url: string,
     selector: string,
     options: ScrapeOptions,
-    config: RetryConfig
+    config: RetryConfig,
   ): Promise<string | null> {
     let lastError: Error | undefined;
-    
+
     for (let attempt = 1; attempt <= config.maxRetries; attempt++) {
       try {
         // Google経由アクセスが必要な場合
         if (options.useGoogleSearch && options.searchQuery) {
-          const success = await this.botProtectionService.accessViaGoogle(url, options.searchQuery);
+          const success = await this.botProtectionService.accessViaGoogle(
+            url,
+            options.searchQuery,
+          );
           if (success) {
-            const result = await this.scrapeWithPlaywrightSession(url, selector);
+            const result = await this.scrapeWithPlaywrightSession(
+              url,
+              selector,
+            );
             if (result.hash) {
               return result.hash;
             }
@@ -89,50 +93,60 @@ export class ScrapingService {
 
         // 通常の段階的スクレイピング
         const result = await this.scrapeWithStrategy(url, selector);
-        
+
         if (result.hash) {
-          this.logger.log(`[${url}] スクレイピング成功 (方法: ${result.method})`);
+          this.logger.log(
+            `[${url}] スクレイピング成功 (方法: ${result.method})`,
+          );
           return result.hash;
         }
-        
+
         // エラー分類
         const errorType = this.classifyError(result.error || 'Unknown error');
-        
+
         // 回復不可能なエラーの場合は即座に失敗
         if (errorType === 'UNRECOVERABLE') {
           throw new Error(`回復不可能なエラー: ${result.error}`);
         }
-        
+
         // リトライ可能なエラーの場合は待機後に再試行
         if (attempt < config.maxRetries) {
           const delay = Math.min(
             config.baseDelay * Math.pow(config.backoffMultiplier, attempt - 1),
-            config.maxDelay
+            config.maxDelay,
           );
-          
-          this.logger.warn(`スクレイピング失敗 (試行 ${attempt}/${config.maxRetries}): ${result.error}. ${delay}ms後に再試行`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+
+          this.logger.warn(
+            `スクレイピング失敗 (試行 ${attempt}/${config.maxRetries}): ${result.error}. ${delay}ms後に再試行`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
-        
       } catch (error) {
         lastError = error;
-        
+
         if (attempt < config.maxRetries) {
           const delay = Math.min(
             config.baseDelay * Math.pow(config.backoffMultiplier, attempt - 1),
-            config.maxDelay
+            config.maxDelay,
           );
-          
-          this.logger.warn(`スクレイピング例外 (試行 ${attempt}/${config.maxRetries}): ${error.message}. ${delay}ms後に再試行`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+
+          this.logger.warn(
+            `スクレイピング例外 (試行 ${attempt}/${config.maxRetries}): ${error.message}. ${delay}ms後に再試行`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
-    
-    throw new Error(`全ての再試行が失敗: ${lastError?.message || 'Unknown error'}`);
+
+    throw new Error(
+      `全ての再試行が失敗: ${lastError?.message || 'Unknown error'}`,
+    );
   }
 
-  private async scrapeWithStrategy(url: string, selector: string): Promise<ScrapeResult> {
+  private async scrapeWithStrategy(
+    url: string,
+    selector: string,
+  ): Promise<ScrapeResult> {
     const domain = new URL(url).hostname;
 
     // 第1段階: HTTP + Cheerio
@@ -179,14 +193,17 @@ export class ScrapingService {
     return { hash: null, method: 'playwright', error: 'All methods failed' };
   }
 
-  private async scrapeWithHttp(url: string, selector: string): Promise<string | null> {
+  private async scrapeWithHttp(
+    url: string,
+    selector: string,
+  ): Promise<string | null> {
     const userAgent = this.getRandomUserAgent();
     const domain = new URL(url).hostname;
-    
+
     // 適応的レート制限による遅延
     const delay = await this.botProtectionService.getAdaptiveDelay(domain);
-    await new Promise(resolve => setTimeout(resolve, delay));
-    
+    await new Promise((resolve) => setTimeout(resolve, delay));
+
     const response = await axios.get(url, {
       headers: {
         'User-Agent': userAgent,
@@ -197,7 +214,7 @@ export class ScrapingService {
 
     const $ = cheerio.load(response.data);
     const element = $(selector);
-    
+
     if (!element.length) {
       throw new Error(`セレクタ "${selector}" が見つかりませんでした`);
     }
@@ -210,14 +227,17 @@ export class ScrapingService {
     return crypto.createHash('sha256').update(content).digest('hex');
   }
 
-  private async scrapeWithJsdom(url: string, selector: string): Promise<string | null> {
+  private async scrapeWithJsdom(
+    url: string,
+    selector: string,
+  ): Promise<string | null> {
     const userAgent = this.getRandomUserAgent();
     const domain = new URL(url).hostname;
-    
+
     // 適応的レート制限による遅延
     const delay = await this.botProtectionService.getAdaptiveDelay(domain);
-    await new Promise(resolve => setTimeout(resolve, delay));
-    
+    await new Promise((resolve) => setTimeout(resolve, delay));
+
     const dom = await JSDOM.fromURL(url, {
       userAgent,
       runScripts: 'dangerously',
@@ -226,7 +246,7 @@ export class ScrapingService {
     });
 
     // JavaScriptの実行を少し待つ
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     const element = dom.window.document.querySelector(selector);
     if (!element) {
@@ -242,30 +262,33 @@ export class ScrapingService {
     return crypto.createHash('sha256').update(content).digest('hex');
   }
 
-  private async scrapeWithPlaywright(url: string, selector: string): Promise<string | null> {
+  private async scrapeWithPlaywright(
+    url: string,
+    selector: string,
+  ): Promise<string | null> {
     let browser: Browser | null = null;
     const domain = new URL(url).hostname;
-    
+
     try {
       // 適応的レート制限による遅延
       const delay = await this.botProtectionService.getAdaptiveDelay(domain);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
       browser = await chromium.launch({
         headless: true,
         args: botProtectionConfig.playwrightOptions.args,
       });
-      
+
       const page = await browser.newPage({
         userAgent: this.getRandomUserAgent(),
       });
-      
+
       // Bot検知回避のための設定
       await page.setExtraHTTPHeaders({
         'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
       });
-      
-      await page.goto(url, { 
+
+      await page.goto(url, {
         waitUntil: 'domcontentloaded',
         timeout: 30000,
       });
@@ -281,7 +304,7 @@ export class ScrapingService {
       if (!content) {
         throw new Error('コンテンツが空です');
       }
-      
+
       return crypto.createHash('sha256').update(content).digest('hex');
     } finally {
       if (browser) {
@@ -292,13 +315,16 @@ export class ScrapingService {
 
   private async randomDelay(min: number, max: number): Promise<void> {
     const delay = Math.floor(Math.random() * (max - min + 1)) + min;
-    await new Promise(resolve => setTimeout(resolve, delay));
+    await new Promise((resolve) => setTimeout(resolve, delay));
   }
 
   /**
    * Bot検知テストを実行
    */
-  private async testBotDetection(url: string, selector: string): Promise<{
+  private async testBotDetection(
+    url: string,
+    selector: string,
+  ): Promise<{
     httpAccessible: boolean;
     jsdomAccessible: boolean;
     playwrightAccessible: boolean;
@@ -339,18 +365,22 @@ export class ScrapingService {
   /**
    * セッション管理されたPlaywrightでスクレイピング
    */
-  private async scrapeWithPlaywrightSession(url: string, selector: string): Promise<ScrapeResult> {
+  private async scrapeWithPlaywrightSession(
+    url: string,
+    selector: string,
+  ): Promise<ScrapeResult> {
     const domain = new URL(url).hostname;
-    
+
     try {
-      const context = await this.botProtectionService.getOrCreateSession(domain);
+      const context =
+        await this.botProtectionService.getOrCreateSession(domain);
       const page = await context.newPage();
-      
+
       try {
         // Cookieを復元
         await this.botProtectionService.restoreCookies(domain);
-        
-        await page.goto(url, { 
+
+        await page.goto(url, {
           waitUntil: 'domcontentloaded',
           timeout: 30000,
         });
@@ -366,13 +396,12 @@ export class ScrapingService {
         if (!content) {
           throw new Error('コンテンツが空です');
         }
-        
+
         // Cookieを保存
         await this.botProtectionService.saveCookies(domain);
-        
+
         const hash = crypto.createHash('sha256').update(content).digest('hex');
         return { hash, method: 'google-playwright' };
-        
       } finally {
         await page.close();
       }
@@ -383,7 +412,9 @@ export class ScrapingService {
   }
 
   private getRandomUserAgent(): string {
-    return botProtectionConfig.userAgents[Math.floor(Math.random() * botProtectionConfig.userAgents.length)];
+    return botProtectionConfig.userAgents[
+      Math.floor(Math.random() * botProtectionConfig.userAgents.length)
+    ];
   }
 
   private classifyError(error: string): ErrorType {
@@ -391,22 +422,25 @@ export class ScrapingService {
     if (error.includes('405') || error.includes('Method Not Allowed')) {
       return 'BOT_DETECTED';
     }
-    
+
     // タイムアウト系エラー - 一時的な問題の可能性
     if (error.includes('timeout') || error.includes('Timeout')) {
       return 'RECOVERABLE';
     }
-    
+
     // ネットワーク系エラー - 一時的な問題の可能性
     if (error.includes('ECONNRESET') || error.includes('ENOTFOUND')) {
       return 'RECOVERABLE';
     }
-    
+
     // セレクタ待機失敗 - サイト構造変更の可能性
-    if (error.includes('waiting for selector') || error.includes('が見つかりませんでした')) {
+    if (
+      error.includes('waiting for selector') ||
+      error.includes('が見つかりませんでした')
+    ) {
       return 'UNRECOVERABLE';
     }
-    
+
     // その他のエラー - 回復可能として扱う
     return 'RECOVERABLE';
   }

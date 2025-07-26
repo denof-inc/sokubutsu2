@@ -1,0 +1,113 @@
+name: Code Quality Check
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 9 * * 1' # 毎週月曜日の9時に実行
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run ESLint with detailed report
+      run: |
+        echo "📝 ESLint詳細レポート生成中..."
+        npm run lint -- --format json > eslint-report.json 2>/dev/null || true
+        
+        # エラー統計を集計
+        ERROR_COUNT=$(npm run lint 2>&1 | grep -E "(error|warning)" | wc -l || echo "0")
+        ERROR_ONLY=$(npm run lint 2>&1 | grep " error " | wc -l || echo "0")
+        WARNING_ONLY=$(npm run lint 2>&1 | grep " warning " | wc -l || echo "0")
+        
+        echo "## ESLint結果サマリー" >> $GITHUB_STEP_SUMMARY
+        echo "- 総エラー数: $ERROR_COUNT" >> $GITHUB_STEP_SUMMARY
+        echo "- errorレベル: $ERROR_ONLY" >> $GITHUB_STEP_SUMMARY  
+        echo "- warningレベル: $WARNING_ONLY" >> $GITHUB_STEP_SUMMARY
+        
+        # 目標達成状況
+        if [ "$ERROR_COUNT" -le 50 ]; then
+          echo "✅ **目標達成**: ESLintエラーが50個以下です！" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **要改善**: ESLintエラーが目標（50個以下）を超えています" >> $GITHUB_STEP_SUMMARY
+        fi
+    
+    - name: Check test coverage
+      run: |
+        echo "📊 テストカバレッジチェック中..."
+        npm run test:cov -- --passWithNoTests > coverage-report.txt 2>&1 || true
+        
+        # カバレッジ情報を抽出
+        if [ -f "coverage/lcov-report/index.html" ]; then
+          echo "## テストカバレッジ" >> $GITHUB_STEP_SUMMARY
+          echo "カバレッジレポートが生成されました" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ カバレッジレポートの生成に失敗しました" >> $GITHUB_STEP_SUMMARY
+        fi
+    
+    - name: Check TypeScript strict mode
+      run: |
+        echo "🔧 TypeScript設定チェック中..."
+        if grep -q '"strict": true' tsconfig.json; then
+          echo "✅ TypeScript strict mode: 有効" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ TypeScript strict mode: 無効（段階的移行中）" >> $GITHUB_STEP_SUMMARY
+        fi
+    
+    - name: Check for TODO/FIXME comments
+      run: |
+        echo "📝 TODO/FIXMEコメント検索中..."
+        TODO_COUNT=$(grep -r "TODO\|FIXME" src/ --include="*.ts" | wc -l || echo "0")
+        echo "## TODO/FIXMEコメント" >> $GITHUB_STEP_SUMMARY
+        echo "- 検出数: $TODO_COUNT個" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "$TODO_COUNT" -gt 0 ]; then
+          echo "### 詳細:" >> $GITHUB_STEP_SUMMARY
+          grep -r "TODO\|FIXME" src/ --include="*.ts" | head -10 >> $GITHUB_STEP_SUMMARY || true
+        fi
+    
+    - name: Dependency check
+      run: |
+        echo "📦 依存関係チェック中..."
+        echo "## 依存関係の状態" >> $GITHUB_STEP_SUMMARY
+        
+        # 古い依存関係をチェック
+        npm outdated > outdated.txt 2>&1 || true
+        if [ -s outdated.txt ]; then
+          echo "### 更新可能なパッケージ:" >> $GITHUB_STEP_SUMMARY
+          cat outdated.txt | head -10 >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✅ すべての依存関係が最新です" >> $GITHUB_STEP_SUMMARY
+        fi
+    
+    - name: Code complexity analysis
+      run: |
+        echo "🧮 コード複雑度分析中..."
+        # ファイルサイズ統計
+        echo "## コード統計" >> $GITHUB_STEP_SUMMARY
+        echo "### ファイルサイズ TOP10:" >> $GITHUB_STEP_SUMMARY
+        find src -name "*.ts" -type f -exec wc -l {} + | sort -rn | head -10 >> $GITHUB_STEP_SUMMARY
+    
+    - name: Generate improvement suggestions
+      if: always()
+      run: |
+        echo "## 改善提案" >> $GITHUB_STEP_SUMMARY
+        echo "1. ESLintエラーの削減を継続" >> $GITHUB_STEP_SUMMARY
+        echo "2. テストカバレッジの向上（目標: 70%）" >> $GITHUB_STEP_SUMMARY
+        echo "3. TypeScript strict modeへの段階的移行" >> $GITHUB_STEP_SUMMARY
+        echo "4. TODO/FIXMEコメントの解消" >> $GITHUB_STEP_SUMMARY

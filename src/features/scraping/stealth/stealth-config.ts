@@ -4,14 +4,15 @@ export class StealthConfig {
   static getStealthOptions(): any {
     return {
       // User-Agent偽装
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+
       // ヘッドレス検知回避
       headless: false, // 開発時はfalse、本番ではXvfb使用
-      
+
       // ブラウザフィンガープリント偽装
       viewport: { width: 1366, height: 768 },
-      
+
       // WebDriver検知回避
       args: [
         '--no-sandbox',
@@ -44,8 +45,8 @@ export class StealthConfig {
       // @ts-ignore
       window.chrome = {
         runtime: {},
-        loadTimes: function() {},
-        csi: function() {},
+        loadTimes: function () {},
+        csi: function () {},
         app: {},
       };
     });
@@ -67,12 +68,12 @@ export class StealthConfig {
     // Canvas フィンガープリント対策
     await page.addInitScript(() => {
       const originalGetContext = HTMLCanvasElement.prototype.getContext;
-      HTMLCanvasElement.prototype.getContext = function(type: string) {
+      HTMLCanvasElement.prototype.getContext = function (type: string) {
         if (type === '2d') {
           const context = originalGetContext.call(this, type);
           if (context) {
             const originalFillText = context.fillText;
-            context.fillText = function(text: string, x: number, y: number) {
+            context.fillText = function (text: string, x: number, y: number) {
               // ランダムなノイズを追加
               const noise = Math.random() * 0.1;
               return originalFillText.call(this, text, x + noise, y + noise);

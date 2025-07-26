@@ -24,7 +24,7 @@ export class TelegramService {
       disable_web_page_preview?: boolean;
       disable_notification?: boolean;
       reply_markup?: any;
-    }
+    },
   ): Promise<void> {
     try {
       const response = await axios.post(`${this.apiUrl}/sendMessage`, {
@@ -54,7 +54,7 @@ export class TelegramService {
     options?: {
       parse_mode?: 'Markdown' | 'HTML';
       disable_notification?: boolean;
-    }
+    },
   ): Promise<void> {
     try {
       const response = await axios.post(`${this.apiUrl}/sendPhoto`, {
@@ -81,7 +81,7 @@ export class TelegramService {
   async sendMessageWithKeyboard(
     chatId: number,
     text: string,
-    keyboard: any[][]
+    keyboard: any[][],
   ): Promise<void> {
     await this.sendMessage(chatId, text, {
       reply_markup: {
@@ -118,7 +118,9 @@ export class TelegramService {
       const response = await axios.post(`${this.apiUrl}/deleteWebhook`);
 
       if (!response.data.ok) {
-        throw new Error(`Failed to delete webhook: ${response.data.description}`);
+        throw new Error(
+          `Failed to delete webhook: ${response.data.description}`,
+        );
       }
 
       this.logger.log('Webhook deleted');

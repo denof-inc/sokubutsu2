@@ -85,8 +85,9 @@ describe('AuthService', () => {
     it('should throw error for invalid telegram user data', async () => {
       const invalidUser = { ...mockTelegramUser, first_name: '' };
 
-      await expect(service.authenticateTelegramUser(invalidUser))
-        .rejects.toThrow(InvalidTelegramDataException);
+      await expect(
+        service.authenticateTelegramUser(invalidUser),
+      ).rejects.toThrow(InvalidTelegramDataException);
     });
 
     it('should reactivate inactive user', async () => {
@@ -97,8 +98,10 @@ describe('AuthService', () => {
 
       const result = await service.authenticateTelegramUser(mockTelegramUser);
 
-      expect(usersService.update).toHaveBeenCalledWith('123456789', 
-        expect.objectContaining({ isActive: true }));
+      expect(usersService.update).toHaveBeenCalledWith(
+        '123456789',
+        expect.objectContaining({ isActive: true }),
+      );
     });
   });
 

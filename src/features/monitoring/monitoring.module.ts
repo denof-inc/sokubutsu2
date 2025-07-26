@@ -14,13 +14,13 @@ import { NotificationModule } from '../notification/notification.module';
     ProcessManagerService,
     ComprehensiveMonitorService,
     AlertManagerService,
-    MetricsCollectorService
+    MetricsCollectorService,
   ],
   exports: [
     ResourceMonitorService,
     ProcessManagerService,
     ComprehensiveMonitorService,
-    MetricsCollectorService
+    MetricsCollectorService,
   ],
 })
 export class MonitoringModule {}
