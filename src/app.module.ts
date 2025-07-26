@@ -8,11 +8,16 @@ import { ScrapingModule } from './scraping/scraping.module';
 import { NotificationModule } from './notification/notification.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
+import { BotProtectionModule } from './bot-protection/bot-protection.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
+import { DataAcquisitionModule } from './data-acquisition/data-acquisition.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
+    BotProtectionModule,
+    MonitoringModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -45,6 +50,7 @@ import { DatabaseModule } from './database/database.module';
     UrlModule,
     ScrapingModule,
     NotificationModule,
+    DataAcquisitionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
