@@ -5,7 +5,7 @@ import * as cheerio from 'cheerio';
 import { JSDOM } from 'jsdom';
 import * as crypto from 'crypto';
 import { BotProtectionService } from '../bot-protection/bot-protection.service';
-import { botProtectionConfig } from '../config/bot-protection.config';
+import { botProtectionConfig } from '../../core/config/bot-protection.config';
 
 interface ScrapeResult {
   hash: string | null;

@@ -112,7 +112,7 @@ export class AutoRecoveryService {
     // エラーを分類
     const scrapingError = error instanceof ScrapingError 
       ? error 
-      : ErrorClassifier.classify(error, context.additionalContext);
+      : ErrorClassifier.classify(error);
     
     this.logger.warn(`Attempting recovery for ${scrapingError.code}: ${scrapingError.message}`);
     
@@ -176,7 +176,10 @@ export class AutoRecoveryService {
     error: BotDetectionError,
     context: RecoveryContext
   ): Promise<RecoveryResult> {
-    switch (error.detectionType) {
+    const metadata = error.metadata || {};
+    const detectionType = metadata.detectionType || 'unknown';
+    
+    switch (detectionType) {
       case 'captcha':
         // CAPTCHA検出時の回復戦略
         return {
@@ -330,7 +333,10 @@ export class AutoRecoveryService {
     error: ResourceLimitError,
     context: RecoveryContext
   ): Promise<RecoveryResult> {
-    switch (error.resourceType) {
+    const metadata = error.metadata || {};
+    const resourceType = metadata.resourceType || 'unknown';
+    
+    switch (resourceType) {
       case 'memory':
         // メモリ不足の場合
         return {

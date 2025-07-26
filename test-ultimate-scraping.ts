@@ -1,6 +1,6 @@
-import { ProvenGoogleAccessStrategy } from './src/scraping/strategies/proven-google-access.strategy';
-import { AdvancedStealthService } from './src/scraping/stealth/advanced-stealth.service';
-import { UltraFastScrapingOrchestrator } from './src/scraping/orchestrator/ultra-fast-orchestrator';
+import { ProvenGoogleAccessStrategy } from './src/features/scraping/strategies/proven-google-access.strategy';
+import { AdvancedStealthService } from './src/features/scraping/stealth/advanced-stealth.service';
+import { UltraFastScrapingOrchestrator } from './src/features/scraping/orchestrator/ultra-fast-orchestrator';
 
 // Logger mock
 class MockLogger {

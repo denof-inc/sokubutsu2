@@ -1,9 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './src/app.module';
-import { ScrapingService } from './src/scraping/scraping.service';
-import { HybridStrategyService } from './src/data-acquisition/hybrid-strategy.service';
-import { BotProtectionService } from './src/bot-protection/bot-protection.service';
-import { MetricsCollectorService } from './src/monitoring/metrics-collector.service';
+import { ScrapingService } from './src/features/scraping/scraping.service';
+import { HybridStrategyService } from './src/features/data-acquisition/hybrid-strategy.service';
+import { BotProtectionService } from './src/features/bot-protection/bot-protection.service';
+import { MetricsCollectorService } from './src/features/monitoring/metrics-collector.service';
 import { chromium } from 'playwright';
 
 interface TestResult {

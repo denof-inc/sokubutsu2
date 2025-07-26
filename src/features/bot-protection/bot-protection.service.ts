@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Browser, BrowserContext, chromium, Cookie, Page } from 'playwright';
-import { botProtectionConfig } from '../config/bot-protection.config';
+import { botProtectionConfig } from '../../core/config/bot-protection.config';
 import { BrowserStealthService } from '../scraping/browser-stealth.service';
 
 interface SessionData {

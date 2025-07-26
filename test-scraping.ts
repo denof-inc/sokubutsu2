@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './src/app.module';
-import { ScrapingService } from './src/scraping/scraping.service';
-import { NotificationService } from './src/notification/notification.service';
+import { ScrapingService } from './src/features/scraping/scraping.service';
+import { NotificationService } from './src/features/notification/notification.service';
 
 // 通知サービスのモック
 class MockNotificationService {

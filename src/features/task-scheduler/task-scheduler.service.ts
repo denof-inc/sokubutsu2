@@ -2,10 +2,10 @@
 
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as cron from 'node-cron';
-import { UrlService } from '../url/url.service';
+import { UrlService } from '../../domain/url/url.service';
 import { ScrapingService } from '../scraping/scraping.service';
 import { NotificationService } from '../notification/notification.service';
-import { Url } from '../url/url.entity';
+import { Url } from '../../domain/url/url.interface';
 
 @Injectable()
 export class TaskSchedulerService implements OnModuleInit {
