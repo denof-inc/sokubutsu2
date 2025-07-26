@@ -1,33 +1,51 @@
 import {
   Entity,
-  PrimaryColumn,
+  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
-@Entity('users')
-export class User {
-  @PrimaryColumn({ type: 'varchar' })
-  telegramId: string; // stringで保存（BigInt問題回避）
+export interface UserSettings {
+  notifications: {
+    enabled: boolean;
+    silent: boolean;
+    timeRange?: {
+      start: string; // HH:mm format
+      end: string;   // HH:mm format
+    };
+  };
+  language: string;
+  timezone?: string;
+}
 
-  @Column({ nullable: true })
+@Entity('users')
+@Index(['telegramId'], { unique: true })
+export class User {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ type: 'bigint', unique: true })
+  telegramId: string;
+
+  @Column({ nullable: true, length: 255 })
   username?: string;
 
-  @Column()
+  @Column({ length: 255 })
   firstName: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, length: 255 })
   lastName?: string;
 
   @Column({ default: true })
   isActive: boolean;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, length: 10 })
   languageCode?: string;
 
-  @Column({ type: 'jsonb', nullable: true })
-  settings?: Record<string, any>;
+  @Column({ type: 'json', nullable: true })
+  settings?: UserSettings;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   lastActiveAt: Date;
@@ -38,23 +56,14 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // ヘルパーメソッド
+  // ゲッター
   get fullName(): string {
     return this.lastName 
-      ? `${this.firstName} ${this.lastName}`
+      ? `${this.firstName} ${this.lastName}` 
       : this.firstName;
   }
 
-  // 設定のデフォルト値を含むゲッター
-  get notificationSettings(): {
-    enabled: boolean;
-    silent: boolean;
-    schedule?: string;
-  } {
-    return {
-      enabled: true,
-      silent: false,
-      ...this.settings?.notifications,
-    };
+  get displayName(): string {
+    return this.username || this.fullName;
   }
 }
