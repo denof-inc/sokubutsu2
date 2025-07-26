@@ -1,11 +1,11 @@
 import { chromium } from 'playwright';
-import { GoogleAccessStrategy } from './src/scraping/strategies/google-access.strategy';
-import { ParallelScrapingOrchestrator } from './src/scraping/orchestration/parallel-scraping-orchestrator';
-import { BrowserPoolManager } from './src/scraping/browser-pool/browser-pool-manager';
-import { IntelligentCacheService } from './src/scraping/cache/intelligent-cache.service';
-import { AutoRecoveryService } from './src/scraping/recovery/auto-recovery.service';
-import { BrowserStealthService } from './src/scraping/browser-stealth.service';
-import { ErrorClassifier } from './src/scraping/errors/scraping-error';
+import { GoogleAccessStrategy } from './src/features/scraping/strategies/google-access.strategy';
+import { ParallelScrapingOrchestrator } from './src/features/scraping/orchestration/parallel-scraping-orchestrator';
+import { BrowserPoolManager } from './src/features/scraping/browser-pool/browser-pool-manager';
+import { IntelligentCacheService } from './src/features/scraping/cache/intelligent-cache.service';
+import { AutoRecoveryService } from './src/features/scraping/recovery/auto-recovery.service';
+import { BrowserStealthService } from './src/features/scraping/browser-stealth.service';
+import { ErrorClassifier } from './src/features/scraping/errors/scraping-error';
 
 // Logger mock
 class MockLogger {

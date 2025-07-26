@@ -1,16 +1,19 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { TaskSchedulerModule } from './task-scheduler/task-scheduler.module';
+import { TaskSchedulerModule } from './features/task-scheduler/task-scheduler.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { UrlModule } from './url/url.module';
-import { ScrapingModule } from './scraping/scraping.module';
-import { NotificationModule } from './notification/notification.module';
+import { UrlModule } from './domain/url/url.module';
+import { ScrapingModule } from './features/scraping/scraping.module';
+import { NotificationModule } from './features/notification/notification.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { DatabaseModule } from './database/database.module';
-import { BotProtectionModule } from './bot-protection/bot-protection.module';
-import { MonitoringModule } from './monitoring/monitoring.module';
-import { DataAcquisitionModule } from './data-acquisition/data-acquisition.module';
+import { DatabaseModule } from './core/database/database.module';
+import { BotProtectionModule } from './features/bot-protection/bot-protection.module';
+import { MonitoringModule } from './features/monitoring/monitoring.module';
+import { DataAcquisitionModule } from './features/data-acquisition/data-acquisition.module';
+import { AuthModule } from './core/auth/auth.module';
+import { UsersModule } from './domain/users/users.module';
+import { TelegramModule } from './domain/telegram/telegram.module';
 
 @Module({
   imports: [
@@ -46,6 +49,11 @@ import { DataAcquisitionModule } from './data-acquisition/data-acquisition.modul
         };
       },
     }),
+    // Core modules
+    AuthModule,
+    UsersModule,
+    TelegramModule,
+    // Feature modules
     TaskSchedulerModule,
     UrlModule,
     ScrapingModule,

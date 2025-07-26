@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './src/app.module';
-import { ScrapingService } from './src/scraping/scraping.service';
+import { ScrapingService } from './src/features/scraping/scraping.service';
 
 async function testImprovedScraping() {
   const app = await NestFactory.createApplicationContext(AppModule, {
