@@ -5,7 +5,11 @@ import { UsersService } from './users.service';
 import { User, UserSettings } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { ConflictException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import {
+  ConflictException,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -87,8 +91,9 @@ describe('UsersService', () => {
     it('should throw ConflictException if user already exists', async () => {
       repository.findOne.mockResolvedValue(mockUser);
 
-      await expect(service.create(mockCreateUserDto))
-        .rejects.toThrow(ConflictException);
+      await expect(service.create(mockCreateUserDto)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should handle database errors', async () => {
@@ -96,8 +101,9 @@ describe('UsersService', () => {
       repository.create.mockReturnValue(mockUser);
       repository.save.mockRejectedValue(new Error('Database error'));
 
-      await expect(service.create(mockCreateUserDto))
-        .rejects.toThrow(InternalServerErrorException);
+      await expect(service.create(mockCreateUserDto)).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 
@@ -124,8 +130,9 @@ describe('UsersService', () => {
     it('should handle database errors', async () => {
       repository.findOne.mockRejectedValue(new Error('Database error'));
 
-      await expect(service.findByTelegramId('123456789'))
-        .rejects.toThrow(InternalServerErrorException);
+      await expect(service.findByTelegramId('123456789')).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 
@@ -144,23 +151,25 @@ describe('UsersService', () => {
 
       expect(result.isActive).toBe(true);
       expect(repository.save).toHaveBeenCalledWith(
-        expect.objectContaining(updateDto)
+        expect.objectContaining(updateDto),
       );
     });
 
     it('should throw NotFoundException if user not found', async () => {
       repository.findOne.mockResolvedValue(null);
 
-      await expect(service.update('999999999', {}))
-        .rejects.toThrow(NotFoundException);
+      await expect(service.update('999999999', {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should handle database errors during update', async () => {
       repository.findOne.mockResolvedValue(mockUser);
       repository.save.mockRejectedValue(new Error('Database error'));
 
-      await expect(service.update('123456789', {}))
-        .rejects.toThrow(InternalServerErrorException);
+      await expect(service.update('123456789', {})).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 
@@ -184,8 +193,9 @@ describe('UsersService', () => {
     it('should handle database errors', async () => {
       repository.findOne.mockRejectedValue(new Error('Database error'));
 
-      await expect(service.exists('123456789'))
-        .rejects.toThrow(InternalServerErrorException);
+      await expect(service.exists('123456789')).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 
@@ -199,15 +209,16 @@ describe('UsersService', () => {
 
       expect(result).toBeUndefined();
       expect(repository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ isActive: false })
+        expect.objectContaining({ isActive: false }),
       );
     });
 
     it('should throw NotFoundException if user not found', async () => {
       repository.findOne.mockResolvedValue(null);
 
-      await expect(service.deactivate('999999999'))
-        .rejects.toThrow(NotFoundException);
+      await expect(service.deactivate('999999999')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -229,9 +240,9 @@ describe('UsersService', () => {
 
     it('should merge settings correctly', async () => {
       const partialSettings: Partial<UserSettings> = {
-        notifications: { 
+        notifications: {
           enabled: false,
-          silent: false 
+          silent: false,
         },
       };
 

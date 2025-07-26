@@ -13,7 +13,7 @@ export interface UserSettings {
     silent: boolean;
     timeRange?: {
       start: string; // HH:mm format
-      end: string;   // HH:mm format
+      end: string; // HH:mm format
     };
   };
   language: string;
@@ -58,8 +58,8 @@ export class User {
 
   // ゲッター
   get fullName(): string {
-    return this.lastName 
-      ? `${this.firstName} ${this.lastName}` 
+    return this.lastName
+      ? `${this.firstName} ${this.lastName}`
       : this.firstName;
   }
 

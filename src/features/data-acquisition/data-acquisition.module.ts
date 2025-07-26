@@ -6,11 +6,7 @@ import { ScrapingModule } from '../scraping/scraping.module';
 
 @Module({
   imports: [ScrapingModule],
-  providers: [
-    HybridStrategyService,
-    ApiClientService,
-    FeedParserService
-  ],
-  exports: [HybridStrategyService]
+  providers: [HybridStrategyService, ApiClientService, FeedParserService],
+  exports: [HybridStrategyService],
 })
 export class DataAcquisitionModule {}

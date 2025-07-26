@@ -1,4 +1,11 @@
-import { Injectable, CanActivate, ExecutionContext, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
 interface RateLimitInfo {
@@ -16,7 +23,7 @@ export class RateLimitGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
     const telegramUser = request.telegramUser;
-    
+
     if (!telegramUser) {
       return true; // 認証前はスキップ
     }
@@ -39,7 +46,10 @@ export class RateLimitGuard implements CanActivate {
 
     if (userRequests.count >= maxRequests) {
       this.logger.warn(`Rate limit exceeded for user ${userId}`);
-      throw new HttpException('Too Many Requests', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        'Too Many Requests',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     userRequests.count++;

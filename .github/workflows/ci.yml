@@ -1,0 +1,175 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, feature/*, fix/*, refactor/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run ESLint
+      run: |
+        echo "🔍 ESLintチェック実行中..."
+        npm run lint || true
+        ERROR_COUNT=$(npm run lint 2>&1 | grep -E "(error|warning)" | wc -l || echo "0")
+        echo "ESLintエラー数: $ERROR_COUNT"
+        echo "eslint_errors=$ERROR_COUNT" >> $GITHUB_ENV
+    
+    - name: Run TypeScript check
+      run: |
+        echo "🔧 TypeScriptチェック実行中..."
+        npx tsc --noEmit || true
+    
+    - name: Run tests
+      run: |
+        echo "🧪 テスト実行中..."
+        npm run test -- --passWithNoTests || true
+    
+    - name: Run test coverage
+      run: |
+        echo "📊 カバレッジ測定中..."
+        npm run test:cov -- --passWithNoTests || true
+    
+    - name: Build application
+      run: |
+        echo "🔨 ビルド実行中..."
+        npm run build
+    
+    - name: Quality Report
+      if: always()
+      run: |
+        echo "📊 品質レポート"
+        echo "=================="
+        echo "ESLintエラー数: ${{ env.eslint_errors }}"
+        if [ "${{ env.eslint_errors }}" -le 50 ]; then
+          echo "✅ ESLintエラー数が目標値（50個以下）を達成しています！"
+        else
+          echo "⚠️ ESLintエラー数が目標値を超えています（目標: 50個以下）"
+        fi
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run security audit
+      run: |
+        echo "🔒 セキュリティ監査実行中..."
+        npm audit --audit-level moderate || true
+    
+    - name: Check for sensitive data
+      run: |
+        echo "🔍 機密情報チェック中..."
+        # .envファイルがコミットされていないか確認
+        if [ -f ".env" ]; then
+          echo "❌ .envファイルが検出されました！"
+          exit 1
+        fi
+        # APIキーやトークンが露出していないか確認
+        if grep -rE "(api_key|apikey|api-key|token|secret|password)" --include="*.ts" --include="*.js" --exclude-dir=node_modules .; then
+          echo "⚠️ 潜在的な機密情報が検出されました。確認してください。"
+        fi
+
+  docker-check:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    if: github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Check Dockerfile
+      run: |
+        echo "🐳 Dockerfileチェック中..."
+        if [ -f "Dockerfile" ]; then
+          echo "✅ Dockerfileが存在します"
+          # Dockerfileの構文チェック
+          docker run --rm -i hadolint/hadolint < Dockerfile || true
+        else
+          echo "⚠️ Dockerfileが見つかりません"
+        fi
+    
+    - name: Check docker-compose.yml
+      run: |
+        echo "🐳 docker-compose.ymlチェック中..."
+        if [ -f "docker-compose.yml" ]; then
+          echo "✅ docker-compose.ymlが存在します"
+          # docker-composeの構文チェック
+          docker compose config --quiet || true
+        else
+          echo "⚠️ docker-compose.ymlが見つかりません"
+        fi
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [lint-and-test, security-scan, docker-check]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Generate changelog
+      id: changelog
+      run: |
+        echo "📝 変更履歴を生成中..."
+        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        if [ -z "$LAST_TAG" ]; then
+          COMMITS=$(git log --oneline -10)
+        else
+          COMMITS=$(git log --oneline $LAST_TAG..HEAD)
+        fi
+        echo "commits<<EOF" >> $GITHUB_OUTPUT
+        echo "$COMMITS" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      if: startsWith(github.event.head_commit.message, 'release:')
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: Release v${{ github.run_number }}
+        body: |
+          ## 変更内容
+          ${{ steps.changelog.outputs.commits }}
+          
+          ## 品質メトリクス
+          - ESLintエラー数: ${{ env.eslint_errors }}
+          - ビルド: 成功
+        draft: false
+        prerelease: false

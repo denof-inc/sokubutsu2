@@ -8,10 +8,7 @@ import { AutoRecoveryService } from './recovery/auto-recovery.service';
 
 @Module({
   imports: [StealthModule, CacheModule, StrategiesModule, OrchestrationModule],
-  providers: [
-    ScrapingService,
-    AutoRecoveryService,
-  ],
+  providers: [ScrapingService, AutoRecoveryService],
   exports: [
     ScrapingService,
     StealthModule,

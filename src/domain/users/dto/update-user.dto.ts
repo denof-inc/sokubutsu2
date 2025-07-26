@@ -6,7 +6,7 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsDate()
   @IsOptional()
   lastActiveAt?: Date;
-  
+
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;

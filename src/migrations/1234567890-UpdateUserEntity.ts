@@ -6,10 +6,10 @@ export class UpdateUserEntity1234567890 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // SQLiteの場合の処理
     const databaseType = queryRunner.connection.options.type;
-    
+
     if (databaseType === 'better-sqlite3' || databaseType === 'sqlite') {
       // SQLiteではALTER TABLEの制限があるため、新しいテーブルを作成して移行
-      
+
       // 1. 新しいスキーマでテーブルを作成
       await queryRunner.query(`
         CREATE TABLE "users_new" (
@@ -51,17 +51,16 @@ export class UpdateUserEntity1234567890 implements MigrationInterface {
 
       // 5. 新しいテーブルをリネーム
       await queryRunner.query(`ALTER TABLE "users_new" RENAME TO "users"`);
-      
     } else if (databaseType === 'postgres') {
       // PostgreSQLの場合
-      
+
       // 1. id列を追加（既に存在しない場合）
       const hasIdColumn = await queryRunner.query(`
         SELECT column_name 
         FROM information_schema.columns 
         WHERE table_name = 'users' AND column_name = 'id'
       `);
-      
+
       if (!hasIdColumn.length) {
         await queryRunner.query(`
           ALTER TABLE "users" 
@@ -74,7 +73,7 @@ export class UpdateUserEntity1234567890 implements MigrationInterface {
         ALTER TABLE "users" 
         ADD CONSTRAINT "UQ_users_telegramId" UNIQUE ("telegramId")
       `);
-      
+
       // 3. インデックスを作成
       await queryRunner.query(`
         CREATE INDEX "IDX_users_telegramId" ON "users" ("telegramId")
@@ -84,10 +83,10 @@ export class UpdateUserEntity1234567890 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     const databaseType = queryRunner.connection.options.type;
-    
+
     if (databaseType === 'better-sqlite3' || databaseType === 'sqlite') {
       // SQLiteの場合：元のスキーマに戻す
-      
+
       // 1. 元のスキーマでテーブルを作成
       await queryRunner.query(`
         CREATE TABLE "users_old" (
@@ -123,25 +122,24 @@ export class UpdateUserEntity1234567890 implements MigrationInterface {
 
       // 4. 古いテーブルをリネーム
       await queryRunner.query(`ALTER TABLE "users_old" RENAME TO "users"`);
-      
     } else if (databaseType === 'postgres') {
       // PostgreSQLの場合
-      
+
       // 1. インデックスを削除
       await queryRunner.query(`DROP INDEX "IDX_users_telegramId"`);
-      
+
       // 2. ユニーク制約を削除
       await queryRunner.query(`
         ALTER TABLE "users" 
         DROP CONSTRAINT "UQ_users_telegramId"
       `);
-      
+
       // 3. id列を削除（注意：データ損失の可能性）
       await queryRunner.query(`
         ALTER TABLE "users" 
         DROP COLUMN "id"
       `);
-      
+
       // 4. telegramIdを主キーに戻す
       await queryRunner.query(`
         ALTER TABLE "users" 

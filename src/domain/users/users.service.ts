@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserSettings } from './entities/user.entity';
@@ -17,14 +22,18 @@ export class UsersService {
   async create(createUserDto: CreateUserDto): Promise<User> {
     try {
       // 既存ユーザーチェック
-      const existingUser = await this.findByTelegramId(createUserDto.telegramId);
+      const existingUser = await this.findByTelegramId(
+        createUserDto.telegramId,
+      );
       if (existingUser) {
-        throw new ConflictException(`User with Telegram ID ${createUserDto.telegramId} already exists`);
+        throw new ConflictException(
+          `User with Telegram ID ${createUserDto.telegramId} already exists`,
+        );
       }
 
       const user = this.userRepository.create(createUserDto);
       const savedUser = await this.userRepository.save(user);
-      
+
       this.logger.log(`User created: ${savedUser.telegramId}`);
       return savedUser;
     } catch (error) {
@@ -64,25 +73,35 @@ export class UsersService {
         where: { telegramId },
       });
     } catch (error) {
-      this.logger.error(`Failed to find user by Telegram ID ${telegramId}: ${error.message}`);
+      this.logger.error(
+        `Failed to find user by Telegram ID ${telegramId}: ${error.message}`,
+      );
       throw error;
     }
   }
 
-  async update(telegramId: string, updateUserDto: UpdateUserDto): Promise<User> {
+  async update(
+    telegramId: string,
+    updateUserDto: UpdateUserDto,
+  ): Promise<User> {
     try {
       const user = await this.findByTelegramId(telegramId);
       if (!user) {
-        throw new NotFoundException(`User with Telegram ID ${telegramId} not found`);
+        throw new NotFoundException(
+          `User with Telegram ID ${telegramId} not found`,
+        );
       }
 
       Object.assign(user, updateUserDto);
       const updatedUser = await this.userRepository.save(user);
-      
+
       this.logger.log(`User updated: ${updatedUser.telegramId}`);
       return updatedUser;
     } catch (error) {
-      this.logger.error(`Failed to update user ${telegramId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to update user ${telegramId}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -93,24 +112,32 @@ export class UsersService {
   async updateLastActive(telegramId: string): Promise<void> {
     await this.userRepository.update(
       { telegramId },
-      { lastActiveAt: new Date() }
+      { lastActiveAt: new Date() },
     );
   }
 
-  async updateSettings(telegramId: string, settings: Partial<UserSettings>): Promise<User> {
+  async updateSettings(
+    telegramId: string,
+    settings: Partial<UserSettings>,
+  ): Promise<User> {
     try {
       const user = await this.findByTelegramId(telegramId);
       if (!user) {
-        throw new NotFoundException(`User with Telegram ID ${telegramId} not found`);
+        throw new NotFoundException(
+          `User with Telegram ID ${telegramId} not found`,
+        );
       }
 
       user.settings = { ...user.settings, ...settings } as UserSettings;
       const updatedUser = await this.userRepository.save(user);
-      
+
       this.logger.log(`User settings updated: ${telegramId}`);
       return updatedUser;
     } catch (error) {
-      this.logger.error(`Failed to update user settings ${telegramId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to update user settings ${telegramId}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -120,7 +147,10 @@ export class UsersService {
       await this.update(telegramId, { isActive: false });
       this.logger.log(`User deactivated: ${telegramId}`);
     } catch (error) {
-      this.logger.error(`Failed to deactivate user ${telegramId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to deactivate user ${telegramId}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -130,9 +160,11 @@ export class UsersService {
    */
   async activate(telegramId: string): Promise<User> {
     const user = await this.findByTelegramId(telegramId);
-    
+
     if (!user) {
-      throw new NotFoundException(`User with Telegram ID ${telegramId} not found`);
+      throw new NotFoundException(
+        `User with Telegram ID ${telegramId} not found`,
+      );
     }
 
     user.isActive = true;
@@ -147,7 +179,9 @@ export class UsersService {
       });
       return count > 0;
     } catch (error) {
-      this.logger.error(`Failed to check user existence ${telegramId}: ${error.message}`);
+      this.logger.error(
+        `Failed to check user existence ${telegramId}: ${error.message}`,
+      );
       return false;
     }
   }
@@ -165,11 +199,11 @@ export class UsersService {
     const activeUsers = await this.userRepository.count({
       where: { isActive: true },
     });
-    
+
     // 24時間以内にアクティブだったユーザー
     const oneDayAgo = new Date();
     oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-    
+
     const recentlyActiveUsers = await this.userRepository
       .createQueryBuilder('user')
       .where('user.lastActiveAt > :date', { date: oneDayAgo })

@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+
+echo "🔍 Pre-commit checks running..."
+
+# lint-stagedを実行
+npx lint-staged
+
+# TypeScript型チェック（高速化のため並列実行）
+echo "🔧 Running TypeScript check..."
+npx tsc --noEmit --incremental
+
+echo "✅ Pre-commit checks completed!"
