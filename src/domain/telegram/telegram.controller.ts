@@ -5,13 +5,11 @@ import {
   UseGuards,
   Logger,
 } from '@nestjs/common';
-import { TelegramAuthGuard } from '../auth/guards/telegram-auth.guard';
-import { TelegramWebhookGuard } from './guards/telegram-webhook.guard';
-import { RateLimitGuard } from './guards/rate-limit.guard';
-import { CurrentUser, TelegramUser, IsNewUser } from '../auth/decorators/telegram-user.decorator';
+import { TelegramAuthGuard, TelegramWebhookGuard, RateLimitGuard } from '../../common/guards';
+import { CurrentUser, TelegramUser, IsNewUser } from '../../core/auth/decorators/telegram-user.decorator';
 import { User } from '../users/entities/user.entity';
-import { TelegramUpdate, TelegramUser as ITelegramUser } from '../auth/interfaces/telegram-user.interface';
-import { AuthService } from '../auth/auth.service';
+import { TelegramUpdate, TelegramUser as ITelegramUser } from '../../common/interfaces';
+import { AuthService } from '../../core/auth/auth.service';
 import { TelegramService } from './telegram.service';
 
 @Controller('telegram')

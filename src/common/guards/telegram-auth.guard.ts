@@ -5,8 +5,8 @@ import {
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
-import { AuthService } from '../auth.service';
-import { TelegramUpdate } from '../interfaces/telegram-user.interface';
+import { AuthService } from '../../core/auth/auth.service';
+import { TelegramUpdate } from '../interfaces';
 
 @Injectable()
 export class TelegramAuthGuard implements CanActivate {

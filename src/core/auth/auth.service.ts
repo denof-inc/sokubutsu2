@@ -1,14 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { UsersService } from '../users/users.service';
-import { User, UserSettings } from '../users/entities/user.entity';
-import { TelegramUser } from './interfaces/telegram-user.interface';
-import { UserUpdateData } from './interfaces/user-update-data.interface';
-import { CreateUserDto } from '../users/dto/create-user.dto';
+import { UsersService } from '../../domain/users/users.service';
+import { User, UserSettings } from '../../domain/users/entities/user.entity';
+import { TelegramUser, UserUpdateData } from '../../common/interfaces';
+import { CreateUserDto } from '../../domain/users/dto/create-user.dto';
 import { 
   TelegramAuthException, 
   UserRegistrationException,
   InvalidTelegramDataException 
-} from './exceptions/auth.exceptions';
+} from '../../common/exceptions';
 
 @Injectable()
 export class AuthService {
