@@ -1,17 +1,17 @@
-import { createFileLogger } from 'vibelogger';
+import { createFileLogger, LogOptions } from 'vibelogger';
 
 /**
  * ログ管理モジュール（vibelogger統合版）
- * 
+ *
  * @設計ドキュメント
  * - README.md: ログ出力設定
  * - docs/ログ設計.md: ログレベルとファイル出力
  * - CLAUDE.md: vibelogger利用ガイドライン
- * 
+ *
  * @関連クラス
  * - 全クラス: このloggerインスタンスを使用してログ出力
  * - vibelogger: AI最適化された構造化ログライブラリ
- * 
+ *
  * @主要機能
  * - AI駆動開発に最適化された構造化ログ
  * - 自動的なタイムスタンプとコンテキスト記録
@@ -42,7 +42,7 @@ export class Logger {
    * エラーログ
    */
   error(message: string, data?: unknown): void {
-    const options: any = {
+    const options: LogOptions = {
       humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
     };
     if (data) {
@@ -55,7 +55,7 @@ export class Logger {
    * 警告ログ
    */
   warn(message: string, data?: unknown): void {
-    const options: any = {
+    const options: LogOptions = {
       humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
     };
     if (data) {
@@ -68,7 +68,7 @@ export class Logger {
    * 情報ログ
    */
   info(message: string, data?: unknown): void {
-    const options: any = {
+    const options: LogOptions = {
       humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
     };
     if (data) {
@@ -81,7 +81,7 @@ export class Logger {
    * デバッグログ
    */
   debug(message: string, data?: unknown): void {
-    const options: any = {
+    const options: LogOptions = {
       humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
     };
     if (data) {
@@ -99,11 +99,11 @@ export { vibeLogger };
 
 /**
  * 新しいvibelogger APIの使用例
- * 
+ *
  * @example
  * ```typescript
  * import { vibeLogger } from './logger';
- * 
+ *
  * // 構造化されたログ出力
  * vibeLogger.info('user.login', 'ユーザーログイン処理', {
  *   context: {

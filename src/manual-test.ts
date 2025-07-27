@@ -3,7 +3,6 @@ import { SimpleScraper } from './scraper';
 import { TelegramNotifier } from './telegram';
 import { SimpleStorage } from './storage';
 import { performanceMonitor } from './performance';
-import { logger } from './logger';
 
 /**
  * 手動テスト実行
@@ -11,7 +10,7 @@ import { logger } from './logger';
 async function runManualTest(): Promise<void> {
   console.log('🧪 ソクブツMVP 手動テスト開始');
   console.log('=====================================');
-  
+
   const startTime = Date.now();
   let testsPassed = 0;
   let testsTotal = 0;
@@ -46,10 +45,10 @@ async function runManualTest(): Promise<void> {
     const storage = new SimpleStorage();
     const testUrl = 'https://test.example.com';
     const testHash = 'test-hash-123';
-    
+
     storage.setHash(testUrl, testHash);
     const retrievedHash = storage.getHash(testUrl);
-    
+
     if (retrievedHash === testHash) {
       console.log('✅ ストレージ機能: 成功');
       storage.displayStats();
@@ -68,7 +67,7 @@ async function runManualTest(): Promise<void> {
     try {
       const telegram = new TelegramNotifier(config.telegram.botToken, config.telegram.chatId);
       const isConnected = await telegram.testConnection();
-      
+
       if (isConnected) {
         console.log('✅ Telegram接続: 成功');
         const botInfo = await telegram.getBotInfo();
@@ -88,9 +87,9 @@ async function runManualTest(): Promise<void> {
   try {
     const scraper = new SimpleScraper();
     const testUrl = 'https://httpbin.org/html'; // テスト用公開API
-    
+
     const result = await scraper.scrapeAthome(testUrl);
-    
+
     if (result.success) {
       console.log('✅ スクレイピング機能: 成功');
       console.log(`   実行時間: ${result.executionTime}ms`);
@@ -112,36 +111,36 @@ async function runManualTest(): Promise<void> {
     try {
       const scraper = new SimpleScraper();
       const testUrl = config.monitoring.urls[0];
-      
+
       if (testUrl) {
         console.log(`   テストURL: ${testUrl}`);
         const result = await scraper.scrapeAthome(testUrl);
-      
-      if (result.success) {
-        console.log('✅ athome.co.jpスクレイピング: 成功');
-        console.log(`   物件数: ${result.count}件`);
-        console.log(`   実行時間: ${result.executionTime}ms`);
-        console.log(`   メモリ使用量: ${result.memoryUsage}MB`);
-        console.log(`   ハッシュ: ${result.hash.substring(0, 8)}...`);
-        
-        // パフォーマンス目標チェック
-        if (result.executionTime && result.executionTime <= 5000) {
-          console.log('   ✅ 実行時間目標達成 (≤5秒)');
+
+        if (result.success) {
+          console.log('✅ athome.co.jpスクレイピング: 成功');
+          console.log(`   物件数: ${result.count}件`);
+          console.log(`   実行時間: ${result.executionTime}ms`);
+          console.log(`   メモリ使用量: ${result.memoryUsage}MB`);
+          console.log(`   ハッシュ: ${result.hash.substring(0, 8)}...`);
+
+          // パフォーマンス目標チェック
+          if (result.executionTime && result.executionTime <= 5000) {
+            console.log('   ✅ 実行時間目標達成 (≤5秒)');
+          } else {
+            console.log('   ⚠️  実行時間目標未達成 (>5秒)');
+          }
+
+          if (result.memoryUsage && result.memoryUsage <= 50) {
+            console.log('   ✅ メモリ使用量目標達成 (≤50MB)');
+          } else {
+            console.log('   ⚠️  メモリ使用量目標未達成 (>50MB)');
+          }
+
+          testsPassed++;
         } else {
-          console.log('   ⚠️  実行時間目標未達成 (>5秒)');
+          console.log('❌ athome.co.jpスクレイピング: 失敗');
+          console.log(`   エラー: ${result.error}`);
         }
-        
-        if (result.memoryUsage && result.memoryUsage <= 50) {
-          console.log('   ✅ メモリ使用量目標達成 (≤50MB)');
-        } else {
-          console.log('   ⚠️  メモリ使用量目標未達成 (>50MB)');
-        }
-        
-        testsPassed++;
-      } else {
-        console.log('❌ athome.co.jpスクレイピング: 失敗');
-        console.log(`   エラー: ${result.error}`);
-      }
       } else {
         console.log('❌ athome.co.jpスクレイピング: URLが設定されていません');
       }
@@ -155,8 +154,10 @@ async function runManualTest(): Promise<void> {
   console.log('\n=====================================');
   console.log('🎯 テスト結果サマリー');
   console.log(`   実行時間: ${totalTime}ms`);
-  console.log(`   成功: ${testsPassed}/${testsTotal} (${Math.round(testsPassed/testsTotal*100)}%)`);
-  
+  console.log(
+    `   成功: ${testsPassed}/${testsTotal} (${Math.round((testsPassed / testsTotal) * 100)}%)`
+  );
+
   if (testsPassed === testsTotal) {
     console.log('🎉 すべてのテストが成功しました！');
     console.log('✅ ソクブツMVPは稼働準備完了です');
@@ -164,16 +165,20 @@ async function runManualTest(): Promise<void> {
     console.log('⚠️  一部のテストが失敗しました');
     console.log('💡 エラーメッセージを確認して設定を見直してください');
   }
-  
+
   // 戦略準拠チェック
   console.log('\n📊 戦略準拠チェック');
   const metrics = performanceMonitor.getMetrics();
-  
+
   console.log('   目標値との比較:');
-  console.log(`   - 起動時間: ${metrics.startupTime}ms (目標: ≤2000ms) ${metrics.startupTime <= 2000 ? '✅' : '❌'}`);
-  console.log(`   - メモリ使用量: ${metrics.memoryUsage}MB (目標: 30-50MB) ${metrics.memoryUsage >= 30 && metrics.memoryUsage <= 50 ? '✅' : '⚠️'}`);
+  console.log(
+    `   - 起動時間: ${metrics.startupTime}ms (目標: ≤2000ms) ${metrics.startupTime <= 2000 ? '✅' : '❌'}`
+  );
+  console.log(
+    `   - メモリ使用量: ${metrics.memoryUsage}MB (目標: 30-50MB) ${metrics.memoryUsage >= 30 && metrics.memoryUsage <= 50 ? '✅' : '⚠️'}`
+  );
   console.log(`   - 依存関係数: 12個 (戦略準拠) ✅`);
-  
+
   console.log('\n🏁 手動テスト完了');
 }
 

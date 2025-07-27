@@ -25,4 +25,7 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts'],
   testTimeout: 10000,
   verbose: true,
+  moduleNameMapper: {
+    '^vibelogger$': '<rootDir>/src/__mocks__/vibelogger.js',
+  },
 };

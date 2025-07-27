@@ -3,23 +3,22 @@ import { SimpleScraper } from './scraper';
 import { TelegramNotifier } from './telegram';
 import { SimpleStorage } from './storage';
 import { NotificationData } from './types';
-import { logger, vibeLogger } from './logger';
-import { performanceMonitor } from './performance';
+import { vibeLogger } from './logger';
 
 /**
  * 監視スケジューラー
- * 
+ *
  * @設計ドキュメント
  * - README.md: 監視フロー全体像
  * - docs/スケジューリング設計.md: cron式と実行タイミング
- * 
+ *
  * @関連クラス
  * - SimpleScraper: 実際のスクレイピング処理を実行
  * - TelegramNotifier: 新着検知時の通知送信
  * - SimpleStorage: ハッシュ値の読み書き、統計情報の管理
  * - Logger: 監視サイクルのログ出力
  * - performanceMonitor: パフォーマンス測定
- * 
+ *
  * @主要機能
  * - 5分間隔での定期監視実行
  * - 新着物件の変化検知
@@ -30,7 +29,7 @@ export class MonitoringScheduler {
   private readonly scraper = new SimpleScraper();
   private readonly telegram: TelegramNotifier;
   private readonly storage = new SimpleStorage();
-  
+
   private cronJob: cron.ScheduledTask | null = null;
   private statsJob: cron.ScheduledTask | null = null;
   private isRunning = false;
@@ -60,7 +59,7 @@ export class MonitoringScheduler {
     await this.telegram.sendStartupNotice();
 
     // 5分間隔で監視（毎時0,5,10,15...分に実行）
-    this.cronJob = cron.schedule('*/5 * * * *', async () => {
+    this.cronJob = cron.schedule('*/5 * * * *', () => {
       if (this.isRunning) {
         vibeLogger.warn('monitoring.skip', '前回の監視がまだ実行中です。スキップします。', {
           context: { isRunning: this.isRunning },
@@ -69,12 +68,12 @@ export class MonitoringScheduler {
         return;
       }
 
-      await this.runMonitoringCycle(urls);
+      void this.runMonitoringCycle(urls);
     });
 
     // 1時間ごとに統計レポート送信
-    this.statsJob = cron.schedule('0 * * * *', async () => {
-      await this.sendStatisticsReport();
+    this.statsJob = cron.schedule('0 * * * *', () => {
+      void this.sendStatisticsReport();
     });
 
     // 初回実行
@@ -93,16 +92,16 @@ export class MonitoringScheduler {
   private async runMonitoringCycle(urls: string[]): Promise<void> {
     this.isRunning = true;
     const cycleStartTime = Date.now();
-    
+
     const cycleId = `cycle-${Date.now()}`;
     vibeLogger.info('monitoring.cycle.start', '監視サイクル開始', {
-      context: { 
+      context: {
         cycleId,
         timestamp: new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }),
-        urlCount: urls.length
+        urlCount: urls.length,
       },
     });
-    
+
     let successCount = 0;
     let errorCount = 0;
 
@@ -111,26 +110,28 @@ export class MonitoringScheduler {
         await this.monitorUrl(url);
         successCount++;
         this.consecutiveErrors = 0; // 成功時はリセット
-        
+
         // サーバー負荷軽減のため2秒待機
         await this.sleep(2000);
-        
       } catch (error) {
         errorCount++;
         this.consecutiveErrors++;
         vibeLogger.error('monitoring.url.error', `URL監視エラー: ${url}`, {
-          context: { 
-            url, 
-            error: error instanceof Error ? {
-              message: error.message,
-              stack: error.stack,
-              name: error.name,
-            } : { message: String(error) },
+          context: {
+            url,
+            error:
+              error instanceof Error
+                ? {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name,
+                  }
+                : { message: String(error) },
             consecutiveErrors: this.consecutiveErrors,
           },
           aiTodo: 'エラーパターンを分析し、対策を提案',
         });
-        
+
         // 連続エラーが多い場合は警告
         if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
           await this.telegram.sendErrorAlert(url, `連続エラー${this.consecutiveErrors}回`);
@@ -140,7 +141,7 @@ export class MonitoringScheduler {
 
     const cycleTime = Date.now() - cycleStartTime;
     vibeLogger.info('monitoring.cycle.complete', '監視サイクル完了', {
-      context: { 
+      context: {
         cycleId,
         cycleTime,
         successCount,
@@ -149,7 +150,7 @@ export class MonitoringScheduler {
       },
       humanNote: '監視サイクルのパフォーマンスを確認',
     });
-    
+
     this.isRunning = false;
   }
 
@@ -160,11 +161,11 @@ export class MonitoringScheduler {
     vibeLogger.info('monitoring.url.check', `チェック開始: ${url}`, {
       context: { url },
     });
-    
+
     this.storage.incrementTotalChecks();
-    
+
     const result = await this.scraper.scrapeAthome(url);
-    
+
     if (!result.success) {
       this.storage.incrementErrors();
       await this.telegram.sendErrorAlert(url, result.error || '不明なエラー');
@@ -177,19 +178,18 @@ export class MonitoringScheduler {
     }
 
     const previousHash = this.storage.getHash(url);
-    
+
     if (!previousHash) {
       // 初回チェック
       vibeLogger.info('monitoring.initial_url_check', `初回チェック完了: ${url}`, {
         context: { url, count: result.count, hash: result.hash },
       });
       this.storage.setHash(url, result.hash);
-      
     } else if (previousHash !== result.hash) {
       // 新着検知！
       vibeLogger.info('monitoring.new_listing_detected', `🎉 新着検知: ${url}`, {
-        context: { 
-          url, 
+        context: {
+          url,
           count: result.count,
           previousHash,
           newHash: result.hash,
@@ -198,10 +198,10 @@ export class MonitoringScheduler {
         aiTodo: '検知パターンを分析し、通知タイミングを最適化',
       });
       this.storage.incrementNewListings();
-      
+
       // 前回の物件数を推定（簡易実装）
-      const previousCount = await this.estimatePreviousCount(url, previousHash);
-      
+      const previousCount = await this.estimatePreviousCount(url);
+
       const notificationData: NotificationData = {
         currentCount: result.count,
         previousCount,
@@ -209,10 +209,9 @@ export class MonitoringScheduler {
         url,
         executionTime: (result.executionTime || 0) / 1000,
       };
-      
+
       await this.telegram.sendNewListingNotification(notificationData);
       this.storage.setHash(url, result.hash);
-      
     } else {
       // 変化なし
       vibeLogger.debug('monitoring.no_change', `変化なし: ${url}`, {
@@ -224,7 +223,7 @@ export class MonitoringScheduler {
   /**
    * 前回の物件数を推定（簡易実装）
    */
-  private async estimatePreviousCount(url: string, previousHash: string): Promise<number> {
+  private async estimatePreviousCount(url: string): Promise<number> {
     // 実際の実装では、ハッシュと物件数の対応を保存することを推奨
     // ここでは簡易的に現在の物件数から推定
     const currentResult = await this.scraper.scrapeAthome(url);
@@ -243,12 +242,15 @@ export class MonitoringScheduler {
       });
     } catch (error) {
       vibeLogger.error('monitoring.stats_report_error', '統計レポート送信エラー', {
-        context: { 
-          error: error instanceof Error ? {
-            message: error.message,
-            stack: error.stack,
-            name: error.name,
-          } : { message: String(error) },
+        context: {
+          error:
+            error instanceof Error
+              ? {
+                  message: error.message,
+                  stack: error.stack,
+                  name: error.name,
+                }
+              : { message: String(error) },
         },
       });
     }
@@ -261,30 +263,33 @@ export class MonitoringScheduler {
     vibeLogger.info('monitoring.stopping', '監視停止中...', {
       humanNote: 'システムを正常に停止しています',
     });
-    
+
     if (this.cronJob) {
       this.cronJob.stop();
       this.cronJob = null;
     }
-    
+
     if (this.statsJob) {
       this.statsJob.stop();
       this.statsJob = null;
     }
-    
+
     // 停止通知
     this.telegram.sendShutdownNotice().catch(error => {
       vibeLogger.error('monitoring.shutdown_notice_error', '停止通知送信エラー', {
-        context: { 
-          error: error instanceof Error ? {
-            message: error.message,
-            stack: error.stack,
-            name: error.name,
-          } : { message: String(error) },
+        context: {
+          error:
+            error instanceof Error
+              ? {
+                  message: error.message,
+                  stack: error.stack,
+                  name: error.name,
+                }
+              : { message: String(error) },
         },
       });
     });
-    
+
     vibeLogger.info('monitoring.stopped', '監視停止完了', {
       humanNote: 'システムが正常に停止しました',
     });

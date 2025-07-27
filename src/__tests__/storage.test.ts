@@ -1,6 +1,5 @@
 import { SimpleStorage } from '../storage';
 import * as fs from 'fs';
-import * as path from 'path';
 
 // fs をモック化
 jest.mock('fs');
@@ -8,11 +7,10 @@ const mockedFs = fs as jest.Mocked<typeof fs>;
 
 describe('SimpleStorage', () => {
   let storage: SimpleStorage;
-  const testDataDir = './test-data';
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // ディレクトリ存在チェックをモック
     mockedFs.existsSync.mockReturnValue(true);
     mockedFs.readFileSync.mockReturnValue('{}');
@@ -45,7 +43,7 @@ describe('SimpleStorage', () => {
       const initialCount = initialStats.totalChecks;
 
       storage.incrementTotalChecks();
-      
+
       const updatedStats = storage.getStats();
       expect(updatedStats.totalChecks).toBe(initialCount + 1);
     });
@@ -55,7 +53,7 @@ describe('SimpleStorage', () => {
       const initialErrors = initialStats.errors;
 
       storage.incrementErrors();
-      
+
       const updatedStats = storage.getStats();
       expect(updatedStats.errors).toBe(initialErrors + 1);
     });
@@ -65,7 +63,7 @@ describe('SimpleStorage', () => {
       const initialNewListings = initialStats.newListings;
 
       storage.incrementNewListings();
-      
+
       const updatedStats = storage.getStats();
       expect(updatedStats.newListings).toBe(initialNewListings + 1);
     });
@@ -94,7 +92,7 @@ describe('SimpleStorage', () => {
   describe('バックアップ機能', () => {
     it('バックアップを作成できること', () => {
       const backupPath = storage.createBackup();
-      
+
       expect(backupPath).toContain('backup-');
       expect(backupPath).toContain('.json');
       expect(mockedFs.writeFileSync).toHaveBeenCalled();

@@ -4,16 +4,16 @@ import { vibeLogger } from './logger';
 
 /**
  * Telegram通知サービス
- * 
+ *
  * @設計ドキュメント
  * - README.md: Telegram Bot設定ガイド
  * - docs/通知設計.md: 通知フォーマットとタイミング
- * 
+ *
  * @関連クラス
  * - MonitoringScheduler: スケジューラーから通知メソッドを呼び出し
  * - Logger: 通知の送信結果をログ出力
  * - types.ts: NotificationData, Statistics型定義
- * 
+ *
  * @主要機能
  * - 新着物件の即時通知
  * - エラーアラート送信
@@ -42,12 +42,15 @@ export class TelegramNotifier {
       return true;
     } catch (error) {
       vibeLogger.error('telegram.connection_failed', 'Telegram Bot接続失敗', {
-        context: { 
-          error: error instanceof Error ? {
-            message: error.message,
-            stack: error.stack,
-            name: error.name,
-          } : { message: String(error) },
+        context: {
+          error:
+            error instanceof Error
+              ? {
+                  message: error.message,
+                  stack: error.stack,
+                  name: error.name,
+                }
+              : { message: String(error) },
         },
         aiTodo: 'Telegram BotトークンとChat IDの設定を確認',
       });
@@ -123,7 +126,7 @@ ${changeCount > 0 ? '🎉 *新しい物件が追加されました！今すぐ�
    */
   async sendStatisticsReport(stats: Statistics): Promise<void> {
     const uptimeHours = Math.floor((Date.now() - stats.lastCheck.getTime()) / (1000 * 60 * 60));
-    
+
     const message = `
 📊 *ソクブツ統計レポート*
 
@@ -172,35 +175,37 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
       await this.bot.telegram.sendMessage(this.chatId, message, {
         parse_mode: 'Markdown',
         link_preview_options: {
-          is_disabled: true
-        }
+          is_disabled: true,
+        },
       });
-      
+
       vibeLogger.debug('telegram.message_sent', 'Telegram通知送信成功', {
         context: { chatId: this.chatId },
       });
-      
     } catch (error) {
       vibeLogger.error('telegram.message_failed', `Telegram通知送信失敗`, {
-        context: { 
+        context: {
           chatId: this.chatId,
           retryCount: retryCount + 1,
           maxRetries: this.maxRetries,
-          error: error instanceof Error ? {
-            message: error.message,
-            stack: error.stack,
-            name: error.name,
-          } : { message: String(error) },
+          error:
+            error instanceof Error
+              ? {
+                  message: error.message,
+                  stack: error.stack,
+                  name: error.name,
+                }
+              : { message: String(error) },
         },
         humanNote: 'リトライ処理を実行中',
       });
-      
+
       if (retryCount < this.maxRetries) {
         const delay = Math.pow(2, retryCount) * 1000; // 指数バックオフ
         await this.sleep(delay);
         return this.sendMessage(message, retryCount + 1);
       }
-      
+
       throw error;
     }
   }

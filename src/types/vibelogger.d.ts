@@ -1,6 +1,6 @@
 declare module 'vibelogger' {
   export interface LogOptions {
-    context?: Record<string, any>;
+    context?: Record<string, unknown>;
     humanNote?: string;
     aiTodo?: string;
   }

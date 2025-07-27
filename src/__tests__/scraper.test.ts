@@ -84,6 +84,7 @@ describe('SimpleScraper', () => {
       const result = await scraper.scrapeAthome('https://example.com');
 
       expect(result.success).toBe(true);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mockedAxios.get).toHaveBeenCalledTimes(3);
     });
   });

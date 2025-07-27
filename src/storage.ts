@@ -2,21 +2,21 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Statistics } from './types';
 import { config } from './config';
-import { logger, vibeLogger } from './logger';
+import { vibeLogger } from './logger';
 
 /**
  * シンプルなJSONファイルストレージ
- * 
+ *
  * @設計ドキュメント
  * - README.md: データ保存方式
  * - docs/データ永続化.md: JSONストレージ設計
- * 
+ *
  * @関連クラス
  * - MonitoringScheduler: URLハッシュの読み書き、統計情報の更新
  * - Logger: ファイル操作のエラーログ出力
  * - config: データディレクトリパスの取得
  * - types.ts: Statistics型定義
- * 
+ *
  * @主要機能
  * - URLごとのコンテンツハッシュ管理
  * - 監視統計情報の永続化
@@ -27,7 +27,7 @@ export class SimpleStorage {
   private readonly dataDir: string;
   private readonly hashFile: string;
   private readonly statsFile: string;
-  
+
   private hashData: Record<string, string> = {};
   private stats: Statistics = {
     totalChecks: 0,
@@ -42,7 +42,7 @@ export class SimpleStorage {
     this.dataDir = config.storage.dataDir;
     this.hashFile = path.join(this.dataDir, 'hashes.json');
     this.statsFile = path.join(this.dataDir, 'statistics.json');
-    
+
     this.ensureDataDirectory();
     this.loadData();
   }
@@ -67,16 +67,16 @@ export class SimpleStorage {
       // ハッシュデータの読み込み
       if (fs.existsSync(this.hashFile)) {
         const hashContent = fs.readFileSync(this.hashFile, 'utf8');
-        this.hashData = JSON.parse(hashContent);
+        this.hashData = JSON.parse(hashContent) as Record<string, string>;
         vibeLogger.debug('storage.hash_loaded', `ハッシュデータ読み込み`, {
           context: { count: Object.keys(this.hashData).length },
         });
       }
-      
+
       // 統計データの読み込み
       if (fs.existsSync(this.statsFile)) {
         const statsContent = fs.readFileSync(this.statsFile, 'utf8');
-        const loadedStats = JSON.parse(statsContent);
+        const loadedStats = JSON.parse(statsContent) as Statistics;
         this.stats = {
           ...this.stats,
           ...loadedStats,
@@ -86,15 +86,17 @@ export class SimpleStorage {
           context: { stats: this.stats },
         });
       }
-      
     } catch (error) {
       vibeLogger.error('storage.load_error', 'データ読み込みエラー', {
-        context: { 
-          error: error instanceof Error ? {
-            message: error.message,
-            stack: error.stack,
-            name: error.name,
-          } : { message: String(error) },
+        context: {
+          error:
+            error instanceof Error
+              ? {
+                  message: error.message,
+                  stack: error.stack,
+                  name: error.name,
+                }
+              : { message: String(error) },
         },
         aiTodo: 'データ読み込みエラーの原因を分析',
       });
@@ -109,25 +111,27 @@ export class SimpleStorage {
     try {
       // ハッシュデータの保存
       fs.writeFileSync(this.hashFile, JSON.stringify(this.hashData, null, 2));
-      
+
       // 統計データの保存
       fs.writeFileSync(this.statsFile, JSON.stringify(this.stats, null, 2));
-      
+
       vibeLogger.debug('storage.save_complete', 'データ保存完了', {
-        context: { 
+        context: {
           hashFile: this.hashFile,
           statsFile: this.statsFile,
         },
       });
-      
     } catch (error) {
       vibeLogger.error('storage.save_error', 'データ保存エラー', {
-        context: { 
-          error: error instanceof Error ? {
-            message: error.message,
-            stack: error.stack,
-            name: error.name,
-          } : { message: String(error) },
+        context: {
+          error:
+            error instanceof Error
+              ? {
+                  message: error.message,
+                  stack: error.stack,
+                  name: error.name,
+                }
+              : { message: String(error) },
         },
         aiTodo: 'データ保存エラーの原因を分析',
       });
@@ -185,11 +189,11 @@ export class SimpleStorage {
   recordExecutionTime(executionTime: number): void {
     const currentAverage = this.stats.averageExecutionTime;
     const totalChecks = this.stats.totalChecks;
-    
+
     // 移動平均を計算
-    this.stats.averageExecutionTime = 
+    this.stats.averageExecutionTime =
       (currentAverage * (totalChecks - 1) + executionTime / 1000) / totalChecks;
-    
+
     this.saveData();
   }
 
@@ -199,7 +203,8 @@ export class SimpleStorage {
   private updateSuccessRate(): void {
     if (this.stats.totalChecks > 0) {
       const successCount = this.stats.totalChecks - this.stats.errors;
-      this.stats.successRate = Math.round((successCount / this.stats.totalChecks) * 100 * 100) / 100;
+      this.stats.successRate =
+        Math.round((successCount / this.stats.totalChecks) * 100 * 100) / 100;
     }
   }
 
@@ -234,21 +239,21 @@ export class SimpleStorage {
   createBackup(): string {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupDir = path.join(this.dataDir, 'backups');
-    
+
     if (!fs.existsSync(backupDir)) {
       fs.mkdirSync(backupDir, { recursive: true });
     }
-    
+
     const backupFile = path.join(backupDir, `backup-${timestamp}.json`);
     const backupData = {
       hashes: this.hashData,
       statistics: this.stats,
       createdAt: new Date().toISOString(),
     };
-    
+
     fs.writeFileSync(backupFile, JSON.stringify(backupData, null, 2));
     vibeLogger.info('storage.backup_created', 'バックアップ作成', {
-      context: { 
+      context: {
         backupFile,
         dataSize: {
           hashes: Object.keys(this.hashData).length,
@@ -257,7 +262,7 @@ export class SimpleStorage {
       },
       humanNote: 'データのバックアップが作成されました',
     });
-    
+
     return backupFile;
   }
 
