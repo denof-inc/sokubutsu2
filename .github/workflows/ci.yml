@@ -40,6 +40,12 @@ jobs:
           env | grep -E "(NODE_ENV|CI|DATABASE_URL|JEST)" || echo "No relevant env vars"
           echo "=== Package.json scripts ==="
           cat package.json | grep -A20 '"scripts"' || echo "No scripts found"
+          echo "=== ESLint version ==="
+          npx eslint --version || echo "ESLint not found"
+          echo "=== TypeScript version ==="
+          npx tsc --version || echo "TypeScript not found"
+          echo "=== Jest version ==="
+          npx jest --version || echo "Jest not found"
 
       - name: Install dependencies
         run: npm ci
@@ -47,32 +53,51 @@ jobs:
       - name: Run ESLint
         run: |
           echo "🔍 ESLintチェック実行中..."
-          npm run ci:lint
-          if [ $? -ne 0 ]; then
-            echo "❌ ESLintエラーが発生しました"
-            npm run ci:lint -- --format=json > eslint-report.json || true
-            cat eslint-report.json || echo "ESLintレポート生成失敗"
+          echo "実行コマンド: npm run ci:lint"
+          npm run ci:lint 2>&1 | tee eslint-output.log
+          ESLINT_EXIT_CODE=${PIPESTATUS[0]}
+
+          if [ $ESLINT_EXIT_CODE -ne 0 ]; then
+            echo "❌ ESLintエラーが発生しました (exit code: $ESLINT_EXIT_CODE)"
+            echo "=== ESLint出力詳細 ==="
+            cat eslint-output.log
+            echo "=== エラーサマリー ==="
+            grep -E "error|Error" eslint-output.log || echo "エラー詳細が見つかりません"
             exit 1
           fi
+          echo "✅ ESLintチェック成功"
 
       - name: Run TypeScript check
         run: |
           echo "🔧 TypeScriptチェック実行中..."
-          npm run ci:typecheck
-          if [ $? -ne 0 ]; then
-            echo "❌ TypeScriptエラーが発生しました"
-            npm run ci:typecheck 2>&1 | tee typescript-errors.log
+          echo "実行コマンド: npm run ci:typecheck"
+          npm run ci:typecheck 2>&1 | tee typescript-output.log
+          TS_EXIT_CODE=${PIPESTATUS[0]}
+
+          if [ $TS_EXIT_CODE -ne 0 ]; then
+            echo "❌ TypeScriptエラーが発生しました (exit code: $TS_EXIT_CODE)"
+            echo "=== TypeScript出力詳細 ==="
+            cat typescript-output.log
             exit 1
           fi
+          echo "✅ TypeScriptチェック成功"
 
       - name: Run tests
         run: |
           echo "🧪 テスト実行中..."
-          npm run ci:test
-          if [ $? -ne 0 ]; then
-            echo "❌ テストが失敗しました"
+          echo "実行コマンド: npm run ci:test"
+          npm run ci:test 2>&1 | tee test-output.log
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+
+          if [ $TEST_EXIT_CODE -ne 0 ]; then
+            echo "❌ テストが失敗しました (exit code: $TEST_EXIT_CODE)"
+            echo "=== テスト出力詳細 ==="
+            cat test-output.log
+            echo "=== エラーサマリー ==="
+            grep -E "FAIL|Error|error" test-output.log || echo "エラー詳細が見つかりません"
             exit 1
           fi
+          echo "✅ テスト成功"
 
       - name: Run test coverage
         run: |

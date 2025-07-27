@@ -21,8 +21,8 @@
     "quality:report": "node scripts/quality-report.js",
     "quality:check": "npm run lint && npx tsc --noEmit",
     "prepare": "husky",
-    "ci:lint": "eslint . --ext .ts,.js --max-warnings 300",
-    "ci:test": "jest --ci --coverage --watchAll=false --forceExit",
+    "ci:lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --format=stylish",
+    "ci:test": "jest --ci --coverage --watchAll=false --forceExit --detectOpenHandles",
     "ci:build": "nest build",
     "ci:typecheck": "tsc --noEmit --skipLibCheck"
   },
