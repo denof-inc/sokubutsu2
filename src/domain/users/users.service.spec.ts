@@ -52,6 +52,8 @@ describe('UsersService', () => {
       findOne: jest.fn(),
       save: jest.fn(),
       create: jest.fn(),
+      count: jest.fn(),
+      find: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -175,15 +177,18 @@ describe('UsersService', () => {
 
   describe('exists', () => {
     it('should return true if user exists', async () => {
-      repository.findOne.mockResolvedValue(mockUser);
+      repository.count.mockResolvedValue(1);
 
       const result = await service.exists('123456789');
 
       expect(result).toBe(true);
+      expect(repository.count).toHaveBeenCalledWith({
+        where: { telegramId: '123456789' },
+      });
     });
 
     it('should return false if user does not exist', async () => {
-      repository.findOne.mockResolvedValue(null);
+      repository.count.mockResolvedValue(0);
 
       const result = await service.exists('999999999');
 
@@ -191,7 +196,7 @@ describe('UsersService', () => {
     });
 
     it('should handle database errors', async () => {
-      repository.findOne.mockRejectedValue(new Error('Database error'));
+      repository.count.mockRejectedValue(new Error('Database error'));
 
       await expect(service.exists('123456789')).rejects.toThrow(
         InternalServerErrorException,

@@ -11,7 +11,17 @@ module.exports = {
 
   // 変換設定
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    '^.+\\.(t|j)s$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          strict: false,
+          esModuleInterop: true,
+          allowSyntheticDefaultImports: true,
+          skipLibCheck: true,
+        },
+      },
+    ],
   },
 
   // モジュール拡張子
@@ -73,17 +83,4 @@ module.exports = {
     bail: false,
     silent: false,
   }),
-
-  // グローバル設定
-  globals: {
-    'ts-jest': {
-      tsconfig: {
-        // テスト用のTypeScript設定オーバーライド
-        strict: false,
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true,
-        skipLibCheck: true,
-      },
-    },
-  },
 };

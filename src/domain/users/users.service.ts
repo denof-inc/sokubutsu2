@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   Logger,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -37,11 +38,14 @@ export class UsersService {
       this.logger.log(`User created: ${savedUser.telegramId}`);
       return savedUser;
     } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
+      }
       this.logger.error(
         `Failed to create user: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      throw error;
+      throw new InternalServerErrorException('Failed to create user');
     }
   }
 
@@ -79,7 +83,7 @@ export class UsersService {
       this.logger.error(
         `Failed to find user by Telegram ID ${telegramId}: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      throw new InternalServerErrorException('Failed to find user');
     }
   }
 
@@ -101,11 +105,14 @@ export class UsersService {
       this.logger.log(`User updated: ${updatedUser.telegramId}`);
       return updatedUser;
     } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
       this.logger.error(
         `Failed to update user ${telegramId}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      throw error;
+      throw new InternalServerErrorException('Failed to update user');
     }
   }
 
@@ -137,11 +144,14 @@ export class UsersService {
       this.logger.log(`User settings updated: ${telegramId}`);
       return updatedUser;
     } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
       this.logger.error(
         `Failed to update user settings ${telegramId}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      throw error;
+      throw new InternalServerErrorException('Failed to update user settings');
     }
   }
 
@@ -150,11 +160,14 @@ export class UsersService {
       await this.update(telegramId, { isActive: false });
       this.logger.log(`User deactivated: ${telegramId}`);
     } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
       this.logger.error(
         `Failed to deactivate user ${telegramId}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      throw error;
+      throw new InternalServerErrorException('Failed to deactivate user');
     }
   }
 
@@ -185,7 +198,7 @@ export class UsersService {
       this.logger.error(
         `Failed to check user existence ${telegramId}: ${error instanceof Error ? error.message : String(error)}`,
       );
-      return false;
+      throw new InternalServerErrorException('Failed to check user existence');
     }
   }
 
