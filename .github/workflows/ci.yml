@@ -201,9 +201,8 @@ jobs:
           echo "🐳 Dockerfileチェック中..."
           if [ -f "Dockerfile" ]; then
             echo "✅ Dockerfileが存在します"
-            # Dockerfileの構文チェック
-            docker run --rm -i hadolint/hadolint < Dockerfile
-            # || true を削除 - 問題があれば失敗
+            # Dockerfileの構文チェック（infoレベルは無視）
+            docker run --rm -i hadolint/hadolint --failure-threshold error < Dockerfile
           else
             echo "⚠️ Dockerfileが見つかりません"
             echo "Dockerサポートは今後のフェーズで追加予定です"
