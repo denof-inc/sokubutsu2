@@ -144,6 +144,9 @@ describe('MonitoringScheduler', () => {
       expect(mockStorage.incrementNewListings).not.toHaveBeenCalled();
       expect(mockTelegram.sendNewListingNotification).not.toHaveBeenCalled();
 
+      // モックをクリアして2回目のチェック準備
+      jest.clearAllMocks();
+
       // 2回目のチェック（ハッシュが変更）
       mockStorage.getHash.mockReturnValue('test-hash'); // 以前のハッシュ
       mockScraper.scrapeAthome.mockResolvedValue({
@@ -219,7 +222,7 @@ describe('MonitoringScheduler', () => {
       const status = scheduler.getStatus();
 
       expect(status).toEqual({
-        isRunning: true,
+        isRunning: false, // startメソッドが完了した後はfalseになる
         consecutiveErrors: 0,
         hasJobs: true,
       });

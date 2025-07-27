@@ -1,26 +1,27 @@
-import { Logger, LogLevel, logger, vibeLogger } from '../logger';
-import * as vibelogger from 'vibelogger';
+/* eslint-disable @typescript-eslint/no-var-requires */
 
-// vibeloggerのモック
-jest.mock('vibelogger', () => ({
-  createFileLogger: jest.fn().mockReturnValue({
+// vibeloggerのモック - importの前に設定
+jest.mock('vibelogger', () => {
+  const mockLogger = {
     error: jest.fn(),
     warn: jest.fn(),
     info: jest.fn(),
     debug: jest.fn(),
-  }),
-}));
+  };
+  return {
+    createFileLogger: jest.fn(() => mockLogger),
+  };
+});
+
+import { Logger, LogLevel, logger, vibeLogger } from '../logger';
 
 describe('Logger', () => {
   let mockVibeLogger: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    const mockResults = (vibelogger.createFileLogger as jest.Mock).mock.results;
-    mockVibeLogger =
-      mockResults?.[0]
-        ? mockResults[0].value
-        : (vibelogger.createFileLogger as jest.Mock)();
+    // モックからvibeLoggerを取得
+    mockVibeLogger = vibeLogger;
   });
 
   describe('LogLevel', () => {
@@ -119,7 +120,22 @@ describe('Logger', () => {
     });
 
     it('createFileLoggerが正しいプロジェクト名で呼ばれていること', () => {
-      expect(vibelogger.createFileLogger).toHaveBeenCalledWith('sokubutsu');
+      // requireされた時点で既に呼ばれているため、importをリセットする
+      jest.resetModules();
+      jest.doMock('vibelogger', () => ({
+        createFileLogger: jest.fn(() => ({
+          error: jest.fn(),
+          warn: jest.fn(),
+          info: jest.fn(),
+          debug: jest.fn(),
+        })),
+      }));
+
+      // logger.tsを再度requireして、createFileLoggerが呼ばれることを確認
+      require('../logger');
+
+      const vibeloggerMock = require('vibelogger') as typeof import('vibelogger');
+      expect(vibeloggerMock.createFileLogger).toHaveBeenCalledWith('sokubutsu');
     });
   });
 });
