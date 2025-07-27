@@ -370,13 +370,8 @@ export class AdvancedStealthService {
 
     // 7. AudioContext フィンガープリント対策
     await page.addInitScript(() => {
-      const AudioContext =
-        window.AudioContext ||
-        (
-          window as ExtendedWindow & {
-            webkitAudioContext?: typeof AudioContext;
-          }
-        ).webkitAudioContext;
+      const win = window as any;
+      const AudioContext = win.AudioContext || win.webkitAudioContext;
       if (AudioContext) {
         const originalCreateAnalyser = AudioContext.prototype.createAnalyser;
         AudioContext.prototype.createAnalyser = function () {
@@ -418,7 +413,7 @@ export class AdvancedStealthService {
 
     // 9. Timezone偽装
     await page.addInitScript(() => {
-      const originalGetTimezoneOffset = Date.prototype.getTimezoneOffset;
+      const _originalGetTimezoneOffset = Date.prototype.getTimezoneOffset;
       Date.prototype.getTimezoneOffset = function () {
         return -540; // JST (UTC+9)
       };

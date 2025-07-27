@@ -15,11 +15,11 @@ export class TelegramAuthGuard implements CanActivate {
   constructor(private readonly authService: AuthService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<any>();
+    const request = context.switchToHttp().getRequest();
     const update: TelegramUpdate = request.body as TelegramUpdate;
 
     // Telegramメッセージの検証
-    if (!update || !update.message || !update.message.from) {
+    if (!update.message?.from) {
       this.logger.warn('Invalid Telegram update structure');
       throw new UnauthorizedException('Invalid request');
     }
@@ -59,7 +59,7 @@ export class TelegramAuthGuard implements CanActivate {
           // バックグラウンドで更新
           this.authService
             .authenticateTelegramUser(telegramUser)
-            .catch((err) => {
+            .catch((err: unknown) => {
               this.logger.error(
                 `Failed to update last active for ${telegramId}:`,
                 err,

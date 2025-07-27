@@ -68,10 +68,10 @@ export class ParallelScrapingOrchestrator {
     const averageTime = results.length > 0 ? totalTime / results.length : 0;
 
     this.logger.log(
-      `Batch execution completed: ${results.length} successful, ${failures.length} failed`,
+      `Batch execution completed: ${String(results.length)} successful, ${String(failures.length)} failed`,
     );
     this.logger.log(
-      `Total time: ${totalTime}ms, Average: ${averageTime.toFixed(2)}ms`,
+      `Total time: ${String(totalTime)}ms, Average: ${averageTime.toFixed(2)}ms`,
     );
 
     return {
@@ -99,7 +99,8 @@ export class ParallelScrapingOrchestrator {
       this.taskQueue.length > 0 &&
       this.activeTasks < this.maxConcurrency
     ) {
-      const task = this.taskQueue.shift()!;
+      const task = this.taskQueue.shift();
+      if (!task) continue;
       promises.push(this.executeTask(task, results, failures));
     }
 
@@ -154,7 +155,9 @@ export class ParallelScrapingOrchestrator {
         await this.browserPool.release(browser);
       }
     } catch (error) {
-      this.logger.error(`Task ${task.id} failed: ${error.message}`);
+      this.logger.error(
+        `Task ${task.id} failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       failures.push({
         task,
         error: error.message,
@@ -173,8 +176,10 @@ export class ParallelScrapingOrchestrator {
 
       // 待機中のタスクがあれば次を開始
       if (this.taskQueue.length > 0 && this.activeTasks < this.maxConcurrency) {
-        const nextTask = this.taskQueue.shift()!;
-        this.executeTask(nextTask, results, failures);
+        const nextTask = this.taskQueue.shift();
+        if (nextTask) {
+          void this.executeTask(nextTask, results, failures);
+        }
       }
     }
   }
@@ -189,7 +194,9 @@ export class ParallelScrapingOrchestrator {
     return Promise.race([
       operation(),
       new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error('Operation timeout')), timeout),
+        setTimeout(() => {
+          reject(new Error('Operation timeout'));
+        }, timeout),
       ),
     ]);
   }

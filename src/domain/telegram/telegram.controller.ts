@@ -37,7 +37,7 @@ export class TelegramController {
     @TelegramUser() telegramUser: ITelegramUser,
     @IsNewUser() isNewUser: boolean,
   ) {
-    this.logger.debug(`Received update: ${JSON.stringify(update)}`);
+    this.logger.debug(`Received update: ${String(JSON.stringify(update))}`);
 
     // メッセージがない場合は無視
     if (!update.message || !update.message.text) {
@@ -107,7 +107,7 @@ export class TelegramController {
   private async handleStartCommand(
     chatId: number,
     telegramUser: ITelegramUser,
-    isNewUser: boolean,
+    _isNewUser: boolean,
   ) {
     const result = await this.authService.handleStartCommand(telegramUser);
     await this.telegramService.sendMessage(chatId, result.welcomeMessage);
@@ -146,7 +146,7 @@ export class TelegramController {
   /**
    * /list コマンドハンドラー
    */
-  private async handleListCommand(chatId: number, user: User) {
+  private async handleListCommand(chatId: number, _user: User) {
     // TODO: ユーザーの監視URL一覧を取得
     const message = `
 📋 監視中のURL一覧:
@@ -193,7 +193,7 @@ export class TelegramController {
     // TODO: URL削除処理を実装
     await this.telegramService.sendMessage(
       chatId,
-      `番号 ${index} のURLを削除しました。`,
+      `番号 ${String(index)} のURLを削除しました。`,
     );
   }
 
@@ -221,7 +221,7 @@ export class TelegramController {
     // TODO: 監視一時停止処理を実装
     await this.telegramService.sendMessage(
       chatId,
-      `番号 ${index} の監視を一時停止しました。`,
+      `番号 ${String(index)} の監視を一時停止しました。`,
     );
   }
 
@@ -253,7 +253,7 @@ export class TelegramController {
     // TODO: 監視再開処理を実装
     await this.telegramService.sendMessage(
       chatId,
-      `番号 ${index} の監視を再開しました。`,
+      `番号 ${String(index)} の監視を再開しました。`,
     );
   }
 
@@ -269,7 +269,7 @@ export class TelegramController {
 📅 登録日: ${user.createdAt.toLocaleDateString('ja-JP')}
 🔍 監視中URL: 2件
 ⏸️ 一時停止中: 1件
-🔔 通知設定: ${user.settings?.notifications?.enabled ? 'ON' : 'OFF'}
+🔔 通知設定: ${user.settings?.notifications.enabled ? 'ON' : 'OFF'}
 
 最終チェック: 5分前
 次回チェック: 10分後

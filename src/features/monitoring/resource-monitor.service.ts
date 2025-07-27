@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as os from 'os';
 
 interface SystemMetrics {
   memory: {
@@ -89,8 +88,6 @@ export class ResourceMonitorService {
   }
 
   onModuleDestroy(): void {
-    if (this.monitoringInterval) {
-      clearInterval(this.monitoringInterval);
-    }
+    clearInterval(this.monitoringInterval);
   }
 }

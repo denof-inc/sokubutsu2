@@ -45,7 +45,7 @@ export class RateLimitGuard implements CanActivate {
     }
 
     if (userRequests.count >= maxRequests) {
-      this.logger.warn(`Rate limit exceeded for user ${userId}`);
+      this.logger.warn(`Rate limit exceeded for user ${String(userId)}`);
       throw new HttpException(
         'Too Many Requests',
         HttpStatus.TOO_MANY_REQUESTS,

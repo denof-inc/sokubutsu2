@@ -34,7 +34,9 @@ export class AlertManagerService {
       // アラート履歴の更新
       this.alertHistory.set(alertKey, new Date());
     } catch (error) {
-      this.logger.error(`アラート送信失敗: ${error.message}`);
+      this.logger.error(
+        `アラート送信失敗: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -64,7 +66,9 @@ export class AlertManagerService {
     try {
       await this.notificationService.sendNotification(message);
     } catch (error) {
-      this.logger.error(`Telegram通知送信失敗: ${error.message}`);
+      this.logger.error(
+        `Telegram通知送信失敗: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -102,7 +106,7 @@ export class AlertManagerService {
     }
   }
 
-  private async sendEmailAlert(alert: Alert): Promise<void> {
+  private async sendEmailAlert(_alert: Alert): Promise<void> {
     // 重要なアラートの場合のメール通知
     // 実装は要件に応じて追加
     this.logger.log('メール通知は未実装です');

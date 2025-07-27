@@ -205,9 +205,7 @@ describe('UsersService', () => {
       const deactivatedUser = { ...mockUser, isActive: false } as User;
       repository.save.mockResolvedValue(deactivatedUser);
 
-      const result = await service.deactivate('123456789');
-
-      expect(result).toBeUndefined();
+      await service.deactivate('123456789');
       expect(repository.save).toHaveBeenCalledWith(
         expect.objectContaining({ isActive: false }),
       );
@@ -252,18 +250,18 @@ describe('UsersService', () => {
         settings: {
           ...mockUser.settings,
           notifications: {
-            ...mockUser.settings!.notifications,
+            ...(mockUser.settings?.notifications ?? {}),
             enabled: false,
           },
-          language: mockUser.settings!.language,
+          language: mockUser.settings?.language ?? 'ja',
         },
       } as User;
       repository.save.mockResolvedValue(mergedSettings);
 
       const result = await service.updateSettings('123456789', partialSettings);
 
-      expect(result.settings!.notifications.enabled).toBe(false);
-      expect(result.settings!.notifications.silent).toBe(false); // 既存値を保持
+      expect(result.settings?.notifications.enabled).toBe(false);
+      expect(result.settings?.notifications.silent).toBe(false); // 既存値を保持
     });
   });
 

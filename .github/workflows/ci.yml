@@ -30,42 +30,57 @@ jobs:
     - name: Run ESLint
       run: |
         echo "🔍 ESLintチェック実行中..."
-        npm run lint || true
-        ERROR_COUNT=$(npm run lint 2>&1 | grep -E "(error|warning)" | wc -l || echo "0")
-        echo "ESLintエラー数: $ERROR_COUNT"
-        echo "eslint_errors=$ERROR_COUNT" >> $GITHUB_ENV
+        npm run lint
+        # || true を削除 - 失敗時はCI失敗
     
     - name: Run TypeScript check
       run: |
         echo "🔧 TypeScriptチェック実行中..."
-        npx tsc --noEmit || true
+        npx tsc --noEmit
+        # || true を削除 - 失敗時はCI失敗
     
     - name: Run tests
       run: |
         echo "🧪 テスト実行中..."
-        npm run test -- --passWithNoTests || true
+        npm run test
+        # || true と --passWithNoTests を削除 - 失敗時はCI失敗
     
     - name: Run test coverage
       run: |
         echo "📊 カバレッジ測定中..."
-        npm run test:cov -- --passWithNoTests || true
+        npm run test:cov
+        # || true と --passWithNoTests を削除 - 失敗時はCI失敗
     
     - name: Build application
       run: |
         echo "🔨 ビルド実行中..."
         npm run build
     
-    - name: Quality Report
-      if: always()
+    - name: Quality Gate
       run: |
-        echo "📊 品質レポート"
-        echo "=================="
-        echo "ESLintエラー数: ${{ env.eslint_errors }}"
-        if [ "${{ env.eslint_errors }}" -le 50 ]; then
-          echo "✅ ESLintエラー数が目標値（50個以下）を達成しています！"
-        else
-          echo "⚠️ ESLintエラー数が目標値を超えています（目標: 50個以下）"
+        echo "🚪 品質ゲートチェック"
+        # ESLintエラー数をチェック
+        ERROR_COUNT=$(npm run lint 2>&1 | grep -c "error" || echo "0")
+        WARNING_COUNT=$(npm run lint 2>&1 | grep -c "warning" || echo "0")
+        TOTAL_ISSUES=$((ERROR_COUNT + WARNING_COUNT))
+        
+        echo "ESLintエラー: $ERROR_COUNT個"
+        echo "ESLint警告: $WARNING_COUNT個"
+        echo "合計問題数: $TOTAL_ISSUES個"
+        
+        # エラーが1つでもあれば失敗
+        if [ "$ERROR_COUNT" -gt 0 ]; then
+          echo "❌ ESLintエラーが存在します"
+          exit 1
         fi
+        
+        # 警告が多すぎる場合も失敗
+        if [ "$WARNING_COUNT" -gt 100 ]; then
+          echo "❌ ESLint警告が多すぎます（上限: 100個）"
+          exit 1
+        fi
+        
+        echo "✅ 品質ゲート通過"
 
   security-scan:
     runs-on: ubuntu-latest
@@ -87,7 +102,8 @@ jobs:
     - name: Run security audit
       run: |
         echo "🔒 セキュリティ監査実行中..."
-        npm audit --audit-level moderate || true
+        npm audit --audit-level moderate
+        # || true を削除 - 脆弱性があれば失敗
     
     - name: Check for sensitive data
       run: |
@@ -98,9 +114,11 @@ jobs:
           exit 1
         fi
         # APIキーやトークンが露出していないか確認
-        if grep -rE "(api_key|apikey|api-key|token|secret|password)" --include="*.ts" --include="*.js" --exclude-dir=node_modules .; then
-          echo "⚠️ 潜在的な機密情報が検出されました。確認してください。"
+        if grep -rE "(api_key|apikey|api-key|token|secret|password)" --include="*.ts" --include="*.js" --exclude-dir=node_modules . | grep -v "// " | grep -v "* " | grep -v "interface" | grep -v "type"; then
+          echo "❌ 潜在的な機密情報が検出されました"
+          exit 1
         fi
+        echo "✅ 機密情報チェック完了"
 
   docker-check:
     runs-on: ubuntu-latest
@@ -117,7 +135,8 @@ jobs:
         if [ -f "Dockerfile" ]; then
           echo "✅ Dockerfileが存在します"
           # Dockerfileの構文チェック
-          docker run --rm -i hadolint/hadolint < Dockerfile || true
+          docker run --rm -i hadolint/hadolint < Dockerfile
+          # || true を削除 - 問題があれば失敗
         else
           echo "⚠️ Dockerfileが見つかりません"
         fi
@@ -128,9 +147,62 @@ jobs:
         if [ -f "docker-compose.yml" ]; then
           echo "✅ docker-compose.ymlが存在します"
           # docker-composeの構文チェック
-          docker compose config --quiet || true
+          docker compose config --quiet
+          # || true を削除 - 問題があれば失敗
         else
           echo "⚠️ docker-compose.ymlが見つかりません"
+        fi
+
+  quality-metrics-report:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Generate Quality Report
+      run: |
+        echo "📊 品質メトリクスレポート"
+        echo "========================"
+        
+        # ESLintメトリクス
+        LINT_OUTPUT=$(npm run lint 2>&1 || true)
+        ERROR_COUNT=$(echo "$LINT_OUTPUT" | grep -c "error" || echo "0")
+        WARNING_COUNT=$(echo "$LINT_OUTPUT" | grep -c "warning" || echo "0")
+        
+        echo "ESLintエラー: $ERROR_COUNT個"
+        echo "ESLint警告: $WARNING_COUNT個"
+        
+        # TypeScriptメトリクス
+        TS_OUTPUT=$(npx tsc --noEmit 2>&1 || true)
+        TS_ERRORS=$(echo "$TS_OUTPUT" | grep -c "error TS" || echo "0")
+        
+        echo "TypeScriptエラー: $TS_ERRORS個"
+        
+        # 品質基準判定
+        echo ""
+        echo "品質基準判定:"
+        if [ "$ERROR_COUNT" -eq 0 ] && [ "$TS_ERRORS" -eq 0 ]; then
+          echo "✅ エラーゼロ達成"
+        else
+          echo "❌ エラーが存在します"
+        fi
+        
+        if [ "$WARNING_COUNT" -le 100 ]; then
+          echo "✅ 警告数が許容範囲内"
+        else
+          echo "❌ 警告数が多すぎます"
         fi
 
   create-release:
@@ -168,8 +240,9 @@ jobs:
           ## 変更内容
           ${{ steps.changelog.outputs.commits }}
           
-          ## 品質メトリクス
-          - ESLintエラー数: ${{ env.eslint_errors }}
-          - ビルド: 成功
+          ## 品質基準
+          ✅ 全ての品質チェックに合格
+          ✅ セキュリティ監査に合格
+          ✅ ビルド成功
         draft: false
         prerelease: false

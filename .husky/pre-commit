@@ -2,11 +2,17 @@
 
 echo "🔍 Pre-commit checks running..."
 
-# lint-stagedを実行
-npx lint-staged
+# lint-stagedを実行（エラーで停止）
+npx lint-staged || {
+  echo "❌ Lint-staged failed! Fix errors before committing."
+  exit 1
+}
 
-# TypeScript型チェック（高速化のため並列実行）
+# TypeScript型チェック（エラーで停止）
 echo "🔧 Running TypeScript check..."
-npx tsc --noEmit --incremental
+npx tsc --noEmit --incremental || {
+  echo "❌ TypeScript check failed! Fix type errors before committing."
+  exit 1
+}
 
 echo "✅ Pre-commit checks completed!"

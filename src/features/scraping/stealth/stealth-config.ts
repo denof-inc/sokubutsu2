@@ -1,7 +1,7 @@
 import { Page } from 'playwright';
 
-export class StealthConfig {
-  static getStealthOptions(): any {
+export const StealthConfig = {
+  getStealthOptions(): any {
     return {
       // User-Agent偽装
       userAgent:
@@ -30,9 +30,9 @@ export class StealthConfig {
         '--disable-javascript', // 初期アクセス時のみ無効
       ],
     };
-  }
+  },
 
-  static async setupStealthMode(page: Page): Promise<void> {
+  async setupStealthMode(page: Page): Promise<void> {
     // navigator.webdriver削除
     await page.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', {
@@ -84,5 +84,5 @@ export class StealthConfig {
         return originalGetContext.call(this, type);
       };
     });
-  }
-}
+  },
+};

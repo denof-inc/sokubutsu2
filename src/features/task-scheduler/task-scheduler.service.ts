@@ -25,7 +25,7 @@ export class TaskSchedulerService implements OnModuleInit {
     cron.schedule('* * * * *', async () => {
       this.logger.log('====== cronジョブを開始します ======');
       const urlsToScrape = await this.urlService.findAllActive();
-      this.logger.log(`${urlsToScrape.length}件のURLを監視します。`);
+      this.logger.log(`${String(urlsToScrape.length)}件のURLを監視します。`);
 
       for (const url of urlsToScrape) {
         await this.processUrl(url);
@@ -50,7 +50,7 @@ export class TaskSchedulerService implements OnModuleInit {
 
     const oldHash = url.contentHash;
     this.logger.log(
-      `[${url.name}] 古いハッシュ: ${oldHash?.substring(0, 10)}...`,
+      `[${url.name}] 古いハッシュ: ${oldHash ? oldHash.substring(0, 10) : 'なし'}...`,
     );
     this.logger.log(
       `[${url.name}] 新しいハッシュ: ${newHash.substring(0, 10)}...`,

@@ -41,8 +41,8 @@ export class ResourceLimitError extends ScrapingError {
   }
 }
 
-export class ErrorClassifier {
-  static classify(error: Error): ScrapingError {
+export const ErrorClassifier = {
+  classify(error: Error): ScrapingError {
     const message = error.message.toLowerCase();
 
     if (
@@ -83,5 +83,5 @@ export class ErrorClassifier {
     }
 
     return new ScrapingError(error.message, 'UNKNOWN', true, true);
-  }
-}
+  },
+};

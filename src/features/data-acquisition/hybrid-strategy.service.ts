@@ -43,11 +43,11 @@ export class HybridStrategyService {
 
     for (const strategy of strategies) {
       try {
-        this.logger.log(`${strategy.name}戦略を試行: ${url}`);
+        this.logger.log(`${String(strategy.name)}戦略を試行: ${String(url)}`);
         const result = await strategy.method();
 
         if (result.success) {
-          this.logger.log(`${strategy.name}戦略で成功: ${url}`);
+          this.logger.log(`${String(strategy.name)}戦略で成功: ${String(url)}`);
           return {
             ...result,
             strategy: strategy.name,
@@ -55,7 +55,9 @@ export class HybridStrategyService {
           };
         }
       } catch (error) {
-        this.logger.warn(`${strategy.name}戦略失敗: ${error.message}`);
+        this.logger.warn(
+          `${String(strategy.name)}戦略失敗: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
 
@@ -90,7 +92,7 @@ export class HybridStrategyService {
         }
       } catch (error) {
         this.logger.debug(
-          `APIエンドポイント失敗: ${endpoint} - ${error.message}`,
+          `APIエンドポイント失敗: ${String(endpoint)} - ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }
@@ -108,7 +110,7 @@ export class HybridStrategyService {
       try {
         const feedData = await this.feedParserService.parseFeed(feedUrl);
 
-        if (feedData && feedData.items.length > 0) {
+        if (feedData.items.length > 0) {
           return {
             success: true,
             hasNewListings: this.detectNewListingsFromFeed(feedData.items),
@@ -118,7 +120,9 @@ export class HybridStrategyService {
           };
         }
       } catch (error) {
-        this.logger.debug(`フィード解析失敗: ${feedUrl} - ${error.message}`);
+        this.logger.debug(
+          `フィード解析失敗: ${String(feedUrl)} - ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
 
@@ -127,7 +131,7 @@ export class HybridStrategyService {
 
   private async tryLightScraping(
     url: string,
-    selector: string,
+    _selector: string,
   ): Promise<DataAcquisitionResult> {
     // HTTP + JSDOM による軽量スクレイピング
     try {
@@ -144,7 +148,9 @@ export class HybridStrategyService {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(
+          `HTTP ${String(response.status)}: ${response.statusText}`,
+        );
       }
 
       const html = await response.text();
@@ -158,7 +164,9 @@ export class HybridStrategyService {
         priority: 3,
       };
     } catch (error) {
-      throw new Error(`軽量スクレイピング失敗: ${error.message}`);
+      throw new Error(
+        `軽量スクレイピング失敗: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -228,6 +236,6 @@ export class HybridStrategyService {
       'chintai.mynavi.jp': 'マイナビ賃貸 物件情報',
     };
 
-    return siteQueries[domain] || `${domain} 不動産 物件`;
+    return siteQueries[domain] || `${String(domain)} 不動産 物件`;
   }
 }

@@ -34,12 +34,14 @@ export class TelegramService {
       });
 
       if (!response.data.ok) {
-        throw new Error(`Telegram API error: ${response.data.description}`);
+        throw new Error(
+          `Telegram API error: ${String(response.data.description)}`,
+        );
       }
 
-      this.logger.debug(`Message sent to ${chatId}`);
+      this.logger.debug(`Message sent to ${String(chatId)}`);
     } catch (error) {
-      this.logger.error(`Failed to send message to ${chatId}:`, error);
+      this.logger.error(`Failed to send message to ${String(chatId)}:`, error);
       throw error;
     }
   }
@@ -65,12 +67,14 @@ export class TelegramService {
       });
 
       if (!response.data.ok) {
-        throw new Error(`Telegram API error: ${response.data.description}`);
+        throw new Error(
+          `Telegram API error: ${String(response.data.description)}`,
+        );
       }
 
-      this.logger.debug(`Photo sent to ${chatId}`);
+      this.logger.debug(`Photo sent to ${String(chatId)}`);
     } catch (error) {
-      this.logger.error(`Failed to send photo to ${chatId}:`, error);
+      this.logger.error(`Failed to send photo to ${String(chatId)}:`, error);
       throw error;
     }
   }
@@ -100,7 +104,9 @@ export class TelegramService {
       });
 
       if (!response.data.ok) {
-        throw new Error(`Failed to set webhook: ${response.data.description}`);
+        throw new Error(
+          `Failed to set webhook: ${String(response.data.description)}`,
+        );
       }
 
       this.logger.log(`Webhook set to ${webhookUrl}`);
@@ -119,7 +125,7 @@ export class TelegramService {
 
       if (!response.data.ok) {
         throw new Error(
-          `Failed to delete webhook: ${response.data.description}`,
+          `Failed to delete webhook: ${String(response.data.description)}`,
         );
       }
 
@@ -138,7 +144,9 @@ export class TelegramService {
       const response = await axios.get(`${this.apiUrl}/getMe`);
 
       if (!response.data.ok) {
-        throw new Error(`Failed to get bot info: ${response.data.description}`);
+        throw new Error(
+          `Failed to get bot info: ${String(response.data.description)}`,
+        );
       }
 
       return response.data.result;

@@ -61,7 +61,7 @@ export class BrowserStealthService {
       'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     ];
 
-    const randomUserAgent =
+    const _randomUserAgent =
       userAgents[Math.floor(Math.random() * userAgents.length)];
     // Playwrightではcontext作成時にsetUserAgentを設定する必要がある
     // ここではヘッダーのみ設定
@@ -204,7 +204,7 @@ export class BrowserStealthService {
               description: 'Native Client',
               filename: 'internal-nacl-plugin',
               length: 2,
-              item: (index: number) => null,
+              item: (_index: number) => null,
               namedItem: () => null,
               refresh: () => {},
             },
@@ -255,11 +255,12 @@ export class BrowserStealthService {
           // わずかなノイズを追加
           const imageData = context.getImageData(0, 0, this.width, this.height);
           for (let i = 0; i < imageData.data.length; i += 4) {
-            imageData.data[i] = imageData.data[i] + (Math.random() * 2 - 1);
+            imageData.data[i] =
+              (imageData.data[i] as number) + (Math.random() * 2 - 1);
             imageData.data[i + 1] =
-              imageData.data[i + 1] + (Math.random() * 2 - 1);
+              (imageData.data[i + 1] as number) + (Math.random() * 2 - 1);
             imageData.data[i + 2] =
-              imageData.data[i + 2] + (Math.random() * 2 - 1);
+              (imageData.data[i + 2] as number) + (Math.random() * 2 - 1);
           }
           context.putImageData(imageData, 0, 0);
         }
@@ -267,17 +268,13 @@ export class BrowserStealthService {
       };
 
       // AudioContext フィンガープリンティング対策
-      const AudioContext =
-        window.AudioContext ||
-        (
-          window as ExtendedWindow & {
-            webkitAudioContext?: typeof AudioContext;
-          }
-        ).webkitAudioContext;
-      if (AudioContext) {
+      const win = window as any;
+      const AudioContextConstructor =
+        win.AudioContext || win.webkitAudioContext;
+      if (AudioContextConstructor) {
         const originalCreateOscillator =
-          AudioContext.prototype.createOscillator;
-        AudioContext.prototype.createOscillator = function () {
+          AudioContextConstructor.prototype.createOscillator;
+        AudioContextConstructor.prototype.createOscillator = function () {
           const oscillator = originalCreateOscillator.call(this);
           const originalFrequencyValue = oscillator.frequency.value;
           oscillator.frequency.value =

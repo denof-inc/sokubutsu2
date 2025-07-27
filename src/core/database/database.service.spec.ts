@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DatabaseService } from './database.service';
-import type { Database as BetterSqlite3Database } from 'better-sqlite3';
+// import type { Database as BetterSqlite3Database } from 'better-sqlite3';
 
 jest.mock('better-sqlite3');
 jest.mock('fs');
@@ -37,7 +37,7 @@ describe('DatabaseService', () => {
     }).compile();
 
     service = module.get<DatabaseService>(DatabaseService);
-    await service.onModuleInit();
+    service.onModuleInit();
   });
 
   afterEach(() => {

@@ -167,7 +167,9 @@ export class MetricsCollectorService {
         total: 200 * 1024 * 1024 * 1024, // 200GB
       };
     } catch (error) {
-      this.logger.error(`ディスク使用量取得失敗: ${error.message}`);
+      this.logger.error(
+        `ディスク使用量取得失敗: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return undefined;
     }
   }

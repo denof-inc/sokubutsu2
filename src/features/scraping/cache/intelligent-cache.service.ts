@@ -76,7 +76,7 @@ export class IntelligentCacheService {
 
     this.stats.hits++;
     this.logger.debug(
-      `Cache hit for ${url} (access count: ${entry.accessCount})`,
+      `Cache hit for ${url} (access count: ${String(entry.accessCount)})`,
     );
 
     // LRUの実装: 最近アクセスされたエントリを末尾に移動
@@ -97,7 +97,9 @@ export class IntelligentCacheService {
     // 容量チェック
     if (size > this.config.maxSize * 0.1) {
       // 単一エントリが10%を超える場合は拒否
-      this.logger.warn(`Entry too large to cache: ${url} (${size} bytes)`);
+      this.logger.warn(
+        `Entry too large to cache: ${url} (${String(size)} bytes)`,
+      );
       return;
     }
 
@@ -118,7 +120,9 @@ export class IntelligentCacheService {
     this.stats.currentSize += size;
     this.stats.entryCount++;
 
-    this.logger.debug(`Cached ${url} (size: ${size} bytes, TTL: ${ttl}ms)`);
+    this.logger.debug(
+      `Cached ${url} (size: ${String(size)} bytes, TTL: ${String(ttl)}ms)`,
+    );
   }
 
   /**
@@ -254,10 +258,14 @@ export class IntelligentCacheService {
       }
     }
 
-    expiredKeys.forEach((key) => this.evictEntry(key));
+    expiredKeys.forEach((key) => {
+      this.evictEntry(key);
+    });
 
     if (expiredKeys.length > 0) {
-      this.logger.debug(`Cleaned up ${expiredKeys.length} expired entries`);
+      this.logger.debug(
+        `Cleaned up ${String(expiredKeys.length)} expired entries`,
+      );
     }
   }
 
@@ -303,7 +311,7 @@ export class IntelligentCacheService {
    * キャッシュのウォームアップ（事前読み込み）
    */
   async warmup(urls: string[]): Promise<void> {
-    this.logger.log(`Warming up cache with ${urls.length} URLs`);
+    this.logger.log(`Warming up cache with ${String(urls.length)} URLs`);
 
     // 並列でプリフェッチ（ただし実際のスクレイピングは行わない）
     // この実装では、キャッシュのウォームアップロジックのみ示す

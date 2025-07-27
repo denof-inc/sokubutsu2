@@ -21,7 +21,10 @@ export abstract class ScrapingError extends Error {
     this.context = context;
 
     // Maintains proper stack trace for where our error was thrown (only available on V8)
-    if (Error.captureStackTrace) {
+    if (
+      'captureStackTrace' in Error &&
+      typeof Error.captureStackTrace === 'function'
+    ) {
       Error.captureStackTrace(this, this.constructor);
     }
   }
@@ -179,14 +182,11 @@ export class ValidationError extends ScrapingError {
 /**
  * エラー分類ユーティリティ
  */
-export class ErrorClassifier {
+export const ErrorClassifier = {
   /**
    * エラーを分類して適切なScrapingErrorに変換
    */
-  static classify(
-    error: Error,
-    context: Record<string, any> = {},
-  ): ScrapingError {
+  classify(error: Error, context: Record<string, any> = {}): ScrapingError {
     const message = error.message.toLowerCase();
 
     // タイムアウト検出
@@ -240,25 +240,25 @@ export class ErrorClassifier {
         super(error.message, 'UNKNOWN_ERROR', false, context);
       }
     })();
-  }
+  },
 
   /**
    * エラーが回復可能かどうかを判定
    */
-  static isRecoverable(error: Error): boolean {
+  isRecoverable(error: Error): boolean {
     if (error instanceof ScrapingError) {
       return error.recoverable;
     }
 
     // ScrapingErrorでない場合は分類して判定
-    const classified = this.classify(error);
+    const classified = ErrorClassifier.classify(error);
     return classified.recoverable;
-  }
+  },
 
   /**
    * リトライ戦略の提案
    */
-  static suggestRetryStrategy(error: ScrapingError): {
+  suggestRetryStrategy(error: ScrapingError): {
     shouldRetry: boolean;
     delay: number;
     maxRetries: number;
@@ -333,5 +333,5 @@ export class ErrorClassifier {
           strategy: 'exponential_backoff',
         };
     }
-  }
-}
+  },
+};

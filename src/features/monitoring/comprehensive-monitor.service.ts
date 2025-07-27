@@ -50,7 +50,9 @@ export class ComprehensiveMonitorService {
           const metrics = await this.metricsCollector.collectSystemMetrics();
           await this.evaluateSystemMetrics(metrics);
         } catch (error) {
-          this.logger.error(`システムメトリクス収集失敗: ${error.message}`);
+          this.logger.error(
+            `システムメトリクス収集失敗: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       })();
     }, 30000);
@@ -66,7 +68,9 @@ export class ComprehensiveMonitorService {
             await this.metricsCollector.collectBotProtectionMetrics();
           await this.evaluateBotProtectionMetrics(metrics);
         } catch (error) {
-          this.logger.error(`Bot対策メトリクス収集失敗: ${error.message}`);
+          this.logger.error(
+            `Bot対策メトリクス収集失敗: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       })();
     }, 300000);
@@ -82,7 +86,9 @@ export class ComprehensiveMonitorService {
             await this.metricsCollector.collectResponseTimeMetrics();
           await this.evaluateResponseTimeMetrics(metrics);
         } catch (error) {
-          this.logger.error(`応答時間メトリクス収集失敗: ${error.message}`);
+          this.logger.error(
+            `応答時間メトリクス収集失敗: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       })();
     }, 60000);
@@ -97,7 +103,9 @@ export class ComprehensiveMonitorService {
           const metrics = await this.metricsCollector.collectProcessMetrics();
           await this.evaluateProcessMetrics(metrics);
         } catch (error) {
-          this.logger.error(`プロセスメトリクス収集失敗: ${error.message}`);
+          this.logger.error(
+            `プロセスメトリクス収集失敗: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       })();
     }, 60000);
@@ -219,7 +227,7 @@ export class ComprehensiveMonitorService {
       await this.alertManager.sendAlert({
         level: 'WARNING',
         type: 'TOO_MANY_PROCESSES',
-        message: `アクティブなブラウザプロセス数が多い: ${metrics.activeBrowserProcesses}個`,
+        message: `アクティブなブラウザプロセス数が多い: ${String(metrics.activeBrowserProcesses)}個`,
         metrics,
         recommendedAction: '不要なプロセスの終了を検討してください',
       });
@@ -233,7 +241,7 @@ export class ComprehensiveMonitorService {
       await this.alertManager.sendAlert({
         level: 'INFO',
         type: 'LONG_RUNNING_PROCESSES',
-        message: `長時間実行中のプロセス: ${longRunningProcesses.length}個`,
+        message: `長時間実行中のプロセス: ${String(longRunningProcesses.length)}個`,
         metrics: { longRunningProcesses },
         recommendedAction: 'プロセスの定期的な再起動を検討してください',
       });
@@ -241,6 +249,6 @@ export class ComprehensiveMonitorService {
   }
 
   onModuleDestroy(): void {
-    this.stopMonitoring();
+    void this.stopMonitoring();
   }
 }

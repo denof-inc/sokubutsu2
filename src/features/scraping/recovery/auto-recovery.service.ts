@@ -144,13 +144,11 @@ export class AutoRecoveryService {
     }
 
     // 戦略統計の初期化
-    if (!this.stats.recoveryStrategies[strategy.name]) {
-      this.stats.recoveryStrategies[strategy.name] = {
-        attempts: 0,
-        successes: 0,
-        failures: 0,
-      };
-    }
+    this.stats.recoveryStrategies[strategy.name] ??= {
+      attempts: 0,
+      successes: 0,
+      failures: 0,
+    };
 
     this.stats.recoveryStrategies[strategy.name].attempts++;
 
@@ -180,7 +178,7 @@ export class AutoRecoveryService {
       return {
         success: false,
         shouldRetry: false,
-        message: `Recovery strategy failed: ${recoveryError.message}`,
+        message: `Recovery strategy failed: ${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}`,
       };
     }
   }
@@ -261,7 +259,7 @@ export class AutoRecoveryService {
         success: true,
         shouldRetry: true,
         delay: delay + Math.random() * 1000, // ジッター追加
-        message: `Network error recovery with ${delay}ms delay`,
+        message: `Network error recovery with ${String(delay)}ms delay`,
       };
     }
 
@@ -380,7 +378,7 @@ export class AutoRecoveryService {
           success: true,
           shouldRetry: context.attemptNumber < 3,
           delay: backoffDelay,
-          message: `Rate limit recovery with ${backoffDelay / 1000}s delay`,
+          message: `Rate limit recovery with ${String(backoffDelay / 1000)}s delay`,
         };
       }
 

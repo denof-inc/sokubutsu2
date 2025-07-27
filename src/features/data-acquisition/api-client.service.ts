@@ -40,7 +40,7 @@ export class ApiClientService {
             endpoints.push(url);
           }
         }
-      } catch (error) {
+      } catch {
         // エンドポイントが存在しない場合は無視
       }
     }
@@ -60,7 +60,9 @@ export class ApiClientService {
 
       return response.data;
     } catch (error) {
-      throw new Error(`API取得失敗: ${error.message}`);
+      throw new Error(
+        `API取得失敗: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 }

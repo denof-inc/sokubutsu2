@@ -37,7 +37,10 @@ export class UsersService {
       this.logger.log(`User created: ${savedUser.telegramId}`);
       return savedUser;
     } catch (error) {
-      this.logger.error(`Failed to create user: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to create user: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -74,7 +77,7 @@ export class UsersService {
       });
     } catch (error) {
       this.logger.error(
-        `Failed to find user by Telegram ID ${telegramId}: ${error.message}`,
+        `Failed to find user by Telegram ID ${telegramId}: ${error instanceof Error ? error.message : String(error)}`,
       );
       throw error;
     }
@@ -99,8 +102,8 @@ export class UsersService {
       return updatedUser;
     } catch (error) {
       this.logger.error(
-        `Failed to update user ${telegramId}: ${error.message}`,
-        error.stack,
+        `Failed to update user ${telegramId}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -135,8 +138,8 @@ export class UsersService {
       return updatedUser;
     } catch (error) {
       this.logger.error(
-        `Failed to update user settings ${telegramId}: ${error.message}`,
-        error.stack,
+        `Failed to update user settings ${telegramId}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -148,8 +151,8 @@ export class UsersService {
       this.logger.log(`User deactivated: ${telegramId}`);
     } catch (error) {
       this.logger.error(
-        `Failed to deactivate user ${telegramId}: ${error.message}`,
-        error.stack,
+        `Failed to deactivate user ${telegramId}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -180,7 +183,7 @@ export class UsersService {
       return count > 0;
     } catch (error) {
       this.logger.error(
-        `Failed to check user existence ${telegramId}: ${error.message}`,
+        `Failed to check user existence ${telegramId}: ${error instanceof Error ? error.message : String(error)}`,
       );
       return false;
     }

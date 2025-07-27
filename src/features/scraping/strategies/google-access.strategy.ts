@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { chromium, Browser, Page, ElementHandle } from 'playwright';
+import { chromium, Page, ElementHandle } from 'playwright';
 import { StealthConfig } from '../stealth/stealth-config';
 
 export interface ScrapingResult {
@@ -51,8 +51,8 @@ export class GoogleAccessStrategy {
           }
         } catch (error) {
           this.logger.warn(
-            `Google search pattern ${i + 1} failed:`,
-            error.message,
+            `Google search pattern ${String(i + 1)} failed:`,
+            error instanceof Error ? error.message : String(error),
           );
 
           // 失敗時の適応的待機
@@ -93,7 +93,7 @@ export class GoogleAccessStrategy {
     } catch (error) {
       this.logger.warn(
         'Bot detection preparation failed, continuing...',
-        error.message,
+        error instanceof Error ? error.message : String(error),
       );
     }
   }

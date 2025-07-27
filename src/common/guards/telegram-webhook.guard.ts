@@ -15,7 +15,7 @@ export class TelegramWebhookGuard implements CanActivate {
   constructor(private readonly configService: ConfigService) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest<any>();
+    const request = context.switchToHttp().getRequest();
 
     // 開発環境では検証をスキップ
     if (this.configService.get('NODE_ENV') === 'development') {

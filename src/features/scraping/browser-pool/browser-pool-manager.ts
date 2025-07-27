@@ -35,7 +35,7 @@ export class BrowserPoolManager implements OnModuleDestroy {
   };
 
   constructor() {
-    this.initializePool();
+    void this.initializePool();
     this.startMaintenanceTask();
   }
 
@@ -50,7 +50,7 @@ export class BrowserPoolManager implements OnModuleDestroy {
     }
 
     this.logger.log(
-      `Browser pool initialized with ${this.config.minSize} instances`,
+      `Browser pool initialized with ${String(this.config.minSize)} instances`,
     );
   }
 
@@ -58,7 +58,7 @@ export class BrowserPoolManager implements OnModuleDestroy {
    * ブラウザインスタンスの作成
    */
   private async createBrowserInstance(): Promise<BrowserInstance> {
-    const id = `browser-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const id = `browser-${String(Date.now())}-${Math.random().toString(36).substring(2, 11)}`;
 
     const browser = await chromium.launch(StealthConfig.getStealthOptions());
     const context = await browser.newContext({
@@ -154,7 +154,8 @@ export class BrowserPoolManager implements OnModuleDestroy {
 
     // 待機中のリクエストがあれば処理
     if (this.waitQueue.length > 0) {
-      const waiter = this.waitQueue.shift()!;
+      const waiter = this.waitQueue.shift();
+      if (!waiter) return;
       instance.inUse = true;
       instance.requestCount++;
       waiter(instance.context);

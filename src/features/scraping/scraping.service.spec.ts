@@ -15,7 +15,7 @@ describe('ScrapingService', () => {
   const mockUrl = 'https://example.com';
   const mockSelector = '#test-selector';
   const mockContent = '<div>Test Content</div>';
-  const mockHash = 'mocked-hash';
+  const _mockHash = 'mocked-hash';
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({

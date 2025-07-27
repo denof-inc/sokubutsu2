@@ -133,7 +133,7 @@ export class FeedParserService {
       let match;
 
       while ((match = feedLinkRegex.exec(html)) !== null) {
-        let feedUrl = match[1];
+        let feedUrl = String(match[1]);
 
         // 相対URLを絶対URLに変換
         if (feedUrl.startsWith('/')) {
@@ -197,7 +197,13 @@ export class FeedParserService {
         guid:
           typeof item.guid?.[0] === 'object' && item.guid[0]._
             ? String(item.guid[0]._)
-            : String(item.guid?.[0] || item.link?.[0] || ''),
+            : String(
+                typeof item.guid?.[0] === 'string'
+                  ? item.guid[0]
+                  : typeof item.link?.[0] === 'string'
+                    ? item.link[0]
+                    : '',
+              ),
       })),
     };
   }
@@ -210,27 +216,35 @@ export class FeedParserService {
       title:
         typeof feed.title?.[0] === 'object' && feed.title[0]._
           ? String(feed.title[0]._)
-          : String(feed.title?.[0] || ''),
+          : String(typeof feed.title?.[0] === 'string' ? feed.title[0] : ''),
       items: entries.map((entry) => ({
         title:
           typeof entry.title?.[0] === 'object' && entry.title[0]._
             ? String(entry.title[0]._)
-            : String(entry.title?.[0] || ''),
+            : String(
+                typeof entry.title?.[0] === 'string' ? entry.title[0] : '',
+              ),
         link: entry.link?.[0]?.$.href || '',
         description:
           typeof entry.summary?.[0] === 'object' && entry.summary[0]._
-            ? entry.summary[0]._
-            : entry.summary?.[0] ||
-                (typeof entry.content?.[0] === 'object' && entry.content?.[0]?._)
-              ? String(entry.content[0]._)
-              : String(entry.content?.[0] || ''),
+            ? String(entry.summary[0]._)
+            : String(
+                (typeof entry.summary?.[0] === 'string'
+                  ? entry.summary[0]
+                  : '') ||
+                  (typeof entry.content?.[0] === 'object' && entry.content[0]?._
+                    ? entry.content[0]._
+                    : typeof entry.content?.[0] === 'string'
+                      ? entry.content[0]
+                      : ''),
+              ),
         pubDate: new Date(
           entry.published?.[0] || entry.updated?.[0] || Date.now(),
         ),
         guid:
           typeof entry.id?.[0] === 'object' && entry.id[0]._
             ? String(entry.id[0]._)
-            : String(entry.id?.[0] || ''),
+            : String(typeof entry.id?.[0] === 'string' ? entry.id[0] : ''),
       })),
     };
   }

@@ -96,7 +96,7 @@ describe('AuthService', () => {
       const activeUser = { ...mockUser, isActive: true } as User;
       usersService.update.mockResolvedValue(activeUser);
 
-      const result = await service.authenticateTelegramUser(mockTelegramUser);
+      await service.authenticateTelegramUser(mockTelegramUser);
 
       expect(usersService.update).toHaveBeenCalledWith(
         '123456789',

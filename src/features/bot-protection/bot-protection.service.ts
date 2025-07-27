@@ -57,7 +57,7 @@ export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
 
   private async cleanup() {
     // すべてのセッションをクリーンアップ
-    for (const [domain, session] of this.sessions.entries()) {
+    for (const [_domain, session] of this.sessions.entries()) {
       await session.context.close();
     }
     this.sessions.clear();
@@ -99,7 +99,10 @@ export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
       await this.initializeBrowser();
     }
 
-    const context = await this.browser!.newContext({
+    if (!this.browser) {
+      throw new Error('Browser not initialized');
+    }
+    const context = await this.browser.newContext({
       userAgent: this.getRandomUserAgent(),
       viewport: { width: 1920, height: 1080 },
       locale: 'ja-JP',
@@ -193,7 +196,9 @@ export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Successfully accessed ${targetUrl} via Google`);
       return true;
     } catch (error) {
-      this.logger.error(`Google経由アクセス失敗: ${error.message}`);
+      this.logger.error(
+        `Google経由アクセス失敗: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return false;
     } finally {
       await page.close();
@@ -203,7 +208,7 @@ export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
   /**
    * Bot検知テスト（3段階）
    */
-  async testBotDetection(url: string): Promise<{
+  async testBotDetection(_url: string): Promise<{
     httpAccessible: boolean;
     jsdomAccessible: boolean;
     playwrightAccessible: boolean;
@@ -246,7 +251,7 @@ export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
       );
 
       this.logger.warn(
-        `Rate limit increased for ${domain}: ${rateLimit.currentDelay}ms`,
+        `Rate limit increased for ${domain}: ${String(rateLimit.currentDelay)}ms`,
       );
     } else {
       // 成功時は徐々にディレイを減少
@@ -277,7 +282,7 @@ export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
     if (session) {
       session.cookies = await session.context.cookies();
       this.logger.debug(
-        `Saved ${session.cookies.length} cookies for ${domain}`,
+        `Saved ${String(session.cookies.length)} cookies for ${domain}`,
       );
     }
   }
@@ -287,7 +292,7 @@ export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
     if (session && session.cookies.length > 0) {
       await session.context.addCookies(session.cookies);
       this.logger.debug(
-        `Restored ${session.cookies.length} cookies for ${domain}`,
+        `Restored ${String(session.cookies.length)} cookies for ${domain}`,
       );
     }
   }
@@ -330,7 +335,9 @@ export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
 
       return true;
     } catch (error) {
-      this.logger.error(`高度なBot対策実行失敗: ${error.message}`);
+      this.logger.error(
+        `高度なBot対策実行失敗: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return false;
     }
   }
@@ -364,6 +371,7 @@ export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
         domain,
       );
 
+      // 内部リンクが見つかった場合、ランダムに1つ選んでアクセス
       if (internalLinks.length > 0) {
         const randomLink =
           internalLinks[Math.floor(Math.random() * internalLinks.length)];
@@ -379,7 +387,9 @@ export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
 
       return true;
     } catch (error) {
-      this.logger.warn(`段階的アクセス失敗: ${error.message}`);
+      this.logger.warn(
+        `段階的アクセス失敗: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return false;
     }
   }

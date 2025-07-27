@@ -36,7 +36,9 @@ export class ProcessManagerService {
       this.logger.log(`ブラウザプロセス作成: ${sessionId}`);
       return browser;
     } catch (error) {
-      this.logger.error(`ブラウザプロセス作成失敗: ${error.message}`);
+      this.logger.error(
+        `ブラウザプロセス作成失敗: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw error;
     }
   }
@@ -54,7 +56,7 @@ export class ProcessManagerService {
         this.logger.log(`ブラウザプロセス終了: ${sessionId} (理由: ${reason})`);
       } catch (error) {
         this.logger.error(
-          `ブラウザプロセス終了失敗: ${sessionId} - ${error.message}`,
+          `ブラウザプロセス終了失敗: ${sessionId} - ${error instanceof Error ? error.message : String(error)}`,
         );
       }
 
@@ -74,7 +76,9 @@ export class ProcessManagerService {
       await this.closeBrowser(sessionId, 'SHUTDOWN');
     }
 
-    this.logger.log(`全ブラウザプロセス終了完了: ${sessionIds.length}個`);
+    this.logger.log(
+      `全ブラウザプロセス終了完了: ${String(sessionIds.length)}個`,
+    );
   }
 
   getActiveProcessCount(): number {

@@ -120,7 +120,7 @@ describe('TelegramController', () => {
       const update = {
         ...mockUpdate,
         message: {
-          ...mockUpdate.message!,
+          ...(mockUpdate.message || {}),
           text: '/add',
         },
       } as TelegramUpdate;
@@ -137,7 +137,7 @@ describe('TelegramController', () => {
       const update = {
         ...mockUpdate,
         message: {
-          ...mockUpdate.message!,
+          ...(mockUpdate.message || {}),
           text: '/add invalid-url',
         },
       } as TelegramUpdate;
@@ -154,7 +154,7 @@ describe('TelegramController', () => {
       const update = {
         ...mockUpdate,
         message: {
-          ...mockUpdate.message!,
+          ...(mockUpdate.message || {}),
           text: '/add https://example.com',
         },
       } as TelegramUpdate;
@@ -171,7 +171,7 @@ describe('TelegramController', () => {
       const update = {
         ...mockUpdate,
         message: {
-          ...mockUpdate.message!,
+          ...(mockUpdate.message || {}),
           text: '/list',
         },
       } as TelegramUpdate;
@@ -188,7 +188,7 @@ describe('TelegramController', () => {
       const update = {
         ...mockUpdate,
         message: {
-          ...mockUpdate.message!,
+          ...(mockUpdate.message || {}),
           text: '/help',
         },
       } as TelegramUpdate;
@@ -205,7 +205,7 @@ describe('TelegramController', () => {
       const update = {
         ...mockUpdate,
         message: {
-          ...mockUpdate.message!,
+          ...(mockUpdate.message || {}),
           text: '/unknown',
         },
       } as TelegramUpdate;
@@ -222,7 +222,7 @@ describe('TelegramController', () => {
       const update = {
         ...mockUpdate,
         message: {
-          ...mockUpdate.message!,
+          ...(mockUpdate.message || {}),
           text: undefined,
         },
       } as TelegramUpdate;
@@ -258,7 +258,7 @@ describe('TelegramController', () => {
       const update = {
         ...mockUpdate,
         message: {
-          ...mockUpdate.message!,
+          ...(mockUpdate.message || {}),
           text: '/status',
         },
       } as TelegramUpdate;
@@ -275,7 +275,7 @@ describe('TelegramController', () => {
       const update = {
         ...mockUpdate,
         message: {
-          ...mockUpdate.message!,
+          ...(mockUpdate.message || {}),
           text: '/remove',
         },
       } as TelegramUpdate;
@@ -292,7 +292,7 @@ describe('TelegramController', () => {
       const update = {
         ...mockUpdate,
         message: {
-          ...mockUpdate.message!,
+          ...(mockUpdate.message || {}),
           text: '/pause 1',
         },
       } as TelegramUpdate;
@@ -309,7 +309,7 @@ describe('TelegramController', () => {
       const update = {
         ...mockUpdate,
         message: {
-          ...mockUpdate.message!,
+          ...(mockUpdate.message || {}),
           text: '/resume abc',
         },
       } as TelegramUpdate;

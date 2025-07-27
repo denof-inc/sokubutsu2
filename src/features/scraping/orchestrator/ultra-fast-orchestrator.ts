@@ -46,7 +46,9 @@ export class UltraFastScrapingOrchestrator {
         return fastResult;
       }
     } catch (error) {
-      this.logger.debug(`Fast strategies failed: ${error.message}`);
+      this.logger.debug(
+        `Fast strategies failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     // Phase 3: 実証済みGoogle経由（15秒以内）
@@ -62,7 +64,9 @@ export class UltraFastScrapingOrchestrator {
         return provenResult;
       }
     } catch (error) {
-      this.logger.warn(`Proven Google access failed: ${error.message}`);
+      this.logger.warn(
+        `Proven Google access failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     // Phase 4: 高度ステルス（25秒以内）
@@ -78,7 +82,9 @@ export class UltraFastScrapingOrchestrator {
         return stealthResult;
       }
     } catch (error) {
-      this.logger.warn(`Advanced stealth failed: ${error.message}`);
+      this.logger.warn(
+        `Advanced stealth failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     // 全て失敗
@@ -87,7 +93,7 @@ export class UltraFastScrapingOrchestrator {
       success: false,
       method: 'ultra-fast-orchestrator',
       executionTime: totalTime,
-      error: `All strategies failed after ${totalTime}ms`,
+      error: `All strategies failed after ${String(totalTime)}ms`,
     };
   }
 
@@ -185,7 +191,7 @@ export class UltraFastScrapingOrchestrator {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        throw new Error(`HTTP ${String(response.status)}`);
       }
 
       const content = await response.text();
@@ -345,7 +351,7 @@ export class UltraFastScrapingOrchestrator {
               }
             }
           })
-          .catch((error) => {
+          .catch((error: unknown) => {
             errors.push(error);
             completed++;
             if (completed === promises.length) {
@@ -367,10 +373,9 @@ export class UltraFastScrapingOrchestrator {
     return Promise.race([
       operation(),
       new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error(`Operation timeout after ${timeoutMs}ms`)),
-          timeoutMs,
-        ),
+        setTimeout(() => {
+          reject(new Error(`Operation timeout after ${String(timeoutMs)}ms`));
+        }, timeoutMs),
       ),
     ]);
   }
@@ -393,9 +398,9 @@ export class UltraFastScrapingOrchestrator {
   private logPerformance(
     phase: string,
     startTime: number,
-    result: ScrapingResult,
+    _result: ScrapingResult,
   ): void {
     const executionTime = Date.now() - startTime;
-    this.logger.debug(`${phase} completed in ${executionTime}ms`);
+    this.logger.debug(`${phase} completed in ${String(executionTime)}ms`);
   }
 }

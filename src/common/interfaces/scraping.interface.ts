@@ -57,9 +57,12 @@ export interface ScrapingConfig {
 
 // 型ガード関数
 export function isScrapingResult(value: unknown): value is ScrapingResult {
-  const obj = value as ScrapingResult;
+  if (value === null || value === undefined) {
+    return false;
+  }
+
+  const obj = value as Record<string, unknown>;
   return (
-    obj &&
     typeof obj.success === 'boolean' &&
     typeof obj.url === 'string' &&
     typeof obj.method === 'string' &&
@@ -68,9 +71,12 @@ export function isScrapingResult(value: unknown): value is ScrapingResult {
 }
 
 export function isPropertyInfo(value: unknown): value is PropertyInfo {
-  const obj = value as PropertyInfo;
+  if (value === null || value === undefined) {
+    return false;
+  }
+
+  const obj = value as Record<string, unknown>;
   return (
-    obj &&
     typeof obj.id === 'string' &&
     typeof obj.title === 'string' &&
     typeof obj.url === 'string'

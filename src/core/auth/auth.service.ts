@@ -75,8 +75,8 @@ export class AuthService {
       return user;
     } catch (error) {
       this.logger.error(
-        `Authentication failed for Telegram user ${telegramUser?.id}: ${error.message}`,
-        error.stack,
+        `Authentication failed for Telegram user ${String(telegramUser.id)}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
 
       if (
@@ -115,8 +115,8 @@ export class AuthService {
       };
     } catch (error) {
       this.logger.error(
-        `Start command failed for user ${telegramUser?.id}: ${error.message}`,
-        error.stack,
+        `Start command failed for user ${String(telegramUser.id)}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -152,10 +152,6 @@ ${isNewUser ? 'ソクブツへようこそ！' : 'またお会いできて嬉し
    * Telegramユーザーデータの検証
    */
   private validateTelegramUser(telegramUser: TelegramUser): void {
-    if (!telegramUser) {
-      throw new InvalidTelegramDataException('Telegram user data is required');
-    }
-
     if (!telegramUser.id) {
       throw new InvalidTelegramDataException('Telegram user ID is required');
     }
@@ -192,7 +188,7 @@ ${isNewUser ? 'ソクブツへようこそ！' : 'またお会いできて嬉し
       return user?.isActive ?? false;
     } catch (error) {
       this.logger.error(
-        `User validation failed for ${telegramId}: ${error.message}`,
+        `User validation failed for ${telegramId}: ${error instanceof Error ? error.message : String(error)}`,
       );
       return false;
     }
@@ -205,7 +201,9 @@ ${isNewUser ? 'ソクブツへようこそ！' : 'またお会いできて嬉し
     try {
       return await this.usersService.findByTelegramId(telegramId);
     } catch (error) {
-      this.logger.error(`Failed to get user ${telegramId}: ${error.message}`);
+      this.logger.error(
+        `Failed to get user ${telegramId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return null;
     }
   }

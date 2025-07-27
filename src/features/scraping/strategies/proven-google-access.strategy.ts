@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { chromium, Browser, Page } from 'playwright';
+import { chromium } from 'playwright';
 import { ScrapingResult } from './google-access.strategy';
 
 @Injectable()
@@ -90,12 +90,14 @@ export class ProvenGoogleAccessStrategy {
         },
       };
     } catch (error) {
-      this.logger.error(`Proven Google access failed: ${error.message}`);
+      this.logger.error(
+        `Proven Google access failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return {
         success: false,
         method: 'proven-google-access',
         executionTime: Date.now() - startTime,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       };
     } finally {
       await browser.close();

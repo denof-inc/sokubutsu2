@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { chromium, Browser, BrowserContext } from 'playwright';
+import { chromium, Browser } from 'playwright';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { JSDOM } from 'jsdom';
@@ -59,7 +59,9 @@ export class ScrapingService {
     try {
       return await this.scrapeWithRetry(url, selector, options, retryConfig);
     } catch (error) {
-      this.logger.error(`[${url}] スクレイピング完全失敗: ${error.message}`);
+      this.logger.error(
+        `[${url}] スクレイピング完全失敗: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return null;
     }
   }
@@ -106,7 +108,7 @@ export class ScrapingService {
 
         // 回復不可能なエラーの場合は即座に失敗
         if (errorType === 'UNRECOVERABLE') {
-          throw new Error(`回復不可能なエラー: ${result.error}`);
+          throw new Error(`回復不可能なエラー: ${String(result.error)}`);
         }
 
         // リトライ可能なエラーの場合は待機後に再試行
@@ -117,7 +119,7 @@ export class ScrapingService {
           );
 
           this.logger.warn(
-            `スクレイピング失敗 (試行 ${attempt}/${config.maxRetries}): ${result.error}. ${delay}ms後に再試行`,
+            `スクレイピング失敗 (試行 ${String(attempt)}/${String(config.maxRetries)}): ${String(result.error)}. ${String(delay)}ms後に再試行`,
           );
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
@@ -131,7 +133,7 @@ export class ScrapingService {
           );
 
           this.logger.warn(
-            `スクレイピング例外 (試行 ${attempt}/${config.maxRetries}): ${error.message}. ${delay}ms後に再試行`,
+            `スクレイピング例外 (試行 ${String(attempt)}/${String(config.maxRetries)}): ${error instanceof Error ? error.message : String(error)}. ${String(delay)}ms後に再試行`,
           );
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
@@ -159,7 +161,9 @@ export class ScrapingService {
         return { hash, method: 'http' };
       }
     } catch (error) {
-      this.logger.warn(`[${url}] HTTP + Cheerio失敗: ${error.message}`);
+      this.logger.warn(
+        `[${url}] HTTP + Cheerio失敗: ${error instanceof Error ? error.message : String(error)}`,
+      );
       // エラー時はレート制限を強化
       await this.botProtectionService.getAdaptiveDelay(domain, true);
     }
@@ -173,7 +177,9 @@ export class ScrapingService {
         return { hash, method: 'jsdom' };
       }
     } catch (error) {
-      this.logger.warn(`[${url}] JSDOM失敗: ${error.message}`);
+      this.logger.warn(
+        `[${url}] JSDOM失敗: ${error instanceof Error ? error.message : String(error)}`,
+      );
       await this.botProtectionService.getAdaptiveDelay(domain, true);
     }
 
@@ -186,7 +192,9 @@ export class ScrapingService {
         return { hash, method: 'playwright' };
       }
     } catch (error) {
-      this.logger.error(`[${url}] Playwright失敗: ${error.message}`);
+      this.logger.error(
+        `[${url}] Playwright失敗: ${error instanceof Error ? error.message : String(error)}`,
+      );
       await this.botProtectionService.getAdaptiveDelay(domain, true);
     }
 
@@ -340,7 +348,9 @@ export class ScrapingService {
       await this.scrapeWithHttp(url, selector);
       results.httpAccessible = true;
     } catch (error) {
-      this.logger.debug(`HTTP test failed: ${error.message}`);
+      this.logger.debug(
+        `HTTP test failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     // JSDOM テスト
@@ -348,7 +358,9 @@ export class ScrapingService {
       await this.scrapeWithJsdom(url, selector);
       results.jsdomAccessible = true;
     } catch (error) {
-      this.logger.debug(`JSDOM test failed: ${error.message}`);
+      this.logger.debug(
+        `JSDOM test failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     // Playwright テスト
@@ -356,7 +368,9 @@ export class ScrapingService {
       await this.scrapeWithPlaywright(url, selector);
       results.playwrightAccessible = true;
     } catch (error) {
-      this.logger.debug(`Playwright test failed: ${error.message}`);
+      this.logger.debug(
+        `Playwright test failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     return results;
@@ -406,8 +420,14 @@ export class ScrapingService {
         await page.close();
       }
     } catch (error) {
-      this.logger.error(`Session-based Playwright失敗: ${error.message}`);
-      return { hash: null, method: 'google-playwright', error: error.message };
+      this.logger.error(
+        `Session-based Playwright失敗: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        hash: null,
+        method: 'google-playwright',
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 

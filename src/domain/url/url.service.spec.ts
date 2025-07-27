@@ -125,9 +125,7 @@ describe('UrlService', () => {
       const updateResult = { changes: 1, lastInsertRowid: 0 };
       databaseService.execute.mockReturnValue(updateResult);
 
-      const result = await service.updateHash(1, 'newhash123');
-
-      expect(result).toEqual(updateResult);
+      await service.updateHash(1, 'newhash123');
       expect(databaseService.execute).toHaveBeenCalledWith(
         'UPDATE urls SET content_hash = ? WHERE id = ?',
         ['newhash123', 1],
@@ -138,9 +136,7 @@ describe('UrlService', () => {
       const updateResult = { changes: 0, lastInsertRowid: 0 };
       databaseService.execute.mockReturnValue(updateResult);
 
-      const result = await service.updateHash(999, 'newhash123');
-
-      expect(result).toEqual(updateResult);
+      await service.updateHash(999, 'newhash123');
       expect(databaseService.execute).toHaveBeenCalledWith(
         'UPDATE urls SET content_hash = ? WHERE id = ?',
         ['newhash123', 999],

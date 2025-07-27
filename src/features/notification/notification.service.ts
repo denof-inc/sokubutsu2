@@ -28,7 +28,6 @@ export class NotificationService {
   }
 
   async sendNotification(message: string) {
-    if (!this.bot) return;
     try {
       await this.bot.telegram.sendMessage(this.chatId, message);
       this.logger.log(`通知を送信しました: ${message}`);
