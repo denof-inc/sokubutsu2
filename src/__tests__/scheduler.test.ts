@@ -144,18 +144,31 @@ describe('MonitoringScheduler', () => {
       expect(mockStorage.incrementNewListings).not.toHaveBeenCalled();
       expect(mockTelegram.sendNewListingNotification).not.toHaveBeenCalled();
 
-      // モックをクリアして2回目のチェック準備
-      jest.clearAllMocks();
+      // モックをリセット
+      mockStorage.incrementTotalChecks.mockClear();
+      mockStorage.setHash.mockClear();
+      mockStorage.incrementNewListings.mockClear();
+      mockTelegram.sendNewListingNotification.mockClear();
+      mockScraper.scrapeAthome.mockClear();
 
       // 2回目のチェック（ハッシュが変更）
       mockStorage.getHash.mockReturnValue('test-hash'); // 以前のハッシュ
-      mockScraper.scrapeAthome.mockResolvedValue({
-        success: true,
-        hash: 'new-hash',
-        count: 12,
-        executionTime: 2000,
-        memoryUsage: 40,
-      });
+      mockScraper.scrapeAthome
+        .mockResolvedValueOnce({
+          success: true,
+          hash: 'new-hash',
+          count: 12,
+          executionTime: 2000,
+          memoryUsage: 40,
+        })
+        .mockResolvedValueOnce({
+          // estimatePreviousCount内のscrapeAthome呼び出し用
+          success: true,
+          hash: 'new-hash',
+          count: 12,
+          executionTime: 2000,
+          memoryUsage: 40,
+        });
 
       await cronCallback();
 
