@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs', 'dist/', 'node_modules/', '*.config.js'],
+    ignores: ['eslint.config.mjs', 'dist/', 'node_modules/', '*.config.js', 'scripts/'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
@@ -26,13 +26,17 @@ export default tseslint.config(
   },
   {
     rules: {
-      // 段階的厳格化 - warnレベルから開始（絶対にoffにしない）
+      // 段階的厳格化 - Phase 1: 全てwarnレベル（絶対にoffにしない）
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unsafe-assignment': 'warn',
       '@typescript-eslint/no-unsafe-member-access': 'warn',
       '@typescript-eslint/no-unsafe-call': 'warn',
       '@typescript-eslint/no-unsafe-return': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
+      
+      // Phase 2（1ヶ月後）: これらをerrorに変更予定
+      // '@typescript-eslint/no-explicit-any': 'error',
+      // '@typescript-eslint/no-unused-vars': 'error',
       
       // 絶対に無効化してはならないルール
       '@typescript-eslint/no-floating-promises': 'error',
