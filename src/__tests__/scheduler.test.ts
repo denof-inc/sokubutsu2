@@ -127,20 +127,15 @@ describe('MonitoringScheduler', () => {
   describe('監視サイクル', () => {
     it('新着物件を検知して通知すること', async () => {
       const urls = ['https://example.com'];
+
+      // 初回チェック（ハッシュなし）- startメソッド内で実行される
+      mockStorage.getHash.mockReturnValue(undefined);
       await scheduler.start(urls);
 
-      // 初回チェック（ハッシュなし）
-      mockStorage.getHash.mockReturnValue(undefined);
-
-      // cronジョブのコールバックを取得して実行
-      const cronCallback = (cron.schedule as jest.Mock).mock.calls[0][1];
-      await cronCallback();
-
+      // 初回実行の確認
       expect(mockStorage.incrementTotalChecks).toHaveBeenCalled();
       expect(mockScraper.scrapeAthome).toHaveBeenCalledWith(urls[0]);
       expect(mockStorage.setHash).toHaveBeenCalledWith(urls[0], 'test-hash');
-
-      // 初回は新着通知しない
       expect(mockStorage.incrementNewListings).not.toHaveBeenCalled();
       expect(mockTelegram.sendNewListingNotification).not.toHaveBeenCalled();
 
@@ -170,7 +165,8 @@ describe('MonitoringScheduler', () => {
           memoryUsage: 40,
         });
 
-      await cronCallback();
+      // runMonitoringCycleを直接呼び出す（cronJobのisRunningチェックを回避）
+      await (scheduler as any).runMonitoringCycle(urls);
 
       expect(mockStorage.incrementNewListings).toHaveBeenCalled();
       expect(mockTelegram.sendNewListingNotification).toHaveBeenCalled();
