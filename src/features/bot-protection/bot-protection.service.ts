@@ -208,11 +208,11 @@ export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
   /**
    * Bot検知テスト（3段階）
    */
-  async testBotDetection(_url: string): Promise<{
+  testBotDetection(_url: string): {
     httpAccessible: boolean;
     jsdomAccessible: boolean;
     playwrightAccessible: boolean;
-  }> {
+  } {
     const results = {
       httpAccessible: false,
       jsdomAccessible: false,
@@ -228,10 +228,7 @@ export class BotProtectionService implements OnModuleInit, OnModuleDestroy {
   /**
    * レート制限の取得と更新
    */
-  async getAdaptiveDelay(
-    domain: string,
-    isError: boolean = false,
-  ): Promise<number> {
+  getAdaptiveDelay(domain: string, isError: boolean = false): number {
     const rateLimit = this.rateLimits.get(domain) || {
       domain,
       errorCount: 0,

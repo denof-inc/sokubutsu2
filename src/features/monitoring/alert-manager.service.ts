@@ -28,7 +28,7 @@ export class AlertManagerService {
 
       // メール通知（オプション）
       if (alert.level === 'CRITICAL') {
-        await this.sendEmailAlert(alert);
+        this.sendEmailAlert(alert);
       }
 
       // アラート履歴の更新
@@ -106,7 +106,7 @@ export class AlertManagerService {
     }
   }
 
-  private async sendEmailAlert(_alert: Alert): Promise<void> {
+  private sendEmailAlert(_alert: Alert): void {
     // 重要なアラートの場合のメール通知
     // 実装は要件に応じて追加
     this.logger.log('メール通知は未実装です');

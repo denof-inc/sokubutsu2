@@ -99,28 +99,28 @@ describe('BotProtectionService', () => {
   });
 
   describe('getAdaptiveDelay', () => {
-    it('エラー時にディレイを増加させること', async () => {
+    it('エラー時にディレイを増加させること', () => {
       const domain = 'example.com';
 
-      const delay1 = await service.getAdaptiveDelay(domain, false);
-      const delay2 = await service.getAdaptiveDelay(domain, true);
-      const delay3 = await service.getAdaptiveDelay(domain, true);
+      const delay1 = service.getAdaptiveDelay(domain, false);
+      const delay2 = service.getAdaptiveDelay(domain, true);
+      const delay3 = service.getAdaptiveDelay(domain, true);
 
       expect(delay2).toBeGreaterThan(delay1);
       expect(delay3).toBeGreaterThan(delay2);
     });
 
-    it('成功時にディレイを減少させること', async () => {
+    it('成功時にディレイを減少させること', () => {
       const domain = 'example.com';
 
       // エラーでディレイを増加
-      await service.getAdaptiveDelay(domain, true);
-      const delayAfterError = await service.getAdaptiveDelay(domain, false);
+      service.getAdaptiveDelay(domain, true);
+      const delayAfterError = service.getAdaptiveDelay(domain, false);
 
       // 時間経過をシミュレート（テスト用に短縮）
       jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 6 * 60 * 1000);
 
-      const delayAfterSuccess = await service.getAdaptiveDelay(domain, false);
+      const delayAfterSuccess = service.getAdaptiveDelay(domain, false);
 
       expect(delayAfterSuccess).toBeLessThan(delayAfterError);
     });

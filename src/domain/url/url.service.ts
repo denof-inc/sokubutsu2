@@ -8,11 +8,11 @@ export class UrlService implements OnModuleInit {
 
   constructor(private readonly databaseService: DatabaseService) {}
 
-  async onModuleInit() {
-    await this.seedInitialData();
+  onModuleInit() {
+    this.seedInitialData();
   }
 
-  private async seedInitialData() {
+  private seedInitialData() {
     const testUrlString =
       'https://www.athome.co.jp/buy_other/hiroshima/list/?pref=34&cities=hiroshima_naka,hiroshima_higashi,hiroshima_minami,hiroshima_nishi,hiroshima_asaminami,hiroshima_asakita,hiroshima_aki,hiroshima_saeki,kure,takehara,mihara,onomichi,fukuyama,fuchu,miyoshi,shobara,otake,higashihiroshima,hatsukaichi,akitakata,etajima,aki_fuchu,aki_kaita,aki_kumano,aki_saka,yamagata_akiota,yamagata_kitahiroshima,toyota_osakikamijima,sera_sera,jinseki_jinsekikogen&basic=kp401,kp522,kt201,kf201,ke001,kn001,kj001&tsubo=0&tanka=0&kod=&q=1';
 

@@ -45,7 +45,7 @@ describe('UrlService', () => {
         lastInsertRowid: 1,
       });
 
-      await service.onModuleInit();
+      service.onModuleInit();
 
       expect(databaseService.findOne).toHaveBeenCalledWith(
         'SELECT * FROM urls WHERE url = ?',
@@ -65,7 +65,7 @@ describe('UrlService', () => {
     it('初期データが既に存在する場合、新たに登録しないこと', async () => {
       databaseService.findOne.mockReturnValue({ id: 1 });
 
-      await service.onModuleInit();
+      service.onModuleInit();
 
       expect(databaseService.findOne).toHaveBeenCalled();
       expect(databaseService.execute).not.toHaveBeenCalled();

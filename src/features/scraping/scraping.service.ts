@@ -157,7 +157,7 @@ export class ScrapingService {
       const hash = await this.scrapeWithHttp(url, selector);
       if (hash) {
         // 成功時はレート制限を緩和
-        await this.botProtectionService.getAdaptiveDelay(domain, false);
+        this.botProtectionService.getAdaptiveDelay(domain, false);
         return { hash, method: 'http' };
       }
     } catch (error) {
@@ -165,7 +165,7 @@ export class ScrapingService {
         `[${url}] HTTP + Cheerio失敗: ${error instanceof Error ? error.message : String(error)}`,
       );
       // エラー時はレート制限を強化
-      await this.botProtectionService.getAdaptiveDelay(domain, true);
+      this.botProtectionService.getAdaptiveDelay(domain, true);
     }
 
     // 第2段階: JSDOM
@@ -173,14 +173,14 @@ export class ScrapingService {
       this.logger.debug(`[${url}] 第2段階: JSDOMでスクレイピング`);
       const hash = await this.scrapeWithJsdom(url, selector);
       if (hash) {
-        await this.botProtectionService.getAdaptiveDelay(domain, false);
+        this.botProtectionService.getAdaptiveDelay(domain, false);
         return { hash, method: 'jsdom' };
       }
     } catch (error) {
       this.logger.warn(
         `[${url}] JSDOM失敗: ${error instanceof Error ? error.message : String(error)}`,
       );
-      await this.botProtectionService.getAdaptiveDelay(domain, true);
+      this.botProtectionService.getAdaptiveDelay(domain, true);
     }
 
     // 第3段階: Playwright
@@ -188,14 +188,14 @@ export class ScrapingService {
       this.logger.debug(`[${url}] 第3段階: Playwrightでスクレイピング`);
       const hash = await this.scrapeWithPlaywright(url, selector);
       if (hash) {
-        await this.botProtectionService.getAdaptiveDelay(domain, false);
+        this.botProtectionService.getAdaptiveDelay(domain, false);
         return { hash, method: 'playwright' };
       }
     } catch (error) {
       this.logger.error(
         `[${url}] Playwright失敗: ${error instanceof Error ? error.message : String(error)}`,
       );
-      await this.botProtectionService.getAdaptiveDelay(domain, true);
+      this.botProtectionService.getAdaptiveDelay(domain, true);
     }
 
     return { hash: null, method: 'playwright', error: 'All methods failed' };
@@ -209,7 +209,7 @@ export class ScrapingService {
     const domain = new URL(url).hostname;
 
     // 適応的レート制限による遅延
-    const delay = await this.botProtectionService.getAdaptiveDelay(domain);
+    const delay = this.botProtectionService.getAdaptiveDelay(domain);
     await new Promise((resolve) => setTimeout(resolve, delay));
 
     const response = await axios.get(url, {
@@ -243,7 +243,7 @@ export class ScrapingService {
     const domain = new URL(url).hostname;
 
     // 適応的レート制限による遅延
-    const delay = await this.botProtectionService.getAdaptiveDelay(domain);
+    const delay = this.botProtectionService.getAdaptiveDelay(domain);
     await new Promise((resolve) => setTimeout(resolve, delay));
 
     const dom = await JSDOM.fromURL(url, {
@@ -279,7 +279,7 @@ export class ScrapingService {
 
     try {
       // 適応的レート制限による遅延
-      const delay = await this.botProtectionService.getAdaptiveDelay(domain);
+      const delay = this.botProtectionService.getAdaptiveDelay(domain);
       await new Promise((resolve) => setTimeout(resolve, delay));
 
       browser = await chromium.launch({
