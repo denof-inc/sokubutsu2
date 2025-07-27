@@ -2,9 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DatabaseService } from './database.service';
 // import type { Database as BetterSqlite3Database } from 'better-sqlite3';
 
-jest.mock('better-sqlite3');
-jest.mock('fs');
-
 type MockDatabase = {
   pragma: jest.Mock;
   exec: jest.Mock;
@@ -13,31 +10,36 @@ type MockDatabase = {
   transaction: jest.Mock;
 };
 
+const mockDb: MockDatabase = {
+  pragma: jest.fn(),
+  exec: jest.fn(),
+  prepare: jest.fn(),
+  close: jest.fn(),
+  transaction: jest.fn(),
+};
+
+// better-sqlite3のモック
+jest.mock('better-sqlite3', () => {
+  return jest.fn().mockImplementation(() => mockDb);
+});
+
+// fsのモック
+jest.mock('fs', () => ({
+  readFileSync: jest.fn().mockReturnValue('CREATE TABLE test;'),
+}));
+
 describe('DatabaseService', () => {
   let service: DatabaseService;
-  let mockDb: MockDatabase;
 
   beforeEach(async () => {
-    mockDb = {
-      pragma: jest.fn(),
-      exec: jest.fn(),
-      prepare: jest.fn(),
-      close: jest.fn(),
-      transaction: jest.fn(),
-    };
-
-    jest.doMock('better-sqlite3', () => jest.fn(() => mockDb));
-
-    jest.doMock('fs', () => ({
-      readFileSync: jest.fn().mockReturnValue('CREATE TABLE test;'),
-    }));
+    // モックをリセット
+    jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [DatabaseService],
     }).compile();
 
     service = module.get<DatabaseService>(DatabaseService);
-    service.onModuleInit();
   });
 
   afterEach(() => {
@@ -50,10 +52,12 @@ describe('DatabaseService', () => {
 
   describe('onModuleInit', () => {
     it('データベース接続を確立し、スキーマを初期化すること', () => {
-      // Mocks are already set up in beforeEach
+      // onModuleInitを呼び出す
+      service.onModuleInit();
 
       const Database = jest.requireMock('better-sqlite3');
       const fs = jest.requireMock('fs');
+
       expect(Database).toHaveBeenCalledWith(
         expect.stringContaining('sokubutsu.sqlite'),
       );
@@ -68,6 +72,10 @@ describe('DatabaseService', () => {
 
   describe('onModuleDestroy', () => {
     it('データベース接続を閉じること', () => {
+      // まずonModuleInitを呼び出してdbを初期化
+      service.onModuleInit();
+
+      // その後でonModuleDestroyを呼び出す
       service.onModuleDestroy();
       expect(mockDb.close).toHaveBeenCalled();
     });
@@ -75,6 +83,9 @@ describe('DatabaseService', () => {
 
   describe('query', () => {
     it('複数の結果を返すこと', () => {
+      // 先にonModuleInitを呼び出してdbを初期化
+      service.onModuleInit();
+
       const mockStmt = {
         all: jest.fn().mockReturnValue([{ id: 1 }, { id: 2 }]),
       };
@@ -93,6 +104,11 @@ describe('DatabaseService', () => {
   });
 
   describe('findOne', () => {
+    beforeEach(() => {
+      // 各テストの前にonModuleInitを呼び出してdbを初期化
+      service.onModuleInit();
+    });
+
     it('単一の結果を返すこと', () => {
       const mockStmt = {
         get: jest.fn().mockReturnValue({ id: 1, name: 'test' }),
@@ -122,6 +138,9 @@ describe('DatabaseService', () => {
 
   describe('execute', () => {
     it('INSERT/UPDATE/DELETE操作を実行すること', () => {
+      // 先にonModuleInitを呼び出してdbを初期化
+      service.onModuleInit();
+
       const mockRunResult = { changes: 1, lastInsertRowid: 123 };
       const mockStmt = {
         run: jest.fn().mockReturnValue(mockRunResult),
@@ -142,6 +161,9 @@ describe('DatabaseService', () => {
 
   describe('transaction', () => {
     it('トランザクション内で関数を実行すること', () => {
+      // 先にonModuleInitを呼び出してdbを初期化
+      service.onModuleInit();
+
       const mockFn = jest.fn().mockReturnValue('result');
       const mockTransaction = jest.fn().mockReturnValue('result');
       mockDb.transaction.mockReturnValue(mockTransaction);

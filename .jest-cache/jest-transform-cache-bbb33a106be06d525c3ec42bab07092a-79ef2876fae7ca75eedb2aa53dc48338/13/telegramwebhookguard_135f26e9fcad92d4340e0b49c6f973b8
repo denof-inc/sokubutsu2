@@ -1,0 +1,52 @@
+4fe47c39a0e5d9d64cb2aa9fedcf7eb3
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var TelegramWebhookGuard_1;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TelegramWebhookGuard = void 0;
+const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
+// import { createHmac } from 'crypto'; // TODO: 将来的にHMAC検証を実装
+let TelegramWebhookGuard = TelegramWebhookGuard_1 = class TelegramWebhookGuard {
+    configService;
+    logger = new common_1.Logger(TelegramWebhookGuard_1.name);
+    constructor(configService) {
+        this.configService = configService;
+    }
+    canActivate(context) {
+        const request = context.switchToHttp().getRequest();
+        // 開発環境では検証をスキップ
+        if (this.configService.get('NODE_ENV') === 'development') {
+            return true;
+        }
+        const secretToken = this.configService.get('TELEGRAM_SECRET_TOKEN');
+        if (!secretToken) {
+            this.logger.warn('Telegram secret token not configured');
+            return true; // 設定されていない場合は通す
+        }
+        const telegramSignature = request.headers['x-telegram-bot-api-secret-token'];
+        if (!telegramSignature) {
+            this.logger.warn('Missing Telegram signature header');
+            throw new common_1.UnauthorizedException('Missing Telegram signature');
+        }
+        if (telegramSignature !== secretToken) {
+            this.logger.warn('Invalid Telegram signature');
+            throw new common_1.UnauthorizedException('Invalid Telegram signature');
+        }
+        return true;
+    }
+};
+exports.TelegramWebhookGuard = TelegramWebhookGuard;
+exports.TelegramWebhookGuard = TelegramWebhookGuard = TelegramWebhookGuard_1 = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [config_1.ConfigService])
+], TelegramWebhookGuard);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL3R0dGVsYS9Eb2N1bWVudHMvV29yay9kZW5vZi93b3Jrcy8yNTA1Mjlzb2t1YnV0c3UvZGV2Mi9zcmMvY29tbW9uL2d1YXJkcy90ZWxlZ3JhbS13ZWJob29rLmd1YXJkLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7QUFBQSwyQ0FNd0I7QUFDeEIsMkNBQStDO0FBQy9DLDhEQUE4RDtBQUd2RCxJQUFNLG9CQUFvQiw0QkFBMUIsTUFBTSxvQkFBb0I7SUFHRjtJQUZaLE1BQU0sR0FBRyxJQUFJLGVBQU0sQ0FBQyxzQkFBb0IsQ0FBQyxJQUFJLENBQUMsQ0FBQztJQUVoRSxZQUE2QixhQUE0QjtRQUE1QixrQkFBYSxHQUFiLGFBQWEsQ0FBZTtJQUFHLENBQUM7SUFFN0QsV0FBVyxDQUFDLE9BQXlCO1FBQ25DLE1BQU0sT0FBTyxHQUFHLE9BQU8sQ0FBQyxZQUFZLEVBQUUsQ0FBQyxVQUFVLEVBQUUsQ0FBQztRQUVwRCxnQkFBZ0I7UUFDaEIsSUFBSSxJQUFJLENBQUMsYUFBYSxDQUFDLEdBQUcsQ0FBQyxVQUFVLENBQUMsS0FBSyxhQUFhLEVBQUUsQ0FBQztZQUN6RCxPQUFPLElBQUksQ0FBQztRQUNkLENBQUM7UUFFRCxNQUFNLFdBQVcsR0FBRyxJQUFJLENBQUMsYUFBYSxDQUFDLEdBQUcsQ0FBUyx1QkFBdUIsQ0FBQyxDQUFDO1FBQzVFLElBQUksQ0FBQyxXQUFXLEVBQUUsQ0FBQztZQUNqQixJQUFJLENBQUMsTUFBTSxDQUFDLElBQUksQ0FBQyxzQ0FBc0MsQ0FBQyxDQUFDO1lBQ3pELE9BQU8sSUFBSSxDQUFDLENBQUMsZ0JBQWdCO1FBQy9CLENBQUM7UUFFRCxNQUFNLGlCQUFpQixHQUFHLE9BQU8sQ0FBQyxPQUFPLENBQ3ZDLGlDQUFpQyxDQUN4QixDQUFDO1FBRVosSUFBSSxDQUFDLGlCQUFpQixFQUFFLENBQUM7WUFDdkIsSUFBSSxDQUFDLE1BQU0sQ0FBQyxJQUFJLENBQUMsbUNBQW1DLENBQUMsQ0FBQztZQUN0RCxNQUFNLElBQUksOEJBQXFCLENBQUMsNEJBQTRCLENBQUMsQ0FBQztRQUNoRSxDQUFDO1FBRUQsSUFBSSxpQkFBaUIsS0FBSyxXQUFXLEVBQUUsQ0FBQztZQUN0QyxJQUFJLENBQUMsTUFBTSxDQUFDLElBQUksQ0FBQyw0QkFBNEIsQ0FBQyxDQUFDO1lBQy9DLE1BQU0sSUFBSSw4QkFBcUIsQ0FBQyw0QkFBNEIsQ0FBQyxDQUFDO1FBQ2hFLENBQUM7UUFFRCxPQUFPLElBQUksQ0FBQztJQUNkLENBQUM7Q0FDRixDQUFBO0FBbkNZLG9EQUFvQjsrQkFBcEIsb0JBQW9CO0lBRGhDLElBQUEsbUJBQVUsR0FBRTtxQ0FJaUMsc0JBQWE7R0FIOUMsb0JBQW9CLENBbUNoQyIsIm5hbWVzIjpbXSwic291cmNlcyI6WyIvVXNlcnMvdHR0ZWxhL0RvY3VtZW50cy9Xb3JrL2Rlbm9mL3dvcmtzLzI1MDUyOXNva3VidXRzdS9kZXYyL3NyYy9jb21tb24vZ3VhcmRzL3RlbGVncmFtLXdlYmhvb2suZ3VhcmQudHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHtcbiAgSW5qZWN0YWJsZSxcbiAgQ2FuQWN0aXZhdGUsXG4gIEV4ZWN1dGlvbkNvbnRleHQsXG4gIFVuYXV0aG9yaXplZEV4Y2VwdGlvbixcbiAgTG9nZ2VyLFxufSBmcm9tICdAbmVzdGpzL2NvbW1vbic7XG5pbXBvcnQgeyBDb25maWdTZXJ2aWNlIH0gZnJvbSAnQG5lc3Rqcy9jb25maWcnO1xuLy8gaW1wb3J0IHsgY3JlYXRlSG1hYyB9IGZyb20gJ2NyeXB0byc7IC8vIFRPRE86IOWwhuadpeeahOOBq0hNQUPmpJzoqLzjgpLlrp/oo4VcblxuQEluamVjdGFibGUoKVxuZXhwb3J0IGNsYXNzIFRlbGVncmFtV2ViaG9va0d1YXJkIGltcGxlbWVudHMgQ2FuQWN0aXZhdGUge1xuICBwcml2YXRlIHJlYWRvbmx5IGxvZ2dlciA9IG5ldyBMb2dnZXIoVGVsZWdyYW1XZWJob29rR3VhcmQubmFtZSk7XG5cbiAgY29uc3RydWN0b3IocHJpdmF0ZSByZWFkb25seSBjb25maWdTZXJ2aWNlOiBDb25maWdTZXJ2aWNlKSB7fVxuXG4gIGNhbkFjdGl2YXRlKGNvbnRleHQ6IEV4ZWN1dGlvbkNvbnRleHQpOiBib29sZWFuIHtcbiAgICBjb25zdCByZXF1ZXN0ID0gY29udGV4dC5zd2l0Y2hUb0h0dHAoKS5nZXRSZXF1ZXN0KCk7XG5cbiAgICAvLyDplovnmbrnkrDlooPjgafjga/mpJzoqLzjgpLjgrnjgq3jg4Pjg5dcbiAgICBpZiAodGhpcy5jb25maWdTZXJ2aWNlLmdldCgnTk9ERV9FTlYnKSA9PT0gJ2RldmVsb3BtZW50Jykge1xuICAgICAgcmV0dXJuIHRydWU7XG4gICAgfVxuXG4gICAgY29uc3Qgc2VjcmV0VG9rZW4gPSB0aGlzLmNvbmZpZ1NlcnZpY2UuZ2V0PHN0cmluZz4oJ1RFTEVHUkFNX1NFQ1JFVF9UT0tFTicpO1xuICAgIGlmICghc2VjcmV0VG9rZW4pIHtcbiAgICAgIHRoaXMubG9nZ2VyLndhcm4oJ1RlbGVncmFtIHNlY3JldCB0b2tlbiBub3QgY29uZmlndXJlZCcpO1xuICAgICAgcmV0dXJuIHRydWU7IC8vIOioreWumuOBleOCjOOBpuOBhOOBquOBhOWgtOWQiOOBr+mAmuOBmVxuICAgIH1cblxuICAgIGNvbnN0IHRlbGVncmFtU2lnbmF0dXJlID0gcmVxdWVzdC5oZWFkZXJzW1xuICAgICAgJ3gtdGVsZWdyYW0tYm90LWFwaS1zZWNyZXQtdG9rZW4nXG4gICAgXSBhcyBzdHJpbmc7XG5cbiAgICBpZiAoIXRlbGVncmFtU2lnbmF0dXJlKSB7XG4gICAgICB0aGlzLmxvZ2dlci53YXJuKCdNaXNzaW5nIFRlbGVncmFtIHNpZ25hdHVyZSBoZWFkZXInKTtcbiAgICAgIHRocm93IG5ldyBVbmF1dGhvcml6ZWRFeGNlcHRpb24oJ01pc3NpbmcgVGVsZWdyYW0gc2lnbmF0dXJlJyk7XG4gICAgfVxuXG4gICAgaWYgKHRlbGVncmFtU2lnbmF0dXJlICE9PSBzZWNyZXRUb2tlbikge1xuICAgICAgdGhpcy5sb2dnZXIud2FybignSW52YWxpZCBUZWxlZ3JhbSBzaWduYXR1cmUnKTtcbiAgICAgIHRocm93IG5ldyBVbmF1dGhvcml6ZWRFeGNlcHRpb24oJ0ludmFsaWQgVGVsZWdyYW0gc2lnbmF0dXJlJyk7XG4gICAgfVxuXG4gICAgcmV0dXJuIHRydWU7XG4gIH1cbn1cbiJdLCJ2ZXJzaW9uIjozfQ==

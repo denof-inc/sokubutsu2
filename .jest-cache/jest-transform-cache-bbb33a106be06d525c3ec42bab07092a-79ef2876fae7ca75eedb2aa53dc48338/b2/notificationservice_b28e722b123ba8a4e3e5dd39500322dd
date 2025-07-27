@@ -1,0 +1,54 @@
+c546b8d966b0d2085c69be160c7e7bc7
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var NotificationService_1;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.NotificationService = void 0;
+const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
+const telegraf_1 = require("telegraf");
+let NotificationService = NotificationService_1 = class NotificationService {
+    configService;
+    logger = new common_1.Logger(NotificationService_1.name);
+    bot;
+    chatId;
+    constructor(configService) {
+        this.configService = configService;
+        const token = this.configService.get('TELEGRAM_BOT_TOKEN');
+        const chatId = this.configService.get('TELEGRAM_CHAT_ID');
+        // ★★★ ここからが修正点 ★★★
+        // 環境変数が設定されているか、厳密にチェックする
+        if (!token || !chatId) {
+            const errorMessage = 'TelegramのトークンまたはチャットIDが.envファイルに設定されていません。';
+            this.logger.error(errorMessage);
+            // エラーを投げて、アプリケーションの起動を安全に中止する
+            throw new Error(errorMessage);
+        }
+        // ★★★ ここまでが修正点 ★★★
+        this.bot = new telegraf_1.Telegraf(token);
+        this.chatId = chatId; // チェック済みなので、安全に代入できる
+    }
+    async sendNotification(message) {
+        try {
+            await this.bot.telegram.sendMessage(this.chatId, message);
+            this.logger.log(`通知を送信しました: ${message}`);
+        }
+        catch (error) {
+            this.logger.error('Telegram通知の送信に失敗しました。', error);
+        }
+    }
+};
+exports.NotificationService = NotificationService;
+exports.NotificationService = NotificationService = NotificationService_1 = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [config_1.ConfigService])
+], NotificationService);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL3R0dGVsYS9Eb2N1bWVudHMvV29yay9kZW5vZi93b3Jrcy8yNTA1Mjlzb2t1YnV0c3UvZGV2Mi9zcmMvZmVhdHVyZXMvbm90aWZpY2F0aW9uL25vdGlmaWNhdGlvbi5zZXJ2aWNlLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7QUFBQSwyQ0FBb0Q7QUFDcEQsMkNBQStDO0FBQy9DLHVDQUFvQztBQUc3QixJQUFNLG1CQUFtQiwyQkFBekIsTUFBTSxtQkFBbUI7SUFLVjtJQUpILE1BQU0sR0FBRyxJQUFJLGVBQU0sQ0FBQyxxQkFBbUIsQ0FBQyxJQUFJLENBQUMsQ0FBQztJQUN2RCxHQUFHLENBQVc7SUFDZCxNQUFNLENBQVM7SUFFdkIsWUFBb0IsYUFBNEI7UUFBNUIsa0JBQWEsR0FBYixhQUFhLENBQWU7UUFDOUMsTUFBTSxLQUFLLEdBQUcsSUFBSSxDQUFDLGFBQWEsQ0FBQyxHQUFHLENBQVMsb0JBQW9CLENBQUMsQ0FBQztRQUNuRSxNQUFNLE1BQU0sR0FBRyxJQUFJLENBQUMsYUFBYSxDQUFDLEdBQUcsQ0FBUyxrQkFBa0IsQ0FBQyxDQUFDO1FBRWxFLG1CQUFtQjtRQUNuQiwwQkFBMEI7UUFDMUIsSUFBSSxDQUFDLEtBQUssSUFBSSxDQUFDLE1BQU0sRUFBRSxDQUFDO1lBQ3RCLE1BQU0sWUFBWSxHQUNoQiw0Q0FBNEMsQ0FBQztZQUMvQyxJQUFJLENBQUMsTUFBTSxDQUFDLEtBQUssQ0FBQyxZQUFZLENBQUMsQ0FBQztZQUNoQyw4QkFBOEI7WUFDOUIsTUFBTSxJQUFJLEtBQUssQ0FBQyxZQUFZLENBQUMsQ0FBQztRQUNoQyxDQUFDO1FBQ0QsbUJBQW1CO1FBRW5CLElBQUksQ0FBQyxHQUFHLEdBQUcsSUFBSSxtQkFBUSxDQUFDLEtBQUssQ0FBQyxDQUFDO1FBQy9CLElBQUksQ0FBQyxNQUFNLEdBQUcsTUFBTSxDQUFDLENBQUMscUJBQXFCO0lBQzdDLENBQUM7SUFFRCxLQUFLLENBQUMsZ0JBQWdCLENBQUMsT0FBZTtRQUNwQyxJQUFJLENBQUM7WUFDSCxNQUFNLElBQUksQ0FBQyxHQUFHLENBQUMsUUFBUSxDQUFDLFdBQVcsQ0FBQyxJQUFJLENBQUMsTUFBTSxFQUFFLE9BQU8sQ0FBQyxDQUFDO1lBQzFELElBQUksQ0FBQyxNQUFNLENBQUMsR0FBRyxDQUFDLGNBQWMsT0FBTyxFQUFFLENBQUMsQ0FBQztRQUMzQyxDQUFDO1FBQUMsT0FBTyxLQUFLLEVBQUUsQ0FBQztZQUNmLElBQUksQ0FBQyxNQUFNLENBQUMsS0FBSyxDQUFDLHVCQUF1QixFQUFFLEtBQUssQ0FBQyxDQUFDO1FBQ3BELENBQUM7SUFDSCxDQUFDO0NBQ0YsQ0FBQTtBQWhDWSxrREFBbUI7OEJBQW5CLG1CQUFtQjtJQUQvQixJQUFBLG1CQUFVLEdBQUU7cUNBTXdCLHNCQUFhO0dBTHJDLG1CQUFtQixDQWdDL0IiLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiL1VzZXJzL3R0dGVsYS9Eb2N1bWVudHMvV29yay9kZW5vZi93b3Jrcy8yNTA1Mjlzb2t1YnV0c3UvZGV2Mi9zcmMvZmVhdHVyZXMvbm90aWZpY2F0aW9uL25vdGlmaWNhdGlvbi5zZXJ2aWNlLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IEluamVjdGFibGUsIExvZ2dlciB9IGZyb20gJ0BuZXN0anMvY29tbW9uJztcbmltcG9ydCB7IENvbmZpZ1NlcnZpY2UgfSBmcm9tICdAbmVzdGpzL2NvbmZpZyc7XG5pbXBvcnQgeyBUZWxlZ3JhZiB9IGZyb20gJ3RlbGVncmFmJztcblxuQEluamVjdGFibGUoKVxuZXhwb3J0IGNsYXNzIE5vdGlmaWNhdGlvblNlcnZpY2Uge1xuICBwcml2YXRlIHJlYWRvbmx5IGxvZ2dlciA9IG5ldyBMb2dnZXIoTm90aWZpY2F0aW9uU2VydmljZS5uYW1lKTtcbiAgcHJpdmF0ZSBib3Q6IFRlbGVncmFmO1xuICBwcml2YXRlIGNoYXRJZDogc3RyaW5nO1xuXG4gIGNvbnN0cnVjdG9yKHByaXZhdGUgY29uZmlnU2VydmljZTogQ29uZmlnU2VydmljZSkge1xuICAgIGNvbnN0IHRva2VuID0gdGhpcy5jb25maWdTZXJ2aWNlLmdldDxzdHJpbmc+KCdURUxFR1JBTV9CT1RfVE9LRU4nKTtcbiAgICBjb25zdCBjaGF0SWQgPSB0aGlzLmNvbmZpZ1NlcnZpY2UuZ2V0PHN0cmluZz4oJ1RFTEVHUkFNX0NIQVRfSUQnKTtcblxuICAgIC8vIOKYheKYheKYhSDjgZPjgZPjgYvjgonjgYzkv67mraPngrkg4piF4piF4piFXG4gICAgLy8g55Kw5aKD5aSJ5pWw44GM6Kit5a6a44GV44KM44Gm44GE44KL44GL44CB5Y6z5a+G44Gr44OB44Kn44OD44Kv44GZ44KLXG4gICAgaWYgKCF0b2tlbiB8fCAhY2hhdElkKSB7XG4gICAgICBjb25zdCBlcnJvck1lc3NhZ2UgPVxuICAgICAgICAnVGVsZWdyYW3jga7jg4jjg7zjgq/jg7Pjgb7jgZ/jga/jg4Hjg6Pjg4Pjg4hJROOBjC5lbnbjg5XjgqHjgqTjg6vjgavoqK3lrprjgZXjgozjgabjgYTjgb7jgZvjgpPjgIInO1xuICAgICAgdGhpcy5sb2dnZXIuZXJyb3IoZXJyb3JNZXNzYWdlKTtcbiAgICAgIC8vIOOCqOODqeODvOOCkuaKleOBkuOBpuOAgeOCouODl+ODquOCseODvOOCt+ODp+ODs+OBrui1t+WLleOCkuWuieWFqOOBq+S4reatouOBmeOCi1xuICAgICAgdGhyb3cgbmV3IEVycm9yKGVycm9yTWVzc2FnZSk7XG4gICAgfVxuICAgIC8vIOKYheKYheKYhSDjgZPjgZPjgb7jgafjgYzkv67mraPngrkg4piF4piF4piFXG5cbiAgICB0aGlzLmJvdCA9IG5ldyBUZWxlZ3JhZih0b2tlbik7XG4gICAgdGhpcy5jaGF0SWQgPSBjaGF0SWQ7IC8vIOODgeOCp+ODg+OCr+a4iOOBv+OBquOBruOBp+OAgeWuieWFqOOBq+S7o+WFpeOBp+OBjeOCi1xuICB9XG5cbiAgYXN5bmMgc2VuZE5vdGlmaWNhdGlvbihtZXNzYWdlOiBzdHJpbmcpIHtcbiAgICB0cnkge1xuICAgICAgYXdhaXQgdGhpcy5ib3QudGVsZWdyYW0uc2VuZE1lc3NhZ2UodGhpcy5jaGF0SWQsIG1lc3NhZ2UpO1xuICAgICAgdGhpcy5sb2dnZXIubG9nKGDpgJrnn6XjgpLpgIHkv6HjgZfjgb7jgZfjgZ86ICR7bWVzc2FnZX1gKTtcbiAgICB9IGNhdGNoIChlcnJvcikge1xuICAgICAgdGhpcy5sb2dnZXIuZXJyb3IoJ1RlbGVncmFt6YCa55+l44Gu6YCB5L+h44Gr5aSx5pWX44GX44G+44GX44Gf44CCJywgZXJyb3IpO1xuICAgIH1cbiAgfVxufVxuIl0sInZlcnNpb24iOjN9

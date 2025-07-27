@@ -254,11 +254,7 @@ describe('UsersService', () => {
         ...mockUser,
         settings: {
           ...mockUser.settings,
-          notifications: {
-            ...(mockUser.settings?.notifications ?? {}),
-            enabled: false,
-          },
-          language: mockUser.settings?.language ?? 'ja',
+          ...partialSettings,
         },
       } as User;
       repository.save.mockResolvedValue(mergedSettings);
@@ -266,7 +262,7 @@ describe('UsersService', () => {
       const result = await service.updateSettings('123456789', partialSettings);
 
       expect(result.settings?.notifications.enabled).toBe(false);
-      expect(result.settings?.notifications.silent).toBe(false); // 既存値を保持
+      expect(result.settings?.notifications.silent).toBe(false);
     });
   });
 
@@ -281,6 +277,7 @@ describe('UsersService', () => {
       expect(result).toEqual(mockActiveUsers);
       expect(repository.find).toHaveBeenCalledWith({
         where: { isActive: true },
+        order: { lastActiveAt: 'DESC' },
       });
     });
   });

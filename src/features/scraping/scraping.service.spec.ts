@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ScrapingService } from './scraping.service';
+import { BotProtectionService } from '../bot-protection/bot-protection.service';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { JSDOM } from 'jsdom';
@@ -17,9 +18,26 @@ describe('ScrapingService', () => {
   const mockContent = '<div>Test Content</div>';
   const _mockHash = 'mocked-hash';
 
+  const mockBotProtectionService = {
+    detectBot: jest.fn(),
+    bypassProtection: jest.fn(),
+    getAdaptiveDelay: jest.fn().mockReturnValue(100),
+    analyzeBotProtection: jest.fn().mockResolvedValue({
+      isProtected: false,
+      protectionLevel: 'none',
+      methods: [],
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ScrapingService],
+      providers: [
+        ScrapingService,
+        {
+          provide: BotProtectionService,
+          useValue: mockBotProtectionService,
+        },
+      ],
     }).compile();
 
     service = module.get<ScrapingService>(ScrapingService);
@@ -47,7 +65,7 @@ describe('ScrapingService', () => {
       const mockCheerio = {
         load: jest.fn().mockReturnValue(jest.fn().mockReturnValue(mockElement)),
       };
-      (cheerio as any).load = mockCheerio.load;
+      (cheerio as unknown as { load: jest.Mock }).load = mockCheerio.load;
 
       const result = await service.scrapeAndGetHash(mockUrl, mockSelector);
 
