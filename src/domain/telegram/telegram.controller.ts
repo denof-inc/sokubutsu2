@@ -311,19 +311,21 @@ export class TelegramController {
     const activeUrls = urls.filter((u) => u.isActive);
     const pausedUrls = urls.filter((u) => !u.isActive);
 
-    const notificationStatus = Boolean(user.settings && user.settings.notifications && user.settings.notifications.enabled);
+    const notificationStatus = user.settings
+      ? user.settings.notifications.enabled
+      : false;
 
-    const message = `
-📊 監視状況:
-
-👤 ユーザー: ${user.displayName}
-📅 登録日: ${user.createdAt.toLocaleDateString('ja-JP')}
-🔍 監視中URL: ${String(activeUrls.length)}件
-⏸️ 一時停止中: ${String(pausedUrls.length)}件
-🔔 通知設定: ${notificationStatus ? 'ON' : 'OFF'}
-
-合計登録数: ${String(urls.length)}件
-    `.trim();
+    const message = [
+      '📊 監視状況:',
+      '',
+      `👤 ユーザー: ${user.displayName}`,
+      `📅 登録日: ${user.createdAt.toLocaleDateString('ja-JP')}`,
+      `🔍 監視中URL: ${String(activeUrls.length)}件`,
+      `⏸️ 一時停止中: ${String(pausedUrls.length)}件`,
+      `🔔 通知設定: ${notificationStatus ? 'ON' : 'OFF'}`,
+      '',
+      `合計登録数: ${String(urls.length)}件`,
+    ].join('\n');
 
     await this.telegramService.sendMessage(chatId, message);
   }
@@ -332,8 +334,25 @@ export class TelegramController {
    * /help コマンドハンドラー
    */
   private async handleHelpCommand(chatId: number) {
-    const message =
-      `\n📚 コマンド一覧:\n\n/start - ボットを開始\n/add <URL> [名前] - 監視URLを追加\n/list - 登録URL一覧を表示\n/remove <URLのID> - URLを削除\n/pause <URLのID> - 監視を一時停止\n/resume <URLのID> - 監視を再開\n/status - 監視状況を確認\n/help - このヘルプを表示\n\n❓ 使い方:\n1. /add でURLを登録\n2. 新着物件があれば自動通知\n3. /list で登録状況を確認\n\nお困りの場合は @sokubutsu_support までご連絡ください。\n    `.trim();
+    const message = [
+      '📚 コマンド一覧:',
+      '',
+      '/start - ボットを開始',
+      '/add <URL> [名前] - 監視URLを追加',
+      '/list - 登録URL一覧を表示',
+      '/remove <URLのID> - URLを削除',
+      '/pause <URLのID> - 監視を一時停止',
+      '/resume <URLのID> - 監視を再開',
+      '/status - 監視状況を確認',
+      '/help - このヘルプを表示',
+      '',
+      '❓ 使い方:',
+      '1. /add でURLを登録',
+      '2. 新着物件があれば自動通知',
+      '3. /list で登録状況を確認',
+      '',
+      'お困りの場合は @sokubutsu_support までご連絡ください。',
+    ].join('\n');
 
     await this.telegramService.sendMessage(chatId, message);
   }
