@@ -24,7 +24,7 @@ export class TelegramService {
       disable_web_page_preview?: boolean;
       disable_notification?: boolean;
       reply_markup?: any;
-    }
+    },
   ): Promise<void> {
     try {
       const response = await axios.post(`${this.apiUrl}/sendMessage`, {
@@ -34,12 +34,14 @@ export class TelegramService {
       });
 
       if (!response.data.ok) {
-        throw new Error(`Telegram API error: ${response.data.description}`);
+        throw new Error(
+          `Telegram API error: ${String(response.data.description)}`,
+        );
       }
 
-      this.logger.debug(`Message sent to ${chatId}`);
+      this.logger.debug(`Message sent to ${String(chatId)}`);
     } catch (error) {
-      this.logger.error(`Failed to send message to ${chatId}:`, error);
+      this.logger.error(`Failed to send message to ${String(chatId)}:`, error);
       throw error;
     }
   }
@@ -54,7 +56,7 @@ export class TelegramService {
     options?: {
       parse_mode?: 'Markdown' | 'HTML';
       disable_notification?: boolean;
-    }
+    },
   ): Promise<void> {
     try {
       const response = await axios.post(`${this.apiUrl}/sendPhoto`, {
@@ -65,12 +67,14 @@ export class TelegramService {
       });
 
       if (!response.data.ok) {
-        throw new Error(`Telegram API error: ${response.data.description}`);
+        throw new Error(
+          `Telegram API error: ${String(response.data.description)}`,
+        );
       }
 
-      this.logger.debug(`Photo sent to ${chatId}`);
+      this.logger.debug(`Photo sent to ${String(chatId)}`);
     } catch (error) {
-      this.logger.error(`Failed to send photo to ${chatId}:`, error);
+      this.logger.error(`Failed to send photo to ${String(chatId)}:`, error);
       throw error;
     }
   }
@@ -81,7 +85,7 @@ export class TelegramService {
   async sendMessageWithKeyboard(
     chatId: number,
     text: string,
-    keyboard: any[][]
+    keyboard: any[][],
   ): Promise<void> {
     await this.sendMessage(chatId, text, {
       reply_markup: {
@@ -100,7 +104,9 @@ export class TelegramService {
       });
 
       if (!response.data.ok) {
-        throw new Error(`Failed to set webhook: ${response.data.description}`);
+        throw new Error(
+          `Failed to set webhook: ${String(response.data.description)}`,
+        );
       }
 
       this.logger.log(`Webhook set to ${webhookUrl}`);
@@ -118,7 +124,9 @@ export class TelegramService {
       const response = await axios.post(`${this.apiUrl}/deleteWebhook`);
 
       if (!response.data.ok) {
-        throw new Error(`Failed to delete webhook: ${response.data.description}`);
+        throw new Error(
+          `Failed to delete webhook: ${String(response.data.description)}`,
+        );
       }
 
       this.logger.log('Webhook deleted');
@@ -136,7 +144,9 @@ export class TelegramService {
       const response = await axios.get(`${this.apiUrl}/getMe`);
 
       if (!response.data.ok) {
-        throw new Error(`Failed to get bot info: ${response.data.description}`);
+        throw new Error(
+          `Failed to get bot info: ${String(response.data.description)}`,
+        );
       }
 
       return response.data.result;

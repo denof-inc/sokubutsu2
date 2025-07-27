@@ -1,0 +1,38 @@
+#!/usr/bin/env sh
+
+echo "🔍 Pre-commit checks running..."
+
+# lint-stagedを実行（エラーで停止）
+npx lint-staged || {
+  echo "❌ Lint-staged failed! Fix errors before committing."
+  exit 1
+}
+
+# TypeScript型チェック（エラーで停止）
+echo "🔧 Running TypeScript check..."
+npx tsc --noEmit --incremental || {
+  echo "❌ TypeScript check failed! Fix type errors before committing."
+  exit 1
+}
+
+# 品質メトリクスチェック
+echo "📊 Checking quality metrics..."
+ERROR_COUNT=$(npm run lint 2>&1 | grep -E "^\s*[0-9]+:[0-9]+\s+error" | wc -l | tr -d ' ')
+WARNING_COUNT=$(npm run lint 2>&1 | grep -c "warning" || echo "0")
+
+echo "ESLintエラー: $ERROR_COUNT個"
+echo "ESLint警告: $WARNING_COUNT個"
+
+# エラーがある場合は停止
+if [ "$ERROR_COUNT" -gt 0 ]; then
+  echo "❌ ESLintエラーが存在します。修正してからコミットしてください。"
+  exit 1
+fi
+
+# 警告数の上限チェック（段階的に厳格化）
+if [ "$WARNING_COUNT" -gt 350 ]; then
+  echo "❌ ESLint警告が多すぎます（上限: 350個）。削減してからコミットしてください。"
+  exit 1
+fi
+
+echo "✅ Pre-commit checks completed!"

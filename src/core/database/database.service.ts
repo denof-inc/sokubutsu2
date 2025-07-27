@@ -1,5 +1,10 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
-import * as Database from 'better-sqlite3';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
+import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -18,10 +23,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy() {
-    if (this.db) {
-      this.db.close();
-      this.logger.log('Database connection closed.');
-    }
+    this.db.close();
+    this.logger.log('Database connection closed.');
   }
 
   private initializeDatabase() {
@@ -40,9 +43,9 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return stmt.all(...params) as T[];
   }
 
-  findOne<T = any>(sql: string, params: any[] = []): T | undefined {
+  findOne(sql: string, params: any[] = []): any {
     const stmt = this.db.prepare(sql);
-    return stmt.get(...params) as T | undefined;
+    return stmt.get(...params);
   }
 
   execute(sql: string, params: any[] = []): Database.RunResult {

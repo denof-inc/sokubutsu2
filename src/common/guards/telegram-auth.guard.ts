@@ -16,10 +16,10 @@ export class TelegramAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const update: TelegramUpdate = request.body;
+    const update: TelegramUpdate = request.body as TelegramUpdate;
 
     // Telegramメッセージの検証
-    if (!update || !update.message || !update.message.from) {
+    if (!update.message?.from) {
       this.logger.warn('Invalid Telegram update structure');
       throw new UnauthorizedException('Invalid request');
     }
@@ -30,15 +30,17 @@ export class TelegramAuthGuard implements CanActivate {
     try {
       // ユーザー認証
       const user = await this.authService.getUser(telegramId);
-      
+
       if (!user) {
         // 新規ユーザーの場合、/startコマンド以外は拒否
         const isStartCommand = update.message.text === '/start';
         if (!isStartCommand) {
-          this.logger.warn(`Unregistered user ${telegramId} tried to access without /start`);
+          this.logger.warn(
+            `Unregistered user ${telegramId} tried to access without /start`,
+          );
           throw new UnauthorizedException('Please use /start command first');
         }
-        
+
         // /startコマンドの場合は認証をスキップ（ハンドラーで処理）
         request.telegramUser = telegramUser;
         request.isNewUser = true;
@@ -52,12 +54,17 @@ export class TelegramAuthGuard implements CanActivate {
       }
 
       // 最終アクティブ時刻を更新（非同期で実行）
-      this.authService.getUser(telegramId).then(user => {
+      void this.authService.getUser(telegramId).then((user) => {
         if (user) {
           // バックグラウンドで更新
-          this.authService.authenticateTelegramUser(telegramUser).catch(err => {
-            this.logger.error(`Failed to update last active for ${telegramId}:`, err);
-          });
+          this.authService
+            .authenticateTelegramUser(telegramUser)
+            .catch((err: unknown) => {
+              this.logger.error(
+                `Failed to update last active for ${telegramId}:`,
+                err,
+              );
+            });
         }
       });
 
@@ -71,7 +78,7 @@ export class TelegramAuthGuard implements CanActivate {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      
+
       this.logger.error(`Authentication error for ${telegramId}:`, error);
       throw new UnauthorizedException('Authentication failed');
     }

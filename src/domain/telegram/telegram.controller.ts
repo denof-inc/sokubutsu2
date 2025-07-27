@@ -1,14 +1,19 @@
-import { 
-  Controller, 
-  Post, 
-  Body, 
-  UseGuards,
-  Logger,
-} from '@nestjs/common';
-import { TelegramAuthGuard, TelegramWebhookGuard, RateLimitGuard } from '../../common/guards';
-import { CurrentUser, TelegramUser, IsNewUser } from '../../core/auth/decorators/telegram-user.decorator';
+import { Controller, Post, Body, UseGuards, Logger } from '@nestjs/common';
+import {
+  TelegramAuthGuard,
+  TelegramWebhookGuard,
+  RateLimitGuard,
+} from '../../common/guards';
+import {
+  CurrentUser,
+  TelegramUser,
+  IsNewUser,
+} from '../../core/auth/decorators/telegram-user.decorator';
 import { User } from '../users/entities/user.entity';
-import { TelegramUpdate, TelegramUser as ITelegramUser } from '../../common/interfaces';
+import {
+  TelegramUpdate,
+  TelegramUser as ITelegramUser,
+} from '../../common/interfaces';
 import { AuthService } from '../../core/auth/auth.service';
 import { TelegramService } from './telegram.service';
 
@@ -32,7 +37,7 @@ export class TelegramController {
     @TelegramUser() telegramUser: ITelegramUser,
     @IsNewUser() isNewUser: boolean,
   ) {
-    this.logger.debug(`Received update: ${JSON.stringify(update)}`);
+    this.logger.debug(`Received update: ${String(JSON.stringify(update))}`);
 
     // メッセージがない場合は無視
     if (!update.message || !update.message.text) {
@@ -44,52 +49,52 @@ export class TelegramController {
 
     // コマンドの解析
     const command = this.parseCommand(text);
-    
+
     try {
       switch (command.name) {
         case '/start':
           await this.handleStartCommand(chatId, telegramUser, isNewUser);
           break;
-          
+
         case '/add':
           await this.handleAddCommand(chatId, user, command.args);
           break;
-          
+
         case '/list':
           await this.handleListCommand(chatId, user);
           break;
-          
+
         case '/remove':
           await this.handleRemoveCommand(chatId, user, command.args);
           break;
-          
+
         case '/pause':
           await this.handlePauseCommand(chatId, user, command.args);
           break;
-          
+
         case '/resume':
           await this.handleResumeCommand(chatId, user, command.args);
           break;
-          
+
         case '/status':
           await this.handleStatusCommand(chatId, user);
           break;
-          
+
         case '/help':
           await this.handleHelpCommand(chatId);
           break;
-          
+
         default:
           await this.telegramService.sendMessage(
             chatId,
-            '不明なコマンドです。/help でコマンド一覧を確認してください。'
+            '不明なコマンドです。/help でコマンド一覧を確認してください。',
           );
       }
     } catch (error) {
       this.logger.error(`Command execution error:`, error);
       await this.telegramService.sendMessage(
         chatId,
-        'エラーが発生しました。しばらく待ってから再度お試しください。'
+        'エラーが発生しました。しばらく待ってから再度お試しください。',
       );
     }
 
@@ -102,7 +107,7 @@ export class TelegramController {
   private async handleStartCommand(
     chatId: number,
     telegramUser: ITelegramUser,
-    isNewUser: boolean,
+    _isNewUser: boolean,
   ) {
     const result = await this.authService.handleStartCommand(telegramUser);
     await this.telegramService.sendMessage(chatId, result.welcomeMessage);
@@ -111,26 +116,22 @@ export class TelegramController {
   /**
    * /add コマンドハンドラー
    */
-  private async handleAddCommand(
-    chatId: number,
-    user: User,
-    args: string[],
-  ) {
+  private async handleAddCommand(chatId: number, user: User, args: string[]) {
     if (args.length === 0) {
       await this.telegramService.sendMessage(
         chatId,
-        '使用方法: /add <URL>\n例: /add https://www.example.com/property/123'
+        '使用方法: /add <URL>\n例: /add https://www.example.com/property/123',
       );
       return;
     }
 
     const url = args[0];
-    
+
     // URL検証
     if (!this.isValidUrl(url)) {
       await this.telegramService.sendMessage(
         chatId,
-        '有効なURLを入力してください。'
+        '有効なURLを入力してください。',
       );
       return;
     }
@@ -138,14 +139,14 @@ export class TelegramController {
     // TODO: URL追加処理を実装
     await this.telegramService.sendMessage(
       chatId,
-      `URL "${url}" を監視リストに追加しました！\n新着物件が見つかり次第お知らせします。`
+      `URL "${url}" を監視リストに追加しました！\n新着物件が見つかり次第お知らせします。`,
     );
   }
 
   /**
    * /list コマンドハンドラー
    */
-  private async handleListCommand(chatId: number, user: User) {
+  private async handleListCommand(chatId: number, _user: User) {
     // TODO: ユーザーの監視URL一覧を取得
     const message = `
 📋 監視中のURL一覧:
@@ -175,7 +176,7 @@ export class TelegramController {
     if (args.length === 0) {
       await this.telegramService.sendMessage(
         chatId,
-        '使用方法: /remove <番号>\n/list で番号を確認してください。'
+        '使用方法: /remove <番号>\n/list で番号を確認してください。',
       );
       return;
     }
@@ -184,7 +185,7 @@ export class TelegramController {
     if (isNaN(index)) {
       await this.telegramService.sendMessage(
         chatId,
-        '番号を正しく入力してください。'
+        '番号を正しく入力してください。',
       );
       return;
     }
@@ -192,22 +193,18 @@ export class TelegramController {
     // TODO: URL削除処理を実装
     await this.telegramService.sendMessage(
       chatId,
-      `番号 ${index} のURLを削除しました。`
+      `番号 ${String(index)} のURLを削除しました。`,
     );
   }
 
   /**
    * /pause コマンドハンドラー
    */
-  private async handlePauseCommand(
-    chatId: number,
-    user: User,
-    args: string[],
-  ) {
+  private async handlePauseCommand(chatId: number, user: User, args: string[]) {
     if (args.length === 0) {
       await this.telegramService.sendMessage(
         chatId,
-        '使用方法: /pause <番号>\n/list で番号を確認してください。'
+        '使用方法: /pause <番号>\n/list で番号を確認してください。',
       );
       return;
     }
@@ -216,7 +213,7 @@ export class TelegramController {
     if (isNaN(index)) {
       await this.telegramService.sendMessage(
         chatId,
-        '番号を正しく入力してください。'
+        '番号を正しく入力してください。',
       );
       return;
     }
@@ -224,7 +221,7 @@ export class TelegramController {
     // TODO: 監視一時停止処理を実装
     await this.telegramService.sendMessage(
       chatId,
-      `番号 ${index} の監視を一時停止しました。`
+      `番号 ${String(index)} の監視を一時停止しました。`,
     );
   }
 
@@ -239,7 +236,7 @@ export class TelegramController {
     if (args.length === 0) {
       await this.telegramService.sendMessage(
         chatId,
-        '使用方法: /resume <番号>\n/list で番号を確認してください。'
+        '使用方法: /resume <番号>\n/list で番号を確認してください。',
       );
       return;
     }
@@ -248,7 +245,7 @@ export class TelegramController {
     if (isNaN(index)) {
       await this.telegramService.sendMessage(
         chatId,
-        '番号を正しく入力してください。'
+        '番号を正しく入力してください。',
       );
       return;
     }
@@ -256,7 +253,7 @@ export class TelegramController {
     // TODO: 監視再開処理を実装
     await this.telegramService.sendMessage(
       chatId,
-      `番号 ${index} の監視を再開しました。`
+      `番号 ${String(index)} の監視を再開しました。`,
     );
   }
 
@@ -272,7 +269,7 @@ export class TelegramController {
 📅 登録日: ${user.createdAt.toLocaleDateString('ja-JP')}
 🔍 監視中URL: 2件
 ⏸️ 一時停止中: 1件
-🔔 通知設定: ${user.settings?.notifications?.enabled ? 'ON' : 'OFF'}
+🔔 通知設定: ${user.settings?.notifications.enabled ? 'ON' : 'OFF'}
 
 最終チェック: 5分前
 次回チェック: 10分後
@@ -315,7 +312,7 @@ export class TelegramController {
     const parts = text.trim().split(/\s+/);
     const name = parts[0].toLowerCase();
     const args = parts.slice(1);
-    
+
     return { name, args };
   }
 

@@ -3,10 +3,10 @@ import { UsersService } from '../../domain/users/users.service';
 import { User, UserSettings } from '../../domain/users/entities/user.entity';
 import { TelegramUser, UserUpdateData } from '../../common/interfaces';
 import { CreateUserDto } from '../../domain/users/dto/create-user.dto';
-import { 
-  TelegramAuthException, 
+import {
+  TelegramAuthException,
   UserRegistrationException,
-  InvalidTelegramDataException 
+  InvalidTelegramDataException,
 } from '../../common/exceptions';
 
 @Injectable()
@@ -22,7 +22,7 @@ export class AuthService {
     try {
       // 入力検証
       this.validateTelegramUser(telegramUser);
-      
+
       const telegramId = telegramUser.id.toString();
 
       // 既存ユーザーチェック
@@ -74,13 +74,18 @@ export class AuthService {
 
       return user;
     } catch (error) {
-      this.logger.error(`Authentication failed for Telegram user ${telegramUser?.id}: ${error.message}`, error.stack);
-      
-      if (error instanceof InvalidTelegramDataException || 
-          error instanceof UserRegistrationException) {
+      this.logger.error(
+        `Authentication failed for Telegram user ${String(telegramUser.id)}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
+      if (
+        error instanceof InvalidTelegramDataException ||
+        error instanceof UserRegistrationException
+      ) {
         throw error;
       }
-      
+
       throw new TelegramAuthException('Authentication failed');
     }
   }
@@ -109,7 +114,10 @@ export class AuthService {
         welcomeMessage,
       };
     } catch (error) {
-      this.logger.error(`Start command failed for user ${telegramUser?.id}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Start command failed for user ${String(telegramUser.id)}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -119,7 +127,7 @@ export class AuthService {
    */
   private generateWelcomeMessage(user: User, isNewUser: boolean): string {
     const greeting = isNewUser ? 'はじめまして' : 'おかえりなさい';
-    
+
     const message = `
 ${greeting}、${user.fullName}さん！🏠
 
@@ -144,16 +152,17 @@ ${isNewUser ? 'ソクブツへようこそ！' : 'またお会いできて嬉し
    * Telegramユーザーデータの検証
    */
   private validateTelegramUser(telegramUser: TelegramUser): void {
-    if (!telegramUser) {
-      throw new InvalidTelegramDataException('Telegram user data is required');
-    }
-
     if (!telegramUser.id) {
       throw new InvalidTelegramDataException('Telegram user ID is required');
     }
 
-    if (!telegramUser.first_name || telegramUser.first_name.trim().length === 0) {
-      throw new InvalidTelegramDataException('Telegram user first name is required');
+    if (
+      !telegramUser.first_name ||
+      telegramUser.first_name.trim().length === 0
+    ) {
+      throw new InvalidTelegramDataException(
+        'Telegram user first name is required',
+      );
     }
 
     // 名前の長さ制限
@@ -178,7 +187,9 @@ ${isNewUser ? 'ソクブツへようこそ！' : 'またお会いできて嬉し
       const user = await this.usersService.findByTelegramId(telegramId);
       return user?.isActive ?? false;
     } catch (error) {
-      this.logger.error(`User validation failed for ${telegramId}: ${error.message}`);
+      this.logger.error(
+        `User validation failed for ${telegramId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return false;
     }
   }
@@ -190,7 +201,9 @@ ${isNewUser ? 'ソクブツへようこそ！' : 'またお会いできて嬉し
     try {
       return await this.usersService.findByTelegramId(telegramId);
     } catch (error) {
-      this.logger.error(`Failed to get user ${telegramId}: ${error.message}`);
+      this.logger.error(
+        `Failed to get user ${telegramId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return null;
     }
   }

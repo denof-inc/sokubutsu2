@@ -53,7 +53,7 @@ export class IntelligentCacheService {
   async get(url: string): Promise<ScrapingResult | null> {
     const key = this.generateCacheKey(url);
     const entry = this.cache.get(key);
-    
+
     this.stats.totalRequests++;
 
     if (!entry) {
@@ -73,14 +73,16 @@ export class IntelligentCacheService {
     // アクセス情報を更新
     entry.accessCount++;
     entry.lastAccessTime = new Date();
-    
+
     this.stats.hits++;
-    this.logger.debug(`Cache hit for ${url} (access count: ${entry.accessCount})`);
-    
+    this.logger.debug(
+      `Cache hit for ${url} (access count: ${String(entry.accessCount)})`,
+    );
+
     // LRUの実装: 最近アクセスされたエントリを末尾に移動
     this.cache.delete(key);
     this.cache.set(key, entry);
-    
+
     return entry.value;
   }
 
@@ -93,8 +95,11 @@ export class IntelligentCacheService {
     const ttl = this.calculateTTL(url, value);
 
     // 容量チェック
-    if (size > this.config.maxSize * 0.1) { // 単一エントリが10%を超える場合は拒否
-      this.logger.warn(`Entry too large to cache: ${url} (${size} bytes)`);
+    if (size > this.config.maxSize * 0.1) {
+      // 単一エントリが10%を超える場合は拒否
+      this.logger.warn(
+        `Entry too large to cache: ${url} (${String(size)} bytes)`,
+      );
       return;
     }
 
@@ -114,8 +119,10 @@ export class IntelligentCacheService {
     this.cache.set(key, entry);
     this.stats.currentSize += size;
     this.stats.entryCount++;
-    
-    this.logger.debug(`Cached ${url} (size: ${size} bytes, TTL: ${ttl}ms)`);
+
+    this.logger.debug(
+      `Cached ${url} (size: ${String(size)} bytes, TTL: ${String(ttl)}ms)`,
+    );
   }
 
   /**
@@ -157,7 +164,8 @@ export class IntelligentCacheService {
 
     // コンテンツサイズに基づく調整
     const size = this.calculateSize(value);
-    if (size > 1024 * 1024) { // 1MB以上
+    if (size > 1024 * 1024) {
+      // 1MB以上
       return this.config.defaultTTL * 2; // より長く保持
     }
 
@@ -193,13 +201,13 @@ export class IntelligentCacheService {
    */
   private async evictLRU(count: number): Promise<void> {
     const entries = Array.from(this.cache.entries());
-    
+
     // アクセス頻度とアクセス時間を考慮したスコア計算
     const scoredEntries = entries.map(([key, entry]) => {
       const ageMs = new Date().getTime() - entry.lastAccessTime.getTime();
       const accessRate = entry.accessCount / (ageMs / 1000 / 60); // アクセス/分
-      const score = accessRate * 1000 + (1 / ageMs); // 高頻度・最近のアクセスほど高スコア
-      
+      const score = accessRate * 1000 + 1 / ageMs; // 高頻度・最近のアクセスほど高スコア
+
       return { key, entry, score };
     });
 
@@ -218,13 +226,13 @@ export class IntelligentCacheService {
    */
   private evictEntry(key: string): void {
     const entry = this.cache.get(key);
-    
+
     if (entry) {
       this.cache.delete(key);
       this.stats.currentSize -= entry.size;
       this.stats.entryCount--;
       this.stats.evictions++;
-      
+
       this.logger.debug(`Evicted cache entry: ${key}`);
     }
   }
@@ -243,17 +251,21 @@ export class IntelligentCacheService {
    */
   private cleanup(): void {
     const expiredKeys: string[] = [];
-    
+
     for (const [key, entry] of this.cache.entries()) {
       if (this.isExpired(entry)) {
         expiredKeys.push(key);
       }
     }
 
-    expiredKeys.forEach(key => this.evictEntry(key));
-    
+    expiredKeys.forEach((key) => {
+      this.evictEntry(key);
+    });
+
     if (expiredKeys.length > 0) {
-      this.logger.debug(`Cleaned up ${expiredKeys.length} expired entries`);
+      this.logger.debug(
+        `Cleaned up ${String(expiredKeys.length)} expired entries`,
+      );
     }
   }
 
@@ -275,14 +287,16 @@ export class IntelligentCacheService {
     averageEntrySize: number;
     utilizationRate: number;
   } {
-    const hitRate = this.stats.totalRequests > 0 
-      ? this.stats.hits / this.stats.totalRequests 
-      : 0;
-      
-    const averageEntrySize = this.stats.entryCount > 0
-      ? this.stats.currentSize / this.stats.entryCount
-      : 0;
-      
+    const hitRate =
+      this.stats.totalRequests > 0
+        ? this.stats.hits / this.stats.totalRequests
+        : 0;
+
+    const averageEntrySize =
+      this.stats.entryCount > 0
+        ? this.stats.currentSize / this.stats.entryCount
+        : 0;
+
     const utilizationRate = this.stats.currentSize / this.config.maxSize;
 
     return {
@@ -297,13 +311,13 @@ export class IntelligentCacheService {
    * キャッシュのウォームアップ（事前読み込み）
    */
   async warmup(urls: string[]): Promise<void> {
-    this.logger.log(`Warming up cache with ${urls.length} URLs`);
-    
+    this.logger.log(`Warming up cache with ${String(urls.length)} URLs`);
+
     // 並列でプリフェッチ（ただし実際のスクレイピングは行わない）
     // この実装では、キャッシュのウォームアップロジックのみ示す
     for (const url of urls) {
       const key = this.generateCacheKey(url);
-      
+
       if (!this.cache.has(key)) {
         // 実際のアプリケーションでは、ここでスクレイピングを実行
         this.logger.debug(`Would prefetch: ${url}`);

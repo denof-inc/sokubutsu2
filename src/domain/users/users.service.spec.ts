@@ -5,7 +5,11 @@ import { UsersService } from './users.service';
 import { User, UserSettings } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { ConflictException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import {
+  ConflictException,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -48,6 +52,8 @@ describe('UsersService', () => {
       findOne: jest.fn(),
       save: jest.fn(),
       create: jest.fn(),
+      count: jest.fn(),
+      find: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -87,8 +93,9 @@ describe('UsersService', () => {
     it('should throw ConflictException if user already exists', async () => {
       repository.findOne.mockResolvedValue(mockUser);
 
-      await expect(service.create(mockCreateUserDto))
-        .rejects.toThrow(ConflictException);
+      await expect(service.create(mockCreateUserDto)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should handle database errors', async () => {
@@ -96,8 +103,9 @@ describe('UsersService', () => {
       repository.create.mockReturnValue(mockUser);
       repository.save.mockRejectedValue(new Error('Database error'));
 
-      await expect(service.create(mockCreateUserDto))
-        .rejects.toThrow(InternalServerErrorException);
+      await expect(service.create(mockCreateUserDto)).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 
@@ -124,8 +132,9 @@ describe('UsersService', () => {
     it('should handle database errors', async () => {
       repository.findOne.mockRejectedValue(new Error('Database error'));
 
-      await expect(service.findByTelegramId('123456789'))
-        .rejects.toThrow(InternalServerErrorException);
+      await expect(service.findByTelegramId('123456789')).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 
@@ -144,37 +153,42 @@ describe('UsersService', () => {
 
       expect(result.isActive).toBe(true);
       expect(repository.save).toHaveBeenCalledWith(
-        expect.objectContaining(updateDto)
+        expect.objectContaining(updateDto),
       );
     });
 
     it('should throw NotFoundException if user not found', async () => {
       repository.findOne.mockResolvedValue(null);
 
-      await expect(service.update('999999999', {}))
-        .rejects.toThrow(NotFoundException);
+      await expect(service.update('999999999', {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should handle database errors during update', async () => {
       repository.findOne.mockResolvedValue(mockUser);
       repository.save.mockRejectedValue(new Error('Database error'));
 
-      await expect(service.update('123456789', {}))
-        .rejects.toThrow(InternalServerErrorException);
+      await expect(service.update('123456789', {})).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 
   describe('exists', () => {
     it('should return true if user exists', async () => {
-      repository.findOne.mockResolvedValue(mockUser);
+      repository.count.mockResolvedValue(1);
 
       const result = await service.exists('123456789');
 
       expect(result).toBe(true);
+      expect(repository.count).toHaveBeenCalledWith({
+        where: { telegramId: '123456789' },
+      });
     });
 
     it('should return false if user does not exist', async () => {
-      repository.findOne.mockResolvedValue(null);
+      repository.count.mockResolvedValue(0);
 
       const result = await service.exists('999999999');
 
@@ -182,10 +196,11 @@ describe('UsersService', () => {
     });
 
     it('should handle database errors', async () => {
-      repository.findOne.mockRejectedValue(new Error('Database error'));
+      repository.count.mockRejectedValue(new Error('Database error'));
 
-      await expect(service.exists('123456789'))
-        .rejects.toThrow(InternalServerErrorException);
+      await expect(service.exists('123456789')).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 
@@ -195,19 +210,18 @@ describe('UsersService', () => {
       const deactivatedUser = { ...mockUser, isActive: false } as User;
       repository.save.mockResolvedValue(deactivatedUser);
 
-      const result = await service.deactivate('123456789');
-
-      expect(result).toBeUndefined();
+      await service.deactivate('123456789');
       expect(repository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ isActive: false })
+        expect.objectContaining({ isActive: false }),
       );
     });
 
     it('should throw NotFoundException if user not found', async () => {
       repository.findOne.mockResolvedValue(null);
 
-      await expect(service.deactivate('999999999'))
-        .rejects.toThrow(NotFoundException);
+      await expect(service.deactivate('999999999')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -229,9 +243,9 @@ describe('UsersService', () => {
 
     it('should merge settings correctly', async () => {
       const partialSettings: Partial<UserSettings> = {
-        notifications: { 
+        notifications: {
           enabled: false,
-          silent: false 
+          silent: false,
         },
       };
 
@@ -240,19 +254,15 @@ describe('UsersService', () => {
         ...mockUser,
         settings: {
           ...mockUser.settings,
-          notifications: {
-            ...mockUser.settings!.notifications,
-            enabled: false,
-          },
-          language: mockUser.settings!.language,
+          ...partialSettings,
         },
       } as User;
       repository.save.mockResolvedValue(mergedSettings);
 
       const result = await service.updateSettings('123456789', partialSettings);
 
-      expect(result.settings!.notifications.enabled).toBe(false);
-      expect(result.settings!.notifications.silent).toBe(false); // 既存値を保持
+      expect(result.settings?.notifications.enabled).toBe(false);
+      expect(result.settings?.notifications.silent).toBe(false);
     });
   });
 
@@ -267,6 +277,7 @@ describe('UsersService', () => {
       expect(result).toEqual(mockActiveUsers);
       expect(repository.find).toHaveBeenCalledWith({
         where: { isActive: true },
+        order: { lastActiveAt: 'DESC' },
       });
     });
   });

@@ -43,7 +43,10 @@ import { TelegramModule } from './domain/telegram/telegram.module';
         // デフォルトは better-sqlite3
         return {
           type: 'better-sqlite3',
-          database: configService.get<string>('DATABASE_PATH', 'sokubutsu.sqlite'),
+          database: configService.get<string>(
+            'DATABASE_PATH',
+            'sokubutsu.sqlite',
+          ),
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
           synchronize: true,
         };

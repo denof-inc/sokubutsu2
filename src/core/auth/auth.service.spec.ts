@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
-import { UsersService } from '../users/users.service';
-import { TelegramUser } from './interfaces/telegram-user.interface';
-import { User } from '../users/entities/user.entity';
-import { InvalidTelegramDataException } from './exceptions/auth.exceptions';
+import { UsersService } from '../../domain/users/users.service';
+import { TelegramUser } from '../../common/interfaces/telegram-user.interface';
+import { User } from '../../domain/users/entities/user.entity';
+import { InvalidTelegramDataException } from '../../common/exceptions/auth.exceptions';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -85,8 +85,9 @@ describe('AuthService', () => {
     it('should throw error for invalid telegram user data', async () => {
       const invalidUser = { ...mockTelegramUser, first_name: '' };
 
-      await expect(service.authenticateTelegramUser(invalidUser))
-        .rejects.toThrow(InvalidTelegramDataException);
+      await expect(
+        service.authenticateTelegramUser(invalidUser),
+      ).rejects.toThrow(InvalidTelegramDataException);
     });
 
     it('should reactivate inactive user', async () => {
@@ -95,10 +96,12 @@ describe('AuthService', () => {
       const activeUser = { ...mockUser, isActive: true } as User;
       usersService.update.mockResolvedValue(activeUser);
 
-      const result = await service.authenticateTelegramUser(mockTelegramUser);
+      await service.authenticateTelegramUser(mockTelegramUser);
 
-      expect(usersService.update).toHaveBeenCalledWith('123456789', 
-        expect.objectContaining({ isActive: true }));
+      expect(usersService.update).toHaveBeenCalledWith(
+        '123456789',
+        expect.objectContaining({ isActive: true }),
+      );
     });
   });
 

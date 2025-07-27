@@ -25,7 +25,7 @@ export class BrowserPoolManager implements OnModuleDestroy {
   private readonly logger = new Logger(BrowserPoolManager.name);
   private readonly pool: Map<string, BrowserInstance> = new Map();
   private readonly waitQueue: Array<(browser: BrowserContext) => void> = [];
-  
+
   private readonly config: PoolConfig = {
     minSize: 2,
     maxSize: 5,
@@ -35,7 +35,7 @@ export class BrowserPoolManager implements OnModuleDestroy {
   };
 
   constructor() {
-    this.initializePool();
+    void this.initializePool();
     this.startMaintenanceTask();
   }
 
@@ -44,24 +44,27 @@ export class BrowserPoolManager implements OnModuleDestroy {
    */
   private async initializePool(): Promise<void> {
     this.logger.log('Initializing browser pool...');
-    
+
     for (let i = 0; i < this.config.minSize; i++) {
       await this.createBrowserInstance();
     }
-    
-    this.logger.log(`Browser pool initialized with ${this.config.minSize} instances`);
+
+    this.logger.log(
+      `Browser pool initialized with ${String(this.config.minSize)} instances`,
+    );
   }
 
   /**
    * ブラウザインスタンスの作成
    */
   private async createBrowserInstance(): Promise<BrowserInstance> {
-    const id = `browser-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+    const id = `browser-${String(Date.now())}-${Math.random().toString(36).substring(2, 11)}`;
+
     const browser = await chromium.launch(StealthConfig.getStealthOptions());
     const context = await browser.newContext({
       viewport: { width: 1366, height: 768 },
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       locale: 'ja-JP',
       timezoneId: 'Asia/Tokyo',
     });
@@ -72,12 +75,12 @@ export class BrowserPoolManager implements OnModuleDestroy {
       Object.defineProperty(navigator, 'webdriver', {
         get: () => undefined,
       });
-      
+
       // Chrome検知回避
       (window as any).chrome = {
         runtime: {},
-        loadTimes: function() {},
-        csi: function() {},
+        loadTimes: function () {},
+        csi: function () {},
         app: {},
       };
     });
@@ -94,7 +97,7 @@ export class BrowserPoolManager implements OnModuleDestroy {
 
     this.pool.set(id, instance);
     this.logger.debug(`Created browser instance: ${id}`);
-    
+
     return instance;
   }
 
@@ -108,7 +111,7 @@ export class BrowserPoolManager implements OnModuleDestroy {
         instance.inUse = true;
         instance.lastUsedAt = new Date();
         instance.requestCount++;
-        
+
         this.logger.debug(`Acquired browser instance: ${instance.id}`);
         return instance.context;
       }
@@ -120,12 +123,14 @@ export class BrowserPoolManager implements OnModuleDestroy {
       const newInstance = await this.createBrowserInstance();
       newInstance.inUse = true;
       newInstance.requestCount++;
-      
+
       return newInstance.context;
     }
 
     // プールが満杯の場合は待機
-    this.logger.debug('Browser pool is full, waiting for available instance...');
+    this.logger.debug(
+      'Browser pool is full, waiting for available instance...',
+    );
     return new Promise((resolve) => {
       this.waitQueue.push(resolve);
     });
@@ -136,7 +141,7 @@ export class BrowserPoolManager implements OnModuleDestroy {
    */
   async release(context: BrowserContext): Promise<void> {
     const instance = this.findInstanceByContext(context);
-    
+
     if (!instance) {
       this.logger.warn('Attempted to release unknown browser context');
       return;
@@ -144,12 +149,13 @@ export class BrowserPoolManager implements OnModuleDestroy {
 
     instance.inUse = false;
     instance.lastUsedAt = new Date();
-    
+
     this.logger.debug(`Released browser instance: ${instance.id}`);
 
     // 待機中のリクエストがあれば処理
     if (this.waitQueue.length > 0) {
-      const waiter = this.waitQueue.shift()!;
+      const waiter = this.waitQueue.shift();
+      if (!waiter) return;
       instance.inUse = true;
       instance.requestCount++;
       waiter(instance.context);
@@ -158,7 +164,7 @@ export class BrowserPoolManager implements OnModuleDestroy {
     // インスタンスの健全性チェック
     if (!this.isInstanceHealthy(instance)) {
       await this.destroyInstance(instance.id);
-      
+
       // 最小プールサイズを維持
       if (this.pool.size < this.config.minSize) {
         await this.createBrowserInstance();
@@ -198,7 +204,9 @@ export class BrowserPoolManager implements OnModuleDestroy {
   /**
    * コンテキストからインスタンスを検索
    */
-  private findInstanceByContext(context: BrowserContext): BrowserInstance | undefined {
+  private findInstanceByContext(
+    context: BrowserContext,
+  ): BrowserInstance | undefined {
     for (const instance of this.pool.values()) {
       if (instance.context === context) {
         return instance;
@@ -212,7 +220,7 @@ export class BrowserPoolManager implements OnModuleDestroy {
    */
   private async destroyInstance(id: string): Promise<void> {
     const instance = this.pool.get(id);
-    
+
     if (!instance) {
       return;
     }
@@ -220,12 +228,14 @@ export class BrowserPoolManager implements OnModuleDestroy {
     try {
       await instance.context.close();
       await instance.browser.close();
-      
+
       this.pool.delete(id);
       this.logger.debug(`Destroyed browser instance: ${id}`);
-      
     } catch (error) {
-      this.logger.error(`Error destroying browser instance ${id}:`, error.message);
+      this.logger.error(
+        `Error destroying browser instance ${id}:`,
+        error.message,
+      );
     }
   }
 
@@ -233,8 +243,8 @@ export class BrowserPoolManager implements OnModuleDestroy {
    * メンテナンスタスクの開始
    */
   private startMaintenanceTask(): void {
-    setInterval(async () => {
-      await this.performMaintenance();
+    setInterval(() => {
+      void this.performMaintenance();
     }, 30000); // 30秒ごと
   }
 
@@ -267,9 +277,9 @@ export class BrowserPoolManager implements OnModuleDestroy {
     if (this.waitQueue.length > 0 && this.pool.size < this.config.maxSize) {
       const newInstances = Math.min(
         this.waitQueue.length,
-        this.config.maxSize - this.pool.size
+        this.config.maxSize - this.pool.size,
       );
-      
+
       for (let i = 0; i < newInstances; i++) {
         await this.createBrowserInstance();
       }
@@ -294,13 +304,13 @@ export class BrowserPoolManager implements OnModuleDestroy {
   } {
     const now = new Date().getTime();
     const instances = Array.from(this.pool.values());
-    
+
     return {
       totalInstances: instances.length,
-      activeInstances: instances.filter(i => i.inUse).length,
-      idleInstances: instances.filter(i => !i.inUse).length,
+      activeInstances: instances.filter((i) => i.inUse).length,
+      idleInstances: instances.filter((i) => !i.inUse).length,
       queueLength: this.waitQueue.length,
-      instanceDetails: instances.map(i => ({
+      instanceDetails: instances.map((i) => ({
         id: i.id,
         inUse: i.inUse,
         requestCount: i.requestCount,
@@ -315,14 +325,12 @@ export class BrowserPoolManager implements OnModuleDestroy {
    */
   async onModuleDestroy(): Promise<void> {
     this.logger.log('Shutting down browser pool...');
-    
+
     // すべてのインスタンスを破棄
     const instances = Array.from(this.pool.keys());
-    
-    await Promise.all(
-      instances.map(id => this.destroyInstance(id))
-    );
-    
+
+    await Promise.all(instances.map((id) => this.destroyInstance(id)));
+
     this.logger.log('Browser pool shut down complete');
   }
 }
