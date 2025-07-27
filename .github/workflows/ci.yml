@@ -1,0 +1,86 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run linter
+      run: npm run lint:check
+    
+    - name: Run tests
+      run: npm run test:coverage
+    
+    - name: Build application
+      run: npm run build
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build Docker image
+      run: docker build -t sokubutsu-mvp:latest .
+    
+    - name: Test Docker image
+      run: |
+        docker run --rm -d --name test-container sokubutsu-mvp:latest
+        sleep 10
+        docker logs test-container
+        docker stop test-container
+
+  quality-gate:
+    runs-on: ubuntu-latest
+    needs: [test, docker]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Quality check
+      run: npm run quality:check
+    
+    - name: Performance benchmark
+      run: |
+        echo "🚀 Performance Benchmark"
+        echo "Target: Memory 30-50MB, Startup 1-2s, Execution 2-5s"
+        npm run manual:test
