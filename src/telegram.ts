@@ -1,6 +1,6 @@
 import { Telegraf } from 'telegraf';
 import { NotificationData, Statistics } from './types';
-import { logger } from './logger';
+import { vibeLogger } from './logger';
 
 /**
  * Telegram通知サービス
@@ -36,10 +36,21 @@ export class TelegramNotifier {
   async testConnection(): Promise<boolean> {
     try {
       const me = await this.bot.telegram.getMe();
-      logger.info(`Telegram Bot接続成功: @${me.username}`);
+      vibeLogger.info('telegram.connection_success', 'Telegram Bot接続成功', {
+        context: { username: me.username, botId: me.id },
+      });
       return true;
     } catch (error) {
-      logger.error('Telegram Bot接続失敗', error);
+      vibeLogger.error('telegram.connection_failed', 'Telegram Bot接続失敗', {
+        context: { 
+          error: error instanceof Error ? {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+          } : { message: String(error) },
+        },
+        aiTodo: 'Telegram BotトークンとChat IDの設定を確認',
+      });
       return false;
     }
   }
@@ -165,10 +176,24 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
         }
       });
       
-      logger.debug('Telegram通知送信成功');
+      vibeLogger.debug('telegram.message_sent', 'Telegram通知送信成功', {
+        context: { chatId: this.chatId },
+      });
       
     } catch (error) {
-      logger.error(`Telegram通知送信失敗 (試行${retryCount + 1}/${this.maxRetries})`, error);
+      vibeLogger.error('telegram.message_failed', `Telegram通知送信失敗`, {
+        context: { 
+          chatId: this.chatId,
+          retryCount: retryCount + 1,
+          maxRetries: this.maxRetries,
+          error: error instanceof Error ? {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+          } : { message: String(error) },
+        },
+        humanNote: 'リトライ処理を実行中',
+      });
       
       if (retryCount < this.maxRetries) {
         const delay = Math.pow(2, retryCount) * 1000; // 指数バックオフ

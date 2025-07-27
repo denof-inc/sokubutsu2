@@ -1,5 +1,5 @@
 import { PerformanceMetrics } from './types';
-import { logger } from './logger';
+import { logger, vibeLogger } from './logger';
 
 /**
  * パフォーマンス監視クラス
@@ -64,11 +64,24 @@ export class PerformanceMonitor {
       try {
         const result = await fn(...args);
         const executionTime = Date.now() - startTime;
-        logger.debug(`実行時間: ${executionTime}ms`, { function: fn.name });
+        vibeLogger.debug('performance.execution_time', `実行時間: ${executionTime}ms`, {
+          context: { functionName: fn.name, executionTime },
+        });
         return result;
       } catch (error) {
         const executionTime = Date.now() - startTime;
-        logger.error(`実行エラー (${executionTime}ms)`, { function: fn.name, error });
+        vibeLogger.error('performance.execution_error', `実行エラー`, {
+          context: { 
+            functionName: fn.name, 
+            executionTime,
+            error: error instanceof Error ? {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+            } : { message: String(error) },
+          },
+          aiTodo: '実行エラーのパターンを分析',
+        });
         throw error;
       }
     };
@@ -116,13 +129,22 @@ export class PerformanceMonitor {
     if (metrics.memoryUsage > 50) {
       issues.push(`メモリ使用量が目標を超過: ${metrics.memoryUsage}MB > 50MB`);
     } else if (metrics.memoryUsage < 30) {
-      logger.info(`メモリ使用量が目標を下回る（良好）: ${metrics.memoryUsage}MB < 30MB`);
+      vibeLogger.info('performance.memory_below_target', 'メモリ使用量が目標を下回る（良好）', {
+        context: { memoryUsage: metrics.memoryUsage, target: 30 },
+        humanNote: 'メモリ使用量が非常に効率的です',
+      });
     }
     
     if (issues.length > 0) {
-      logger.warn('⚠️  パフォーマンス目標未達成:', issues);
+      vibeLogger.warn('performance.targets_not_met', '⚠️  パフォーマンス目標未達成', {
+        context: { issues, metrics },
+        aiTodo: 'パフォーマンス問題の解決策を提案',
+      });
     } else {
-      logger.info('✅ パフォーマンス目標達成');
+      vibeLogger.info('performance.targets_met', '✅ パフォーマンス目標達成', {
+        context: { metrics },
+        humanNote: 'システムのパフォーマンスが良好です',
+      });
     }
   }
 }

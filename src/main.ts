@@ -1,6 +1,6 @@
 import { config, validateConfig, displayConfig } from './config';
 import { MonitoringScheduler } from './scheduler';
-import { logger } from './logger';
+import { logger, vibeLogger } from './logger';
 import { performanceMonitor } from './performance';
 
 /**
@@ -15,7 +15,14 @@ async function main(): Promise<void> {
   console.log();
 
   // パフォーマンス監視開始
-  logger.info('パフォーマンス監視開始');
+  vibeLogger.info('main.startup', 'パフォーマンス監視開始', {
+    context: { 
+      startupTime: new Date().toISOString(),
+      nodeVersion: process.version,
+      platform: process.platform,
+    },
+    humanNote: 'アプリケーションの起動プロセスを開始',
+  });
 
   // 設定検証
   if (!validateConfig()) {
@@ -50,10 +57,13 @@ async function main(): Promise<void> {
     console.log('🛑 停止するには Ctrl+C を押してください。');
     console.log();
     
-    logger.info('ソクブツMVP起動完了', {
-      urls: config.monitoring.urls.length,
-      interval: config.monitoring.interval,
-      performance: performanceMonitor.getMetrics(),
+    vibeLogger.info('main.startup_complete', 'ソクブツMVP起動完了', {
+      context: {
+        urlCount: config.monitoring.urls.length,
+        interval: config.monitoring.interval,
+        performance: performanceMonitor.getMetrics(),
+      },
+      humanNote: 'システムが正常に起動し、監視を開始しました',
     });
 
     // グレースフルシャットダウン設定
@@ -63,7 +73,16 @@ async function main(): Promise<void> {
     process.stdin.resume();
 
   } catch (error) {
-    logger.error('起動エラー', error);
+    vibeLogger.error('main.startup_error', '起動エラー', {
+      context: { 
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        } : { message: String(error) },
+      },
+      aiTodo: '起動エラーの原因を分析し、解決策を提案',
+    });
     console.error('🚨 起動エラー:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
@@ -74,7 +93,10 @@ async function main(): Promise<void> {
  */
 function setupGracefulShutdown(scheduler: MonitoringScheduler): void {
   const shutdown = (signal: string) => {
-    logger.info(`${signal} 信号を受信しました。シャットダウンを開始します。`);
+    vibeLogger.info('main.shutdown_signal', `${signal} 信号を受信しました。シャットダウンを開始します。`, {
+      context: { signal },
+      humanNote: 'グレースフルシャットダウンを実行中',
+    });
     console.log(`\n\n🛑 ${signal} 信号を受信しました。`);
     console.log('📊 最終統計情報を表示中...');
     
@@ -85,7 +107,9 @@ function setupGracefulShutdown(scheduler: MonitoringScheduler): void {
     scheduler.stop();
     
     console.log('✅ ソクブツMVPを正常に終了しました。');
-    logger.info('ソクブツMVP正常終了');
+    vibeLogger.info('main.shutdown_complete', 'ソクブツMVP正常終了', {
+      humanNote: 'アプリケーションが正常に終了しました',
+    });
     
     process.exit(0);
   };

@@ -1,10 +1,25 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { config } from './config';
+import { createFileLogger } from 'vibelogger';
 
 /**
- * ログレベル
+ * ログ管理モジュール（vibelogger統合版）
+ * 
+ * @設計ドキュメント
+ * - README.md: ログ出力設定
+ * - docs/ログ設計.md: ログレベルとファイル出力
+ * - CLAUDE.md: vibelogger利用ガイドライン
+ * 
+ * @関連クラス
+ * - 全クラス: このloggerインスタンスを使用してログ出力
+ * - vibelogger: AI最適化された構造化ログライブラリ
+ * 
+ * @主要機能
+ * - AI駆動開発に最適化された構造化ログ
+ * - 自動的なタイムスタンプとコンテキスト記録
+ * - humanNoteとaiTodoによる注釈機能
+ * - 相関IDによるトレース機能
  */
+
+// 後方互換性のためのログレベル定義
 export enum LogLevel {
   ERROR = 0,
   WARN = 1,
@@ -13,127 +28,91 @@ export enum LogLevel {
 }
 
 /**
- * ログ管理クラス
- * 
- * @設計ドキュメント
- * - README.md: ログ出力設定
- * - docs/ログ設計.md: ログレベルとファイル出力
- * 
- * @関連クラス
- * - config: ログディレクトリとログレベル設定の取得
- * - 全クラス: このLoggerクラスを使用してログ出力
- * 
- * @主要機能
- * - 4段階のログレベル管理（ERROR/WARN/INFO/DEBUG）
- * - 日付別ログファイル自動生成
- * - コンソールとファイルへの同時出力
- * - JSON形式でのデータ構造化ログ
+ * vibeloggerインスタンス
+ * プロジェクト名を使って自動的にログファイルが作成される
+ */
+const vibeLogger = createFileLogger('sokubutsu');
+
+/**
+ * 後方互換性のためのLoggerクラス
+ * 既存のコードとの互換性を保ちながらvibeloggerの機能を提供
  */
 export class Logger {
-  private readonly logLevel: LogLevel;
-  private readonly logDir: string;
-
-  constructor() {
-    this.logLevel = this.getLogLevel();
-    this.logDir = path.join(config.storage.dataDir, '../logs');
-    this.ensureLogDirectory();
-  }
-
-  /**
-   * ログレベルを環境変数から取得
-   */
-  private getLogLevel(): LogLevel {
-    const level = process.env.LOG_LEVEL?.toLowerCase() || 'info';
-    switch (level) {
-      case 'error': return LogLevel.ERROR;
-      case 'warn': return LogLevel.WARN;
-      case 'info': return LogLevel.INFO;
-      case 'debug': return LogLevel.DEBUG;
-      default: return LogLevel.INFO;
-    }
-  }
-
-  /**
-   * ログディレクトリの存在確認・作成
-   */
-  private ensureLogDirectory(): void {
-    if (!fs.existsSync(this.logDir)) {
-      fs.mkdirSync(this.logDir, { recursive: true });
-    }
-  }
-
-  /**
-   * ログメッセージをフォーマット
-   */
-  private formatMessage(level: string, message: string, data?: unknown): string {
-    const timestamp = new Date().toISOString();
-    const baseMessage = `[${timestamp}] [${level}] ${message}`;
-    
-    if (data) {
-      return `${baseMessage} ${JSON.stringify(data, null, 2)}`;
-    }
-    
-    return baseMessage;
-  }
-
-  /**
-   * ログをファイルに書き込み
-   */
-  private writeToFile(level: string, message: string): void {
-    const filename = `sokubutsu-${new Date().toISOString().split('T')[0]}.log`;
-    const filepath = path.join(this.logDir, filename);
-    
-    try {
-      fs.appendFileSync(filepath, message + '\n');
-    } catch (error) {
-      console.error('ログファイル書き込みエラー:', error);
-    }
-  }
-
   /**
    * エラーログ
    */
   error(message: string, data?: unknown): void {
-    if (this.logLevel >= LogLevel.ERROR) {
-      const formatted = this.formatMessage('ERROR', message, data);
-      console.error(formatted);
-      this.writeToFile('ERROR', formatted);
+    const options: any = {
+      humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
+    };
+    if (data) {
+      options.context = { data };
     }
+    vibeLogger.error('legacy.error', message, options);
   }
 
   /**
    * 警告ログ
    */
   warn(message: string, data?: unknown): void {
-    if (this.logLevel >= LogLevel.WARN) {
-      const formatted = this.formatMessage('WARN', message, data);
-      console.warn(formatted);
-      this.writeToFile('WARN', formatted);
+    const options: any = {
+      humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
+    };
+    if (data) {
+      options.context = { data };
     }
+    vibeLogger.warn('legacy.warn', message, options);
   }
 
   /**
    * 情報ログ
    */
   info(message: string, data?: unknown): void {
-    if (this.logLevel >= LogLevel.INFO) {
-      const formatted = this.formatMessage('INFO', message, data);
-      console.log(formatted);
-      this.writeToFile('INFO', formatted);
+    const options: any = {
+      humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
+    };
+    if (data) {
+      options.context = { data };
     }
+    vibeLogger.info('legacy.info', message, options);
   }
 
   /**
    * デバッグログ
    */
   debug(message: string, data?: unknown): void {
-    if (this.logLevel >= LogLevel.DEBUG) {
-      const formatted = this.formatMessage('DEBUG', message, data);
-      console.log(formatted);
-      this.writeToFile('DEBUG', formatted);
+    const options: any = {
+      humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
+    };
+    if (data) {
+      options.context = { data };
     }
+    vibeLogger.debug('legacy.debug', message, options);
   }
 }
 
-// シングルトンインスタンス
+// シングルトンインスタンス（後方互換性）
 export const logger = new Logger();
+
+// vibeloggerの新しいAPIも公開
+export { vibeLogger };
+
+/**
+ * 新しいvibelogger APIの使用例
+ * 
+ * @example
+ * ```typescript
+ * import { vibeLogger } from './logger';
+ * 
+ * // 構造化されたログ出力
+ * vibeLogger.info('user.login', 'ユーザーログイン処理', {
+ *   context: {
+ *     userId: '123',
+ *     method: 'oauth',
+ *     timestamp: new Date().toISOString(),
+ *   },
+ *   humanNote: '不審なログインパターンを監視',
+ *   aiTodo: 'ログイン時間の異常を検知して通知',
+ * });
+ * ```
+ */

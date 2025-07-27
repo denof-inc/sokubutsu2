@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Statistics } from './types';
 import { config } from './config';
-import { logger } from './logger';
+import { logger, vibeLogger } from './logger';
 
 /**
  * シンプルなJSONファイルストレージ
@@ -53,7 +53,9 @@ export class SimpleStorage {
   private ensureDataDirectory(): void {
     if (!fs.existsSync(this.dataDir)) {
       fs.mkdirSync(this.dataDir, { recursive: true });
-      logger.info(`データディレクトリを作成: ${this.dataDir}`);
+      vibeLogger.info('storage.directory_created', `データディレクトリを作成`, {
+        context: { dataDir: this.dataDir },
+      });
     }
   }
 
@@ -66,7 +68,9 @@ export class SimpleStorage {
       if (fs.existsSync(this.hashFile)) {
         const hashContent = fs.readFileSync(this.hashFile, 'utf8');
         this.hashData = JSON.parse(hashContent);
-        logger.debug(`ハッシュデータ読み込み: ${Object.keys(this.hashData).length}件`);
+        vibeLogger.debug('storage.hash_loaded', `ハッシュデータ読み込み`, {
+          context: { count: Object.keys(this.hashData).length },
+        });
       }
       
       // 統計データの読み込み
@@ -78,11 +82,22 @@ export class SimpleStorage {
           ...loadedStats,
           lastCheck: new Date(loadedStats.lastCheck),
         };
-        logger.debug('統計データ読み込み完了', this.stats);
+        vibeLogger.debug('storage.stats_loaded', '統計データ読み込み完了', {
+          context: { stats: this.stats },
+        });
       }
       
     } catch (error) {
-      logger.error('データ読み込みエラー', error);
+      vibeLogger.error('storage.load_error', 'データ読み込みエラー', {
+        context: { 
+          error: error instanceof Error ? {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+          } : { message: String(error) },
+        },
+        aiTodo: 'データ読み込みエラーの原因を分析',
+      });
       // エラーが発生してもデフォルト値で継続
     }
   }
@@ -98,10 +113,24 @@ export class SimpleStorage {
       // 統計データの保存
       fs.writeFileSync(this.statsFile, JSON.stringify(this.stats, null, 2));
       
-      logger.debug('データ保存完了');
+      vibeLogger.debug('storage.save_complete', 'データ保存完了', {
+        context: { 
+          hashFile: this.hashFile,
+          statsFile: this.statsFile,
+        },
+      });
       
     } catch (error) {
-      logger.error('データ保存エラー', error);
+      vibeLogger.error('storage.save_error', 'データ保存エラー', {
+        context: { 
+          error: error instanceof Error ? {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+          } : { message: String(error) },
+        },
+        aiTodo: 'データ保存エラーの原因を分析',
+      });
     }
   }
 
@@ -118,7 +147,9 @@ export class SimpleStorage {
   setHash(url: string, hash: string): void {
     this.hashData[url] = hash;
     this.saveData();
-    logger.debug(`ハッシュ更新: ${url} -> ${hash.substring(0, 8)}...`);
+    vibeLogger.debug('storage.hash_updated', 'ハッシュ更新', {
+      context: { url, hash: hash.substring(0, 8) + '...' },
+    });
   }
 
   /**
@@ -192,7 +223,9 @@ export class SimpleStorage {
       successRate: 100,
     };
     this.saveData();
-    logger.info('統計情報をリセットしました');
+    vibeLogger.info('storage.stats_reset', '統計情報をリセットしました', {
+      humanNote: '統計情報がクリアされました',
+    });
   }
 
   /**
@@ -214,7 +247,16 @@ export class SimpleStorage {
     };
     
     fs.writeFileSync(backupFile, JSON.stringify(backupData, null, 2));
-    logger.info(`バックアップ作成: ${backupFile}`);
+    vibeLogger.info('storage.backup_created', 'バックアップ作成', {
+      context: { 
+        backupFile,
+        dataSize: {
+          hashes: Object.keys(this.hashData).length,
+          stats: this.stats,
+        },
+      },
+      humanNote: 'データのバックアップが作成されました',
+    });
     
     return backupFile;
   }

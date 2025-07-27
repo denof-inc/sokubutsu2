@@ -2,7 +2,7 @@ import axios, { AxiosResponse } from 'axios';
 import * as cheerio from 'cheerio';
 import * as crypto from 'crypto';
 import { ScrapingResult } from './types';
-import { logger } from './logger';
+import { vibeLogger } from './logger';
 import { PerformanceMonitor } from './performance';
 
 /**
@@ -46,7 +46,10 @@ export class SimpleScraper {
     const startTime = Date.now();
     
     try {
-      logger.info(`スクレイピング開始: ${url}`);
+      vibeLogger.info('scraping.start', `スクレイピング開始: ${url}`, {
+        context: { url, method: 'HTTP-first', timeout: this.timeout },
+        humanNote: 'HTTP-first戦略による軽量スクレイピング',
+      });
       
       const response = await this.fetchWithRetry(url);
       const $ = cheerio.load(response.data);
@@ -69,7 +72,9 @@ export class SimpleScraper {
         if (elements.length > 0) {
           properties = elements;
           usedSelector = selector;
-          logger.debug(`有効なセレクター発見: ${selector} (${elements.length}件)`);
+          vibeLogger.debug('scraping.selector.found', `有効なセレクター発見: ${selector} (${elements.length}件)`, {
+            context: { selector, count: elements.length },
+          });
           break;
         }
       }
@@ -83,7 +88,18 @@ export class SimpleScraper {
       const hash = crypto.createHash('md5').update(contentText).digest('hex');
       const executionTime = Date.now() - startTime;
       
-      logger.info(`スクレイピング成功: ${count}件検出 (${executionTime}ms, セレクター: ${usedSelector})`);
+      vibeLogger.info('scraping.success', `スクレイピング成功: ${count}件検出`, {
+        context: { 
+          url, 
+          count, 
+          executionTime, 
+          selector: usedSelector,
+          hash,
+          memoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 100) / 100
+        },
+        humanNote: 'パフォーマンス目標: 2-5秒、メモリ30-50MB',
+        aiTodo: '実行時間とメモリ使用量を分析し、最適化案を提案',
+      });
       
       return {
         success: true,
@@ -97,7 +113,18 @@ export class SimpleScraper {
       const executionTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
       
-      logger.error(`スクレイピング失敗: ${url} (${executionTime}ms)`, { error: errorMessage });
+      vibeLogger.error('scraping.failed', `スクレイピング失敗: ${url}`, {
+        context: { 
+          url, 
+          executionTime,
+          error: error instanceof Error ? {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+          } : { message: String(error) },
+        },
+        aiTodo: 'エラーパターンを分析し、リカバリー戦略を提案',
+      });
       
       return {
         success: false,
@@ -127,7 +154,10 @@ export class SimpleScraper {
     } catch (error) {
       if (retryCount < this.maxRetries) {
         const delay = Math.pow(2, retryCount) * 1000; // 指数バックオフ
-        logger.warn(`リトライ ${retryCount + 1}/${this.maxRetries} (${delay}ms後): ${url}`);
+        vibeLogger.warn('http.retry', `リトライ ${retryCount + 1}/${this.maxRetries}`, {
+          context: { url, retryCount, maxRetries: this.maxRetries, delay },
+          humanNote: 'リトライパターンを監視し、サーバー負荷を考慮',
+        });
         
         await this.sleep(delay);
         return this.fetchWithRetry(url, retryCount + 1);
@@ -154,18 +184,35 @@ export class SimpleScraper {
     
     // 基本的な妥当性チェック
     if (!result.hash || result.count < 0) {
-      logger.warn('スクレイピング結果の妥当性に問題があります', result);
+      vibeLogger.warn('validation.invalid_result', 'スクレイピング結果の妥当性に問題があります', {
+        context: { result },
+        aiTodo: '無効な結果のパターンを分析',
+      });
       return false;
     }
     
     // パフォーマンス目標チェック（実行時間: 2-5秒）
     if (result.executionTime && result.executionTime > 5000) {
-      logger.warn(`実行時間が目標を超過: ${result.executionTime}ms > 5000ms`);
+      vibeLogger.warn('performance.execution_time_exceeded', `実行時間が目標を超過`, {
+        context: { 
+          executionTime: result.executionTime, 
+          target: 5000,
+          exceeded: result.executionTime - 5000
+        },
+        humanNote: '最適化が必要な可能性があります',
+      });
     }
     
     // メモリ使用量チェック（目標: 30-50MB）
     if (result.memoryUsage && result.memoryUsage > 50) {
-      logger.warn(`メモリ使用量が目標を超過: ${result.memoryUsage}MB > 50MB`);
+      vibeLogger.warn('performance.memory_exceeded', `メモリ使用量が目標を超過`, {
+        context: { 
+          memoryUsage: result.memoryUsage, 
+          target: 50,
+          exceeded: result.memoryUsage - 50
+        },
+        humanNote: 'メモリ最適化が必要な可能性があります',
+      });
     }
     
     return true;
