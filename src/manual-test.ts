@@ -113,8 +113,9 @@ async function runManualTest(): Promise<void> {
       const scraper = new SimpleScraper();
       const testUrl = config.monitoring.urls[0];
       
-      console.log(`   テストURL: ${testUrl}`);
-      const result = await scraper.scrapeAthome(testUrl);
+      if (testUrl) {
+        console.log(`   テストURL: ${testUrl}`);
+        const result = await scraper.scrapeAthome(testUrl);
       
       if (result.success) {
         console.log('✅ athome.co.jpスクレイピング: 成功');
@@ -140,6 +141,9 @@ async function runManualTest(): Promise<void> {
       } else {
         console.log('❌ athome.co.jpスクレイピング: 失敗');
         console.log(`   エラー: ${result.error}`);
+      }
+      } else {
+        console.log('❌ athome.co.jpスクレイピング: URLが設定されていません');
       }
     } catch (error) {
       console.log('❌ athome.co.jpスクレイピング: エラー', error);

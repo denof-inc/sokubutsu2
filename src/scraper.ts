@@ -28,7 +28,6 @@ export class SimpleScraper {
   /**
    * athome.co.jpのスクレイピング（HTTP-first戦略）
    */
-  @PerformanceMonitor.measureExecutionTime
   async scrapeAthome(url: string): Promise<ScrapingResult> {
     const startTime = Date.now();
     
@@ -47,7 +46,7 @@ export class SimpleScraper {
         '.property-list-item',  // 補助的
       ];
       
-      let properties: cheerio.Cheerio<cheerio.Element> | null = null;
+      let properties: ReturnType<typeof $> | null = null;
       let usedSelector = '';
       
       // セレクターを順次試行

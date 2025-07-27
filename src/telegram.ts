@@ -145,7 +145,9 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
     try {
       await this.bot.telegram.sendMessage(this.chatId, message, {
         parse_mode: 'Markdown',
-        disable_web_page_preview: true,
+        link_preview_options: {
+          is_disabled: true
+        }
       });
       
       logger.debug('Telegram通知送信成功');
