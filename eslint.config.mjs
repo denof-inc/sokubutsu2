@@ -57,9 +57,6 @@ export default tseslint.config(
       'no-debugger': 'error',
       
       // NestJS固有の設定（必要最小限）
-      '@typescript-eslint/interface-name-prefix': 'off',
-      '@typescript-eslint/explicit-function-return-type': 'off',
-      '@typescript-eslint/explicit-module-boundary-types': 'off',
       // NestJSのモジュールクラスは空でも正常
       '@typescript-eslint/no-extraneous-class': ['error', {
         allowWithDecorator: true,
@@ -79,9 +76,9 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-return': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
       // テスト固有の緩和（最小限）
-      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/unbound-method': 'warn',
       // テストでのモックオブジェクト作成のためスプレッド演算子を許可
-      '@typescript-eslint/no-misused-spread': 'off',
+      '@typescript-eslint/no-misused-spread': 'warn',
     },
   },
 );
