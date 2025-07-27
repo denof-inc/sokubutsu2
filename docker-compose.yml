@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: sokubutsu_app
+    restart: always
+    ports:
+      - '${PORT:-13000}:${PORT:-13000}'
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      - TZ=Asia/Tokyo
+    networks:
+      - sokubutsu_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: 256m
+    cpus: '0.5'
+
+networks:
+  sokubutsu_network:
+    driver: bridge
