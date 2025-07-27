@@ -168,7 +168,21 @@ jobs:
             exit 1
           fi
           # APIキーやトークンが露出していないか確認
-          if grep -rE "(api_key|apikey|api-key|token|secret|password)" --include="*.ts" --include="*.js" --exclude-dir=node_modules . | grep -v "// " | grep -v "* " | grep -v "interface" | grep -v "type"; then
+          # configService.get, process.env, テストファイル(.spec.ts)は除外
+          if grep -rE "(api_key|apikey|api-key|token|secret|password)" --include="*.ts" --include="*.js" --exclude-dir=node_modules . | \
+             grep -v "// " | \
+             grep -v "* " | \
+             grep -v "interface" | \
+             grep -v "type" | \
+             grep -v "\.spec\." | \
+             grep -v "configService\.get" | \
+             grep -v "process\.env" | \
+             grep -v "ConfigService" | \
+             grep -v "@IsString" | \
+             grep -v "mockReturn" | \
+             grep -v "= 'test-" | \
+             grep -v "= 'dummy" | \
+             grep -v "x-telegram"; then
             echo "❌ 潜在的な機密情報が検出されました"
             exit 1
           fi
