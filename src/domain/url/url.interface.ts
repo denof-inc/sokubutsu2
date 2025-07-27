@@ -1,5 +1,6 @@
 export interface Url {
-  id: number;
+  id: string;
+  userId: string;
   name: string;
   url: string;
   selector: string;
