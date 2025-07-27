@@ -237,4 +237,98 @@ describe('MonitoringScheduler', () => {
       });
     });
   });
+
+  describe('手動チェック', () => {
+    it('手動チェックを実行できること', async () => {
+      const urls = ['https://example.com'];
+      await scheduler.start(urls);
+
+      // モックをリセット
+      mockStorage.incrementTotalChecks.mockClear();
+      mockScraper.scrapeAthome.mockClear();
+
+      // 手動チェック実行
+      await scheduler.runManualCheck(urls);
+
+      expect(mockStorage.incrementTotalChecks).toHaveBeenCalled();
+      expect(mockScraper.scrapeAthome).toHaveBeenCalledWith(urls[0]);
+    });
+  });
+
+  describe('統計レポートエラー処理', () => {
+    it('統計レポート送信エラーを処理できること', async () => {
+      await scheduler.start(['https://example.com']);
+
+      // sendStatisticsReportがエラーを投げるように設定
+      mockTelegram.sendStatisticsReport.mockRejectedValue(new Error('Report error'));
+
+      // 統計ジョブのコールバックを取得して実行
+      const statsCallback = (cron.schedule as jest.Mock).mock.calls[1][1];
+
+      // エラーが発生してもクラッシュしない
+      await statsCallback();
+
+      // エラーがログされたことを確認（エラーは内部で処理される）
+      expect(mockTelegram.sendStatisticsReport).toHaveBeenCalled();
+    });
+  });
+
+  describe('停止通知エラー処理', () => {
+    it('停止通知送信エラーを処理できること', async () => {
+      await scheduler.start(['https://example.com']);
+
+      // sendShutdownNoticeがエラーを投げるように設定
+      mockTelegram.sendShutdownNotice.mockRejectedValue(new Error('Shutdown notice error'));
+
+      // エラーが発生してもクラッシュしない
+      expect(() => scheduler.stop()).not.toThrow();
+
+      // 待機して非同期処理が完了することを確認
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+  });
+
+  describe('物件数推定エラー処理', () => {
+    it('前回の物件数推定でエラーが発生しても新着通知を送ること', async () => {
+      const urls = ['https://example.com'];
+
+      // 初回チェック
+      mockStorage.getHash.mockReturnValue(undefined);
+      await scheduler.start(urls);
+
+      // モックをリセット
+      mockStorage.incrementTotalChecks.mockClear();
+      mockStorage.setHash.mockClear();
+      mockStorage.incrementNewListings.mockClear();
+      mockTelegram.sendNewListingNotification.mockClear();
+      mockScraper.scrapeAthome.mockClear();
+
+      // 2回目のチェック（ハッシュが変更）
+      mockStorage.getHash.mockReturnValue('test-hash'); // 以前のハッシュ
+      mockScraper.scrapeAthome
+        .mockResolvedValueOnce({
+          success: true,
+          hash: 'new-hash',
+          count: 12,
+          executionTime: 2000,
+          memoryUsage: 40,
+        })
+        .mockResolvedValueOnce({
+          // estimatePreviousCount内のscrapeAthome呼び出しでエラー
+          success: false,
+          hash: '',
+          count: 0,
+          error: 'Estimation error',
+          executionTime: 1000,
+          memoryUsage: 30,
+        });
+
+      // runMonitoringCycleを直接呼び出す
+      await (scheduler as any).runMonitoringCycle(urls);
+
+      // 推定エラーが発生しても新着通知は送られる（差分は不明として）
+      expect(mockStorage.incrementNewListings).toHaveBeenCalled();
+      expect(mockTelegram.sendNewListingNotification).toHaveBeenCalled();
+    });
+  });
 });

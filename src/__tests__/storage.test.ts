@@ -1,3 +1,18 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+
+// vibeloggerのモック
+jest.mock('vibelogger', () => {
+  const mockLogger = {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+  };
+  return {
+    createFileLogger: jest.fn(() => mockLogger),
+  };
+});
+
 import { SimpleStorage } from '../storage';
 import * as fs from 'fs';
 
@@ -18,6 +33,63 @@ describe('SimpleStorage', () => {
     mockedFs.mkdirSync.mockImplementation(() => '');
 
     storage = new SimpleStorage();
+  });
+
+  describe('初期化', () => {
+    it('データディレクトリが存在しない場合は作成すること', () => {
+      mockedFs.existsSync.mockReturnValue(false);
+
+      new SimpleStorage();
+
+      expect(mockedFs.mkdirSync).toHaveBeenCalledWith('./test-data', { recursive: true });
+    });
+
+    it('既存のデータファイルを読み込むこと', () => {
+      const mockHashData = { 'https://example.com': 'hash123' };
+      const mockStatsData = {
+        totalChecks: 100,
+        errors: 5,
+        newListings: 20,
+        lastCheck: new Date().toISOString(),
+        executionTimes: [2000, 3000],
+        averageExecutionTime: 2.5,
+        successRate: 95,
+      };
+
+      // existsSyncをモック：データファイルは存在するがディレクトリは存在済み
+      mockedFs.existsSync.mockImplementation(path => {
+        if (path.toString().includes('test-data')) {
+          return true; // ディレクトリは存在
+        }
+        return true; // データファイルも存在
+      });
+
+      mockedFs.readFileSync.mockImplementation(path => {
+        if (path.toString().includes('hash.json')) {
+          return JSON.stringify(mockHashData);
+        } else if (path.toString().includes('stats.json')) {
+          return JSON.stringify(mockStatsData);
+        }
+        return '{}';
+      });
+
+      // モジュールをリセットして再読み込み
+      jest.resetModules();
+      const { SimpleStorage: FreshSimpleStorage } = require('../storage');
+      const newStorage = new FreshSimpleStorage();
+
+      expect(newStorage.getHash('https://example.com')).toBe('hash123');
+      expect(newStorage.getStats().totalChecks).toBe(100);
+    });
+
+    it('データ読み込みエラーが発生しても継続すること', () => {
+      mockedFs.existsSync.mockReturnValue(true);
+      mockedFs.readFileSync.mockImplementation(() => {
+        throw new Error('Read error');
+      });
+
+      expect(() => new SimpleStorage()).not.toThrow();
+    });
   });
 
   describe('ハッシュ管理', () => {
@@ -96,6 +168,69 @@ describe('SimpleStorage', () => {
       expect(backupPath).toContain('backup-');
       expect(backupPath).toContain('.json');
       expect(mockedFs.writeFileSync).toHaveBeenCalled();
+    });
+  });
+
+  describe('統計リセット', () => {
+    it('統計をリセットできること', () => {
+      // 統計を更新
+      storage.incrementTotalChecks();
+      storage.incrementErrors();
+      storage.incrementNewListings();
+      storage.recordExecutionTime(5000);
+
+      // リセット前の確認
+      const beforeReset = storage.getStats();
+      expect(beforeReset.totalChecks).toBeGreaterThan(0);
+      expect(beforeReset.errors).toBeGreaterThan(0);
+
+      // リセット
+      storage.resetStats();
+
+      // リセット後の確認
+      const afterReset = storage.getStats();
+      expect(afterReset.totalChecks).toBe(0);
+      expect(afterReset.errors).toBe(0);
+      expect(afterReset.newListings).toBe(0);
+      // executionTimesは内部プロパティなので直接チェックしない
+      expect(afterReset.averageExecutionTime).toBe(0);
+      expect(afterReset.successRate).toBe(100);
+    });
+  });
+
+  describe('統計表示', () => {
+    it('統計情報を表示できること', () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      storage.displayStats();
+
+      expect(consoleSpy).toHaveBeenCalledWith('📈 統計情報:');
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('総チェック数:'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('エラー数:'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('新着検知数:'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('成功率:'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('平均実行時間:'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('最終チェック:'));
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('データ保存エラー処理', () => {
+    it('保存エラーが発生してもクラッシュしないこと', () => {
+      mockedFs.writeFileSync.mockImplementation(() => {
+        throw new Error('Write error');
+      });
+
+      // エラーが発生してもクラッシュしない
+      expect(() => storage.setHash('https://example.com', 'hash123')).not.toThrow();
+    });
+  });
+
+  describe('成功率計算のエッジケース', () => {
+    it('チェック数が0の場合、成功率は100%を返すこと', () => {
+      const stats = storage.getStats();
+      expect(stats.successRate).toBe(100);
     });
   });
 });

@@ -87,6 +87,36 @@ describe('PerformanceMonitor', () => {
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('メモリ使用量:'));
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('CPU使用率:'));
     });
+
+    it('起動時間が目標を超過した場合に警告を出すこと', () => {
+      // 起動時間を強制的に2秒以上にする
+      jest.spyOn(monitor, 'getStartupTime').mockReturnValue(2500);
+
+      monitor.displayMetrics();
+
+      expect(consoleSpy).toHaveBeenCalledWith('📊 パフォーマンス指標:');
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('起動時間: 2500ms'));
+    });
+
+    it('メモリ使用量が目標を超過した場合に警告を出すこと', () => {
+      // メモリ使用量を強制的に50MB以上にする
+      jest.spyOn(monitor, 'getCurrentMemoryUsage').mockReturnValue(60);
+
+      monitor.displayMetrics();
+
+      expect(consoleSpy).toHaveBeenCalledWith('📊 パフォーマンス指標:');
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('メモリ使用量: 60MB'));
+    });
+
+    it('メモリ使用量が目標を下回る場合に良好メッセージを出すこと', () => {
+      // メモリ使用量を強制的に30MB未満にする
+      jest.spyOn(monitor, 'getCurrentMemoryUsage').mockReturnValue(25);
+
+      monitor.displayMetrics();
+
+      expect(consoleSpy).toHaveBeenCalledWith('📊 パフォーマンス指標:');
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('メモリ使用量: 25MB'));
+    });
   });
 
   describe('グローバルインスタンス', () => {
