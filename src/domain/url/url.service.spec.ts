@@ -76,7 +76,8 @@ describe('UrlService', () => {
     it('アクティブなURLの配列を返すこと', async () => {
       const activeUrls: Url[] = [
         {
-          id: 1,
+          id: '1',
+          userId: 'user-123',
           name: 'URL1',
           url: 'http://example1.com',
           selector: '#test',
@@ -86,7 +87,8 @@ describe('UrlService', () => {
           updatedAt: new Date(),
         },
         {
-          id: 2,
+          id: '2',
+          userId: 'user-123',
           name: 'URL2',
           url: 'http://example2.com',
           selector: '#test',
@@ -125,10 +127,10 @@ describe('UrlService', () => {
       const updateResult = { changes: 1, lastInsertRowid: 0 };
       databaseService.execute.mockReturnValue(updateResult);
 
-      await service.updateHash(1, 'newhash123');
+      await service.updateHash('1', 'newhash123');
       expect(databaseService.execute).toHaveBeenCalledWith(
         'UPDATE urls SET content_hash = ? WHERE id = ?',
-        ['newhash123', 1],
+        ['newhash123', '1'],
       );
     });
 
@@ -136,10 +138,10 @@ describe('UrlService', () => {
       const updateResult = { changes: 0, lastInsertRowid: 0 };
       databaseService.execute.mockReturnValue(updateResult);
 
-      await service.updateHash(999, 'newhash123');
+      await service.updateHash('999', 'newhash123');
       expect(databaseService.execute).toHaveBeenCalledWith(
         'UPDATE urls SET content_hash = ? WHERE id = ?',
-        ['newhash123', 999],
+        ['newhash123', '999'],
       );
     });
   });
