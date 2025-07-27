@@ -352,7 +352,9 @@ export class UltraFastScrapingOrchestrator {
             }
           })
           .catch((error: unknown) => {
-            errors.push(error);
+            errors.push(
+              error instanceof Error ? error : new Error(String(error)),
+            );
             completed++;
             if (completed === promises.length) {
               reject(
