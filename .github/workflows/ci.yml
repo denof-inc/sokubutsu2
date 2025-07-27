@@ -168,22 +168,20 @@ jobs:
             exit 1
           fi
           # APIキーやトークンが露出していないか確認
-          # configService.get, process.env, テストファイル(.spec.ts)は除外
-          if grep -rE "(api_key|apikey|api-key|token|secret|password)" --include="*.ts" --include="*.js" --exclude-dir=node_modules . | \
+          # 実際のハードコードされた値のみを検出（変数名や環境変数参照は除外）
+          if grep -rE "(api_key|apikey|api-key|token|secret|password)\s*[:=]\s*['\"][^'\"]+['\"]" --include="*.ts" --include="*.js" --exclude-dir=node_modules . | \
              grep -v "// " | \
              grep -v "* " | \
-             grep -v "interface" | \
-             grep -v "type" | \
              grep -v "\.spec\." | \
-             grep -v "configService\.get" | \
-             grep -v "process\.env" | \
-             grep -v "ConfigService" | \
-             grep -v "@IsString" | \
-             grep -v "mockReturn" | \
-             grep -v "= 'test-" | \
-             grep -v "= 'dummy" | \
-             grep -v "x-telegram"; then
+             grep -v "test-" | \
+             grep -v "dummy" | \
+             grep -v "mock" | \
+             grep -v "example" | \
+             grep -v "placeholder" | \
+             grep -v "YOUR_" | \
+             grep -v "<.*>"; then
             echo "❌ 潜在的な機密情報が検出されました"
+            echo "ヒント: 環境変数やConfigServiceを使用してください"
             exit 1
           fi
           echo "✅ 機密情報チェック完了"
