@@ -16,6 +16,7 @@ import {
 } from '../../common/interfaces';
 import { AuthService } from '../../core/auth/auth.service';
 import { TelegramService } from './telegram.service';
+import { UrlService } from '../url/url.service';
 
 @Controller('telegram')
 export class TelegramController {
@@ -24,6 +25,7 @@ export class TelegramController {
   constructor(
     private readonly authService: AuthService,
     private readonly telegramService: TelegramService,
+    private readonly urlService: UrlService,
   ) {}
 
   /**
@@ -35,7 +37,7 @@ export class TelegramController {
     @Body() update: TelegramUpdate,
     @CurrentUser() user: User,
     @TelegramUser() telegramUser: ITelegramUser,
-    @IsNewUser() isNewUser: boolean,
+    @IsNewUser() _isNewUser: boolean,
   ) {
     this.logger.debug(`Received update: ${String(JSON.stringify(update))}`);
 
@@ -53,7 +55,7 @@ export class TelegramController {
     try {
       switch (command.name) {
         case '/start':
-          await this.handleStartCommand(chatId, telegramUser, isNewUser);
+          await this.handleStartCommand(chatId, telegramUser);
           break;
 
         case '/add':
@@ -92,9 +94,15 @@ export class TelegramController {
       }
     } catch (error) {
       this.logger.error(`Command execution error:`, error);
+      let errorMessage = '不明なエラーが発生しました。';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
       await this.telegramService.sendMessage(
         chatId,
-        'エラーが発生しました。しばらく待ってから再度お試しください。',
+        `エラーが発生しました。しばらく待ってから再度お試しください。${errorMessage}`,
       );
     }
 
@@ -107,7 +115,6 @@ export class TelegramController {
   private async handleStartCommand(
     chatId: number,
     telegramUser: ITelegramUser,
-    _isNewUser: boolean,
   ) {
     const result = await this.authService.handleStartCommand(telegramUser);
     await this.telegramService.sendMessage(chatId, result.welcomeMessage);
@@ -120,12 +127,13 @@ export class TelegramController {
     if (args.length === 0) {
       await this.telegramService.sendMessage(
         chatId,
-        '使用方法: /add <URL>\n例: /add https://www.example.com/property/123',
+        '使用方法: /add <URL> [名前]\n例: /add https://www.example.com/property/123 渋谷の物件',
       );
       return;
     }
 
     const url = args[0];
+    const name = args[1];
 
     // URL検証
     if (!this.isValidUrl(url)) {
@@ -136,31 +144,48 @@ export class TelegramController {
       return;
     }
 
-    // TODO: URL追加処理を実装
-    await this.telegramService.sendMessage(
-      chatId,
-      `URL "${url}" を監視リストに追加しました！\n新着物件が見つかり次第お知らせします。`,
-    );
+    try {
+      const addedUrl = await this.urlService.addUrl(user.telegramId, url, name);
+      await this.telegramService.sendMessage(
+        chatId,
+        `✅ 監視URL追加完了\n\n📍 名前: ${addedUrl.name}\n🔗 URL: ${addedUrl.url}\n新着物件が見つかり次第お知らせします。`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to add URL:`, error);
+      let errorMessage = '不明なエラーが発生しました。';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      await this.telegramService.sendMessage(
+        chatId,
+        `URLの追加に失敗しました: ${errorMessage}`,
+      );
+    }
   }
 
   /**
    * /list コマンドハンドラー
    */
-  private async handleListCommand(chatId: number, _user: User) {
-    // TODO: ユーザーの監視URL一覧を取得
-    const message = `
-📋 監視中のURL一覧:
+  private async handleListCommand(chatId: number, user: User) {
+    const urls = await this.urlService.findByUserId(user.telegramId);
 
-1. https://example.com/property/123
-   状態: 🟢 監視中
-   最終チェック: 5分前
+    if (urls.length === 0) {
+      await this.telegramService.sendMessage(
+        chatId,
+        '現在、監視中のURLはありません。/add コマンドで追加してください。',
+      );
+      return;
+    }
 
-2. https://example.com/property/456
-   状態: ⏸️ 一時停止中
-   最終チェック: 1時間前
-
-登録数: 2件
-    `.trim();
+    let message = '📋 監視中のURL一覧:\n\n';
+    urls.forEach((url, index) => {
+      const statusEmoji = url.isActive ? '🟢' : '⏸️';
+      const statusText = url.isActive ? '監視中' : '一時停止中';
+      const lastChecked = '未チェック';
+      message += `${String(index + 1)}. ${url.name}\n   🔗 ${url.url}\n   状態: ${statusEmoji} ${statusText}\n   最終チェック: ${lastChecked}\n\n`;
+    });
 
     await this.telegramService.sendMessage(chatId, message);
   }
@@ -176,25 +201,32 @@ export class TelegramController {
     if (args.length === 0) {
       await this.telegramService.sendMessage(
         chatId,
-        '使用方法: /remove <番号>\n/list で番号を確認してください。',
+        '使用方法: /remove <URLのID>\n/list でIDを確認してください。',
       );
       return;
     }
 
-    const index = parseInt(args[0]);
-    if (isNaN(index)) {
+    const urlId = args[0]; // IDは文字列として扱う
+
+    try {
+      this.urlService.removeUrl(user.telegramId, urlId);
       await this.telegramService.sendMessage(
         chatId,
-        '番号を正しく入力してください。',
+        `🗑️ URL (ID: ${urlId}) を削除しました。`,
       );
-      return;
+    } catch (error) {
+      this.logger.error(`Failed to remove URL:`, error);
+      let errorMessage = '不明なエラーが発生しました。';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      await this.telegramService.sendMessage(
+        chatId,
+        `URLの削除に失敗しました: ${errorMessage}`,
+      );
     }
-
-    // TODO: URL削除処理を実装
-    await this.telegramService.sendMessage(
-      chatId,
-      `番号 ${String(index)} のURLを削除しました。`,
-    );
   }
 
   /**
@@ -204,25 +236,32 @@ export class TelegramController {
     if (args.length === 0) {
       await this.telegramService.sendMessage(
         chatId,
-        '使用方法: /pause <番号>\n/list で番号を確認してください。',
+        '使用方法: /pause <URLのID>\n/list でIDを確認してください。',
       );
       return;
     }
 
-    const index = parseInt(args[0]);
-    if (isNaN(index)) {
+    const urlId = args[0]; // IDは文字列として扱う
+
+    try {
+      this.urlService.pauseUrl(user.telegramId, urlId);
       await this.telegramService.sendMessage(
         chatId,
-        '番号を正しく入力してください。',
+        `⏸️ URL (ID: ${urlId}) の監視を一時停止しました。`,
       );
-      return;
+    } catch (error) {
+      this.logger.error(`Failed to pause URL:`, error);
+      let errorMessage = '不明なエラーが発生しました。';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      await this.telegramService.sendMessage(
+        chatId,
+        `監視の一時停止に失敗しました: ${errorMessage}`,
+      );
     }
-
-    // TODO: 監視一時停止処理を実装
-    await this.telegramService.sendMessage(
-      chatId,
-      `番号 ${String(index)} の監視を一時停止しました。`,
-    );
   }
 
   /**
@@ -236,44 +275,57 @@ export class TelegramController {
     if (args.length === 0) {
       await this.telegramService.sendMessage(
         chatId,
-        '使用方法: /resume <番号>\n/list で番号を確認してください。',
+        '使用方法: /resume <URLのID>\n/list でIDを確認してください。',
       );
       return;
     }
 
-    const index = parseInt(args[0]);
-    if (isNaN(index)) {
+    const urlId = args[0]; // IDは文字列として扱う
+
+    try {
+      this.urlService.resumeUrl(user.telegramId, urlId);
       await this.telegramService.sendMessage(
         chatId,
-        '番号を正しく入力してください。',
+        `▶️ URL (ID: ${urlId}) の監視を再開しました。`,
       );
-      return;
+    } catch (error) {
+      this.logger.error(`Failed to resume URL:`, error);
+      let errorMessage = '不明なエラーが発生しました。';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      await this.telegramService.sendMessage(
+        chatId,
+        `監視の再開に失敗しました: ${errorMessage}`,
+      );
     }
-
-    // TODO: 監視再開処理を実装
-    await this.telegramService.sendMessage(
-      chatId,
-      `番号 ${String(index)} の監視を再開しました。`,
-    );
   }
 
   /**
    * /status コマンドハンドラー
    */
   private async handleStatusCommand(chatId: number, user: User) {
-    // TODO: ユーザーの監視状況を取得
-    const message = `
-📊 監視状況:
+    const urls = await this.urlService.findByUserId(user.telegramId);
+    const activeUrls = urls.filter((u) => u.isActive);
+    const pausedUrls = urls.filter((u) => !u.isActive);
 
-👤 ユーザー: ${user.fullName}
-📅 登録日: ${user.createdAt.toLocaleDateString('ja-JP')}
-🔍 監視中URL: 2件
-⏸️ 一時停止中: 1件
-🔔 通知設定: ${user.settings?.notifications.enabled ? 'ON' : 'OFF'}
+    const notificationStatus = user.settings
+      ? user.settings.notifications.enabled
+      : false;
 
-最終チェック: 5分前
-次回チェック: 10分後
-    `.trim();
+    const message = [
+      '📊 監視状況:',
+      '',
+      `👤 ユーザー: ${user.displayName}`,
+      `📅 登録日: ${user.createdAt.toLocaleDateString('ja-JP')}`,
+      `🔍 監視中URL: ${String(activeUrls.length)}件`,
+      `⏸️ 一時停止中: ${String(pausedUrls.length)}件`,
+      `🔔 通知設定: ${notificationStatus ? 'ON' : 'OFF'}`,
+      '',
+      `合計登録数: ${String(urls.length)}件`,
+    ].join('\n');
 
     await this.telegramService.sendMessage(chatId, message);
   }
@@ -282,25 +334,25 @@ export class TelegramController {
    * /help コマンドハンドラー
    */
   private async handleHelpCommand(chatId: number) {
-    const message = `
-📚 コマンド一覧:
-
-/start - ボットを開始
-/add <URL> - 監視URLを追加
-/list - 登録URL一覧を表示
-/remove <番号> - URLを削除
-/pause <番号> - 監視を一時停止
-/resume <番号> - 監視を再開
-/status - 監視状況を確認
-/help - このヘルプを表示
-
-❓ 使い方:
-1. /add でURLを登録
-2. 新着物件があれば自動通知
-3. /list で登録状況を確認
-
-お困りの場合は @sokubutsu_support までご連絡ください。
-    `.trim();
+    const message = [
+      '📚 コマンド一覧:',
+      '',
+      '/start - ボットを開始',
+      '/add <URL> [名前] - 監視URLを追加',
+      '/list - 登録URL一覧を表示',
+      '/remove <URLのID> - URLを削除',
+      '/pause <URLのID> - 監視を一時停止',
+      '/resume <URLのID> - 監視を再開',
+      '/status - 監視状況を確認',
+      '/help - このヘルプを表示',
+      '',
+      '❓ 使い方:',
+      '1. /add でURLを登録',
+      '2. 新着物件があれば自動通知',
+      '3. /list で登録状況を確認',
+      '',
+      'お困りの場合は @sokubutsu_support までご連絡ください。',
+    ].join('\n');
 
     await this.telegramService.sendMessage(chatId, message);
   }
