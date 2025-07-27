@@ -7,6 +7,20 @@ import { PerformanceMonitor } from './performance';
 
 /**
  * 軽量HTTPスクレイパー（戦略準拠）
+ * 
+ * @設計ドキュメント
+ * - README.md: HTTPファースト戦略の詳細
+ * - docs/スクレイピング戦略ルール.md: athome.co.jp特別ルール
+ * 
+ * @関連クラス
+ * - MonitoringScheduler: このクラスのスクレイピング機能を呼び出す
+ * - SimpleStorage: スクレイピング結果のハッシュ保存で連携
+ * - Logger: エラーログ・情報ログの出力で使用
+ * 
+ * @主要機能
+ * - HTTP-onlyによる軽量スクレイピング（2-5秒）
+ * - athome.co.jp専用セレクター実装
+ * - リトライ機能付きHTTPリクエスト
  */
 export class SimpleScraper {
   private readonly timeout = 10000; // 10秒タイムアウト

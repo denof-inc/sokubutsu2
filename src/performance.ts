@@ -3,6 +3,22 @@ import { logger } from './logger';
 
 /**
  * パフォーマンス監視クラス
+ * 
+ * @設計ドキュメント
+ * - README.md: パフォーマンス目標値
+ * - docs/パフォーマンス戦略.md: 測定指標と最適化方針
+ * 
+ * @関連クラス
+ * - Logger: パフォーマンス測定結果のログ出力
+ * - main.ts: 起動時のパフォーマンス表示
+ * - types.ts: PerformanceMetrics型定義
+ * 
+ * @主要機能
+ * - 起動時間測定（目標: 1-2秒）
+ * - メモリ使用量監視（目標: 30-50MB）
+ * - CPU使用率測定
+ * - 実行時間測定デコレータ
+ * - 戦略目標との自動比較・検証
  */
 export class PerformanceMonitor {
   private startTime: number;

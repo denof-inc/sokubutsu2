@@ -8,6 +8,23 @@ import { performanceMonitor } from './performance';
 
 /**
  * 監視スケジューラー
+ * 
+ * @設計ドキュメント
+ * - README.md: 監視フロー全体像
+ * - docs/スケジューリング設計.md: cron式と実行タイミング
+ * 
+ * @関連クラス
+ * - SimpleScraper: 実際のスクレイピング処理を実行
+ * - TelegramNotifier: 新着検知時の通知送信
+ * - SimpleStorage: ハッシュ値の読み書き、統計情報の管理
+ * - Logger: 監視サイクルのログ出力
+ * - performanceMonitor: パフォーマンス測定
+ * 
+ * @主要機能
+ * - 5分間隔での定期監視実行
+ * - 新着物件の変化検知
+ * - 1時間ごとの統計レポート送信
+ * - 連続エラー監視とアラート
  */
 export class MonitoringScheduler {
   private readonly scraper = new SimpleScraper();

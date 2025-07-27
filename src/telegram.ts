@@ -4,6 +4,21 @@ import { logger } from './logger';
 
 /**
  * Telegram通知サービス
+ * 
+ * @設計ドキュメント
+ * - README.md: Telegram Bot設定ガイド
+ * - docs/通知設計.md: 通知フォーマットとタイミング
+ * 
+ * @関連クラス
+ * - MonitoringScheduler: スケジューラーから通知メソッドを呼び出し
+ * - Logger: 通知の送信結果をログ出力
+ * - types.ts: NotificationData, Statistics型定義
+ * 
+ * @主要機能
+ * - 新着物件の即時通知
+ * - エラーアラート送信
+ * - 統計レポート定期送信
+ * - リトライ機能付きメッセージ送信
  */
 export class TelegramNotifier {
   private readonly bot: Telegraf;

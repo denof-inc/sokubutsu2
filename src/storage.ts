@@ -6,6 +6,22 @@ import { logger } from './logger';
 
 /**
  * シンプルなJSONファイルストレージ
+ * 
+ * @設計ドキュメント
+ * - README.md: データ保存方式
+ * - docs/データ永続化.md: JSONストレージ設計
+ * 
+ * @関連クラス
+ * - MonitoringScheduler: URLハッシュの読み書き、統計情報の更新
+ * - Logger: ファイル操作のエラーログ出力
+ * - config: データディレクトリパスの取得
+ * - types.ts: Statistics型定義
+ * 
+ * @主要機能
+ * - URLごとのコンテンツハッシュ管理
+ * - 監視統計情報の永続化
+ * - 自動バックアップ機能
+ * - 成功率・実行時間の追跡
  */
 export class SimpleStorage {
   private readonly dataDir: string;

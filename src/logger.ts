@@ -14,6 +14,20 @@ export enum LogLevel {
 
 /**
  * ログ管理クラス
+ * 
+ * @設計ドキュメント
+ * - README.md: ログ出力設定
+ * - docs/ログ設計.md: ログレベルとファイル出力
+ * 
+ * @関連クラス
+ * - config: ログディレクトリとログレベル設定の取得
+ * - 全クラス: このLoggerクラスを使用してログ出力
+ * 
+ * @主要機能
+ * - 4段階のログレベル管理（ERROR/WARN/INFO/DEBUG）
+ * - 日付別ログファイル自動生成
+ * - コンソールとファイルへの同時出力
+ * - JSON形式でのデータ構造化ログ
  */
 export class Logger {
   private readonly logLevel: LogLevel;
