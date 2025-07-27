@@ -2,21 +2,21 @@ module.exports = {
   // 基本設定
   preset: 'ts-jest',
   testEnvironment: 'node',
-  
+
   // ルートディレクトリ
   roots: ['<rootDir>/src'],
-  
+
   // テストファイルのパターン
   testRegex: '.*\\.spec\\.ts$',
-  
+
   // 変換設定
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
-  
+
   // モジュール拡張子
   moduleFileExtensions: ['js', 'json', 'ts'],
-  
+
   // カバレッジ設定
   collectCoverageFrom: [
     'src/**/*.(t|j)s',
@@ -28,7 +28,7 @@ module.exports = {
     '!src/**/*.module.ts',
     '!src/**/index.ts',
   ],
-  coverageDirectory: '../coverage',
+  coverageDirectory: './coverage',
   coverageReporters: ['text', 'lcov', 'html', 'json'],
   coverageThreshold: {
     global: {
@@ -38,32 +38,42 @@ module.exports = {
       statements: 50,
     },
   },
-  
+
   // モジュール名マッピング
   moduleNameMapper: {
     '^src/(.*)$': '<rootDir>/src/$1',
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  
+
   // セットアップファイル
   setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
-  
+
   // テストタイムアウト
   testTimeout: 30000,
-  
+
   // 並列実行設定
-  maxWorkers: '50%',
-  
+  maxWorkers: process.env.CI ? 1 : '50%',
+
   // キャッシュ設定
-  cache: true,
-  cacheDirectory: '<rootDir>/../.jest-cache',
-  
+  cache: !process.env.CI,
+  cacheDirectory: '<rootDir>/.jest-cache',
+
   // 詳細出力
   verbose: true,
-  
+
   // エラー時の詳細表示
   errorOnDeprecated: true,
-  
+
+  // CI/CD専用設定
+  ...(process.env.CI && {
+    maxWorkers: 1,
+    forceExit: true,
+    detectOpenHandles: true,
+    verbose: true,
+    bail: false,
+    silent: false,
+  }),
+
   // グローバル設定
   globals: {
     'ts-jest': {
@@ -72,6 +82,7 @@ module.exports = {
         strict: false,
         esModuleInterop: true,
         allowSyntheticDefaultImports: true,
+        skipLibCheck: true,
       },
     },
   },

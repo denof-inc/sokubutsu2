@@ -17,7 +17,7 @@ npx tsc --noEmit --incremental || {
 
 # 品質メトリクスチェック
 echo "📊 Checking quality metrics..."
-ERROR_COUNT=$(npm run lint 2>&1 | grep -c "error" || echo "0")
+ERROR_COUNT=$(npm run lint 2>&1 | grep -E "^\s*[0-9]+:[0-9]+\s+error" | wc -l | tr -d ' ')
 WARNING_COUNT=$(npm run lint 2>&1 | grep -c "warning" || echo "0")
 
 echo "ESLintエラー: $ERROR_COUNT個"
