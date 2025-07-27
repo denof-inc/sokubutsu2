@@ -213,9 +213,10 @@ jobs:
           echo "🐳 docker-compose.ymlチェック中..."
           if [ -f "docker-compose.yml" ]; then
             echo "✅ docker-compose.ymlが存在します"
-            # docker-composeの構文チェック
+            # docker-composeの構文チェック（.envファイルは無視）
+            touch .env  # 一時的に空の.envファイルを作成
             docker compose config --quiet
-            # || true を削除 - 問題があれば失敗
+            rm -f .env  # 一時ファイルを削除
           else
             echo "⚠️ docker-compose.ymlが見つかりません"
           fi
