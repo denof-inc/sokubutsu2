@@ -1,6 +1,6 @@
-import { TelegramNotifier } from '../telegram';
+import { TelegramNotifier } from '../infrastructure/telegram';
 import { Telegraf } from 'telegraf';
-import { NotificationData, Statistics } from '../types';
+import { NotificationData, Statistics } from '../types/index';
 
 // Telegrafのモック
 jest.mock('telegraf');

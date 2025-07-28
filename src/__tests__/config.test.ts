@@ -89,11 +89,12 @@ describe('Config', () => {
       process.env.MONITORING_URLS = 'https://example.com';
 
       jest.resetModules();
-      const { validateConfig: freshValidate } = require('../config') as {
+      const { config: freshConfig, validateConfig: freshValidate } = require('../config') as {
+        config: typeof import('../config').config;
         validateConfig: typeof import('../config').validateConfig;
       };
 
-      expect(freshValidate()).toBe(true);
+      expect(freshValidate(freshConfig)).toBe(true);
     });
 
     it('TELEGRAM_BOT_TOKENが未設定の場合はfalseを返すこと', () => {
@@ -103,12 +104,13 @@ describe('Config', () => {
       process.env.MONITORING_URLS = 'https://example.com';
 
       jest.resetModules();
-      const { validateConfig: freshValidate } = require('../config') as {
+      const { config: freshConfig, validateConfig: freshValidate } = require('../config') as {
+        config: typeof import('../config').config;
         validateConfig: typeof import('../config').validateConfig;
       };
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      expect(freshValidate()).toBe(false);
+      expect(freshValidate(freshConfig)).toBe(false);
 
       consoleErrorSpy.mockRestore();
     });
@@ -120,12 +122,13 @@ describe('Config', () => {
       process.env.MONITORING_URLS = 'https://example.com';
 
       jest.resetModules();
-      const { validateConfig: freshValidate } = require('../config') as {
+      const { config: freshConfig, validateConfig: freshValidate } = require('../config') as {
+        config: typeof import('../config').config;
         validateConfig: typeof import('../config').validateConfig;
       };
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      expect(freshValidate()).toBe(false);
+      expect(freshValidate(freshConfig)).toBe(false);
 
       consoleErrorSpy.mockRestore();
     });
@@ -137,12 +140,13 @@ describe('Config', () => {
       process.env.TELEGRAM_CHAT_ID = 'test-chat-id';
 
       jest.resetModules();
-      const { validateConfig: freshValidate } = require('../config') as {
+      const { config: freshConfig, validateConfig: freshValidate } = require('../config') as {
+        config: typeof import('../config').config;
         validateConfig: typeof import('../config').validateConfig;
       };
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      expect(freshValidate()).toBe(false);
+      expect(freshValidate(freshConfig)).toBe(false);
 
       consoleErrorSpy.mockRestore();
     });
@@ -153,11 +157,12 @@ describe('Config', () => {
       process.env.MONITORING_URLS = '';
 
       jest.resetModules();
-      const { validateConfig: freshValidate } = require('../config') as {
+      const { config: freshConfig, validateConfig: freshValidate } = require('../config') as {
+        config: typeof import('../config').config;
         validateConfig: typeof import('../config').validateConfig;
       };
 
-      expect(freshValidate()).toBe(false);
+      expect(freshValidate(freshConfig)).toBe(false);
     });
   });
 
@@ -178,11 +183,12 @@ describe('Config', () => {
       process.env.MONITORING_URLS = 'https://example.com';
 
       jest.resetModules();
-      const { displayConfig: freshDisplay } = require('../config') as {
+      const { config: freshConfig, displayConfig: freshDisplay } = require('../config') as {
+        config: typeof import('../config').config;
         displayConfig: typeof import('../config').displayConfig;
       };
 
-      freshDisplay();
+      freshDisplay(freshConfig);
 
       expect(consoleLogSpy).toHaveBeenCalledWith('⚙️  設定情報:');
       expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('- Telegram Bot Token:'));
@@ -200,11 +206,12 @@ describe('Config', () => {
       process.env.MONITORING_URLS = 'https://example1.com,https://example2.com';
 
       jest.resetModules();
-      const { displayConfig: freshDisplay } = require('../config') as {
+      const { config: freshConfig, displayConfig: freshDisplay } = require('../config') as {
+        config: typeof import('../config').config;
         displayConfig: typeof import('../config').displayConfig;
       };
 
-      freshDisplay();
+      freshDisplay(freshConfig);
 
       expect(consoleLogSpy).toHaveBeenCalledWith('  - 監視URL数: 2件');
       expect(consoleLogSpy).toHaveBeenCalledWith('    1. https://example1.com');
@@ -218,12 +225,13 @@ describe('Config', () => {
       process.env.PORT = '70000';
 
       jest.resetModules();
-      const { validateConfig: freshValidate } = require('../config') as {
+      const { config: freshConfig, validateConfig: freshValidate } = require('../config') as {
+        config: typeof import('../config').config;
         validateConfig: typeof import('../config').validateConfig;
       };
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      expect(freshValidate()).toBe(false);
+      expect(freshValidate(freshConfig)).toBe(false);
       expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('PORT が不正な値です'));
 
       consoleErrorSpy.mockRestore();
@@ -235,12 +243,13 @@ describe('Config', () => {
       process.env.MONITORING_URLS = 'not-a-valid-url';
 
       jest.resetModules();
-      const { validateConfig: freshValidate } = require('../config') as {
+      const { config: freshConfig, validateConfig: freshValidate } = require('../config') as {
+        config: typeof import('../config').config;
         validateConfig: typeof import('../config').validateConfig;
       };
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      expect(freshValidate()).toBe(false);
+      expect(freshValidate(freshConfig)).toBe(false);
       expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('不正なURL形式'));
 
       consoleErrorSpy.mockRestore();

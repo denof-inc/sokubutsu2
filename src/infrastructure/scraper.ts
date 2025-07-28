@@ -1,8 +1,10 @@
 import axios, { AxiosResponse } from 'axios';
 import * as cheerio from 'cheerio';
 import * as crypto from 'crypto';
-import { ScrapingResult } from './types';
-import { vibeLogger } from './logger';
+import { ScrapingResult } from '../types';
+import { vibeLogger } from '../utils/logger';
+import { formatError, getErrorMessage } from '../utils/error-handler';
+import { withRetry } from '../utils/retry';
 
 /**
  * 軽量HTTPスクレイパー（戦略準拠）
@@ -114,20 +116,13 @@ export class SimpleScraper {
       };
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
 
       vibeLogger.error('scraping.failed', `スクレイピング失敗: ${url}`, {
         context: {
           url,
           executionTime,
-          error:
-            error instanceof Error
-              ? {
-                  message: error.message,
-                  stack: error.stack,
-                  name: error.name,
-                }
-              : { message: String(error) },
+          error: formatError(error),
         },
         aiTodo: 'エラーパターンを分析し、リカバリー戦略を提案',
       });
@@ -146,37 +141,29 @@ export class SimpleScraper {
   /**
    * リトライ機能付きHTTPリクエスト
    */
-  private async fetchWithRetry(url: string, retryCount = 0): Promise<AxiosResponse<string>> {
-    try {
-      const response = await axios.get(url, {
-        headers: this.headers,
-        timeout: this.timeout,
-        maxRedirects: 5,
-        validateStatus: status => status < 400,
-      });
-
-      return response;
-    } catch (error) {
-      if (retryCount < this.maxRetries) {
-        const delay = Math.pow(2, retryCount) * 1000; // 指数バックオフ
-        vibeLogger.warn('http.retry', `リトライ ${retryCount + 1}/${this.maxRetries}`, {
-          context: { url, retryCount, maxRetries: this.maxRetries, delay },
-          humanNote: 'リトライパターンを監視し、サーバー負荷を考慮',
+  private async fetchWithRetry(url: string): Promise<AxiosResponse<string>> {
+    return withRetry(
+      async () => {
+        const response = await axios.get(url, {
+          headers: this.headers,
+          timeout: this.timeout,
+          maxRedirects: 5,
+          validateStatus: status => status < 400,
         });
-
-        await this.sleep(delay);
-        return this.fetchWithRetry(url, retryCount + 1);
+        return response;
+      },
+      {
+        maxRetries: this.maxRetries,
+        retryDelay: 1000,
+        backoffMultiplier: 2,
+        onRetry: (attempt, error) => {
+          vibeLogger.warn('http.retry', `HTTPリクエストリトライ ${attempt}/${this.maxRetries}`, {
+            context: { url, attempt, maxRetries: this.maxRetries, error: formatError(error) },
+            humanNote: 'リトライパターンを監視し、サーバー負荷を考慮',
+          });
+        },
       }
-
-      throw error;
-    }
-  }
-
-  /**
-   * 指定時間待機
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    );
   }
 
   /**

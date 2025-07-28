@@ -1,38 +1,21 @@
-import { config as loadEnv } from 'dotenv';
-import { Config } from './types';
-
-// .envファイルを読み込む
-loadEnv();
-
 /**
- * アプリケーション設定
+ * 設定バリデーション
+ *
+ * @設計ドキュメント
+ * - docs/開発環境構築手順書.md: 環境変数設定
+ * - README.md: 必須設定項目
+ *
+ * @関連クラス
+ * - config: バリデーション対象の設定オブジェクト
+ * - main.ts: 起動時のバリデーション実行
  */
-export const config: Config = {
-  telegram: {
-    botToken: process.env.TELEGRAM_BOT_TOKEN || '',
-    chatId: process.env.TELEGRAM_CHAT_ID || '',
-  },
-  monitoring: {
-    urls: process.env.MONITORING_URLS
-      ? process.env.MONITORING_URLS.split(',')
-          .map(url => url.trim())
-          .filter(url => url.length > 0)
-      : [],
-    interval: process.env.MONITORING_INTERVAL || '*/5 * * * *', // デフォルト5分
-  },
-  app: {
-    port: parseInt(process.env.PORT || '3000', 10),
-    env: process.env.NODE_ENV || 'development',
-  },
-  storage: {
-    dataDir: process.env.DATA_DIR || './data',
-  },
-};
+
+import { Config } from '../types';
 
 /**
  * 設定の妥当性を検証
  */
-export function validateConfig(): boolean {
+export function validateConfig(config: Config): boolean {
   const errors: string[] = [];
 
   if (!config.telegram.botToken) {
@@ -73,7 +56,7 @@ export function validateConfig(): boolean {
 /**
  * 設定情報を表示
  */
-export function displayConfig(): void {
+export function displayConfig(config: Config): void {
   console.log('⚙️  設定情報:');
   console.log(`  - Telegram Bot Token: ${config.telegram.botToken.substring(0, 10)}...`);
   console.log(`  - Telegram Chat ID: ${config.telegram.chatId}`);

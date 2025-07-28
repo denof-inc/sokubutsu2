@@ -13,7 +13,7 @@ jest.mock('vibelogger', () => {
   };
 });
 
-import { Logger, LogLevel, logger, vibeLogger } from '../logger';
+import { Logger, LogLevel, logger, vibeLogger } from '../utils/logger';
 
 describe('Logger', () => {
   let mockVibeLogger: any;
@@ -132,7 +132,7 @@ describe('Logger', () => {
       }));
 
       // logger.tsを再度requireして、createFileLoggerが呼ばれることを確認
-      require('../logger');
+      require('../utils/logger');
 
       const vibeloggerMock = require('vibelogger') as typeof import('vibelogger');
       expect(vibeloggerMock.createFileLogger).toHaveBeenCalledWith('sokubutsu');

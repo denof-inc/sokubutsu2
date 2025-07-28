@@ -1,6 +1,8 @@
 import { Telegraf } from 'telegraf';
-import { NotificationData, Statistics } from './types';
-import { vibeLogger } from './logger';
+import { NotificationData, Statistics } from '../types';
+import { vibeLogger } from '../utils/logger';
+import { formatError } from '../utils/error-handler';
+import { withRetry } from '../utils/retry';
 
 /**
  * Telegram通知サービス
@@ -43,14 +45,7 @@ export class TelegramNotifier {
     } catch (error) {
       vibeLogger.error('telegram.connection_failed', 'Telegram Bot接続失敗', {
         context: {
-          error:
-            error instanceof Error
-              ? {
-                  message: error.message,
-                  stack: error.stack,
-                  name: error.name,
-                }
-              : { message: String(error) },
+          error: formatError(error),
         },
         aiTodo: 'Telegram BotトークンとChat IDの設定を確認',
       });
@@ -93,7 +88,7 @@ ${changeIcon} *変化*: ${changeText}
 📊 *現在の物件数*: ${data.currentCount}件
 📋 *前回の物件数*: ${data.previousCount}件
 ⏰ *検知時刻*: ${data.detectedAt.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
-⚡ *処理時間*: ${data.executionTime.toFixed(1)}秒
+⚡ *処理時間*: ${data.executionTime?.toFixed(1) ?? 'N/A'}秒
 
 🔗 *物件を確認*: [こちらをクリック](${data.url})
 
@@ -170,44 +165,37 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
   /**
    * メッセージ送信（リトライ機能付き）
    */
-  private async sendMessage(message: string, retryCount = 0): Promise<void> {
-    try {
-      await this.bot.telegram.sendMessage(this.chatId, message, {
-        parse_mode: 'Markdown',
-        link_preview_options: {
-          is_disabled: true,
-        },
-      });
+  private async sendMessage(message: string): Promise<void> {
+    await withRetry(
+      async () => {
+        await this.bot.telegram.sendMessage(this.chatId, message, {
+          parse_mode: 'Markdown',
+          link_preview_options: {
+            is_disabled: true,
+          },
+        });
 
-      vibeLogger.debug('telegram.message_sent', 'Telegram通知送信成功', {
-        context: { chatId: this.chatId },
-      });
-    } catch (error) {
-      vibeLogger.error('telegram.message_failed', `Telegram通知送信失敗`, {
-        context: {
-          chatId: this.chatId,
-          retryCount: retryCount + 1,
-          maxRetries: this.maxRetries,
-          error:
-            error instanceof Error
-              ? {
-                  message: error.message,
-                  stack: error.stack,
-                  name: error.name,
-                }
-              : { message: String(error) },
+        vibeLogger.debug('telegram.message_sent', 'Telegram通知送信成功', {
+          context: { chatId: this.chatId },
+        });
+      },
+      {
+        maxRetries: this.maxRetries,
+        retryDelay: 1000,
+        backoffMultiplier: 2,
+        onRetry: (attempt, error) => {
+          vibeLogger.error('telegram.message_failed', `Telegram通知送信失敗`, {
+            context: {
+              chatId: this.chatId,
+              retryCount: attempt,
+              maxRetries: this.maxRetries,
+              error: formatError(error),
+            },
+            humanNote: 'リトライ処理を実行中',
+          });
         },
-        humanNote: 'リトライ処理を実行中',
-      });
-
-      if (retryCount < this.maxRetries) {
-        const delay = Math.pow(2, retryCount) * 1000; // 指数バックオフ
-        await this.sleep(delay);
-        return this.sendMessage(message, retryCount + 1);
       }
-
-      throw error;
-    }
+    );
   }
 
   /**
@@ -220,13 +208,6 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
     } catch {
       return url.length > 50 ? `${url.substring(0, 47)}...` : url;
     }
-  }
-
-  /**
-   * 指定時間待機
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**

@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import { MonitoringScheduler } from '../scheduler';
-import { SimpleScraper } from '../scraper';
-import { TelegramNotifier } from '../telegram';
-import { SimpleStorage } from '../storage';
+import { MonitoringScheduler } from '../core/scheduler';
+import { SimpleScraper } from '../infrastructure/scraper';
+import { TelegramNotifier } from '../infrastructure/telegram';
+import { SimpleStorage } from '../core/storage';
 import * as cron from 'node-cron';
 
 // モックの作成
-jest.mock('../scraper');
-jest.mock('../telegram');
-jest.mock('../storage');
+jest.mock('../infrastructure/scraper');
+jest.mock('../infrastructure/telegram');
+jest.mock('../core/storage');
 jest.mock('node-cron');
 
 const MockedScraper = SimpleScraper as jest.MockedClass<typeof SimpleScraper>;
@@ -45,10 +45,13 @@ describe('MonitoringScheduler', () => {
     } as any;
 
     // cron.scheduleのモック
-    (cron.schedule as jest.Mock).mockImplementation(expression => {
+    (cron.schedule as jest.Mock).mockImplementation((expression, handler) => {
+      // handlerを保存して後で呼び出せるようにする
       if (expression === '*/5 * * * *') {
+        (mockCronJob as any).handler = handler;
         return mockCronJob;
       } else if (expression === '0 * * * *') {
+        (mockStatsJob as any).handler = handler;
         return mockStatsJob;
       }
       return mockCronJob;
@@ -111,8 +114,16 @@ describe('MonitoringScheduler', () => {
 
       expect(mockTelegram.testConnection).toHaveBeenCalled();
       expect(mockTelegram.sendStartupNotice).toHaveBeenCalled();
-      expect(cron.schedule).toHaveBeenCalledWith('*/5 * * * *', expect.any(Function));
-      expect(cron.schedule).toHaveBeenCalledWith('0 * * * *', expect.any(Function));
+      expect(cron.schedule).toHaveBeenCalledWith(
+        '*/5 * * * *',
+        expect.any(Function),
+        expect.any(Object)
+      );
+      expect(cron.schedule).toHaveBeenCalledWith(
+        '0 * * * *',
+        expect.any(Function),
+        expect.any(Object)
+      );
     });
 
     it('Telegram接続失敗時はエラーを投げること', async () => {
@@ -165,8 +176,10 @@ describe('MonitoringScheduler', () => {
           memoryUsage: 40,
         });
 
-      // runMonitoringCycleを直接呼び出す（cronJobのisRunningチェックを回避）
-      await (scheduler as any).runMonitoringCycle(urls);
+      // cronジョブのハンドラーを直接呼び出す
+      if ((mockCronJob as any).handler) {
+        await (mockCronJob as any).handler();
+      }
 
       expect(mockStorage.incrementNewListings).toHaveBeenCalled();
       expect(mockTelegram.sendNewListingNotification).toHaveBeenCalled();
@@ -185,8 +198,10 @@ describe('MonitoringScheduler', () => {
         memoryUsage: 30,
       });
 
-      const cronCallback = (cron.schedule as jest.Mock).mock.calls[0][1];
-      await cronCallback();
+      // mockCronJobのhandlerを実行
+      if ((mockCronJob as any).handler) {
+        await (mockCronJob as any).handler();
+      }
 
       expect(mockStorage.incrementErrors).toHaveBeenCalled();
       expect(mockTelegram.sendErrorAlert).toHaveBeenCalledWith(urls[0], 'Network error');
@@ -198,8 +213,9 @@ describe('MonitoringScheduler', () => {
       await scheduler.start(['https://example.com']);
 
       // 統計ジョブのコールバックを取得して実行
-      const statsCallback = (cron.schedule as jest.Mock).mock.calls[1][1];
-      await statsCallback();
+      if ((mockStatsJob as any).handler) {
+        await (mockStatsJob as any).handler();
+      }
 
       expect(mockTelegram.sendStatisticsReport).toHaveBeenCalledWith({
         totalChecks: 100,
@@ -262,11 +278,10 @@ describe('MonitoringScheduler', () => {
       // sendStatisticsReportがエラーを投げるように設定
       mockTelegram.sendStatisticsReport.mockRejectedValue(new Error('Report error'));
 
-      // 統計ジョブのコールバックを取得して実行
-      const statsCallback = (cron.schedule as jest.Mock).mock.calls[1][1];
-
       // エラーが発生してもクラッシュしない
-      await statsCallback();
+      if ((mockStatsJob as any).handler) {
+        await (mockStatsJob as any).handler();
+      }
 
       // エラーがログされたことを確認（エラーは内部で処理される）
       expect(mockTelegram.sendStatisticsReport).toHaveBeenCalled();
@@ -323,8 +338,10 @@ describe('MonitoringScheduler', () => {
           memoryUsage: 30,
         });
 
-      // runMonitoringCycleを直接呼び出す
-      await (scheduler as any).runMonitoringCycle(urls);
+      // cronジョブのハンドラーを直接呼び出す
+      if ((mockCronJob as any).handler) {
+        await (mockCronJob as any).handler();
+      }
 
       // 推定エラーが発生しても新着通知は送られる（差分は不明として）
       expect(mockStorage.incrementNewListings).toHaveBeenCalled();

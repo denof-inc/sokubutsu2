@@ -13,7 +13,7 @@ jest.mock('vibelogger', () => {
   };
 });
 
-import { SimpleStorage } from '../storage';
+import { SimpleStorage } from '../core/storage';
 import * as fs from 'fs';
 
 // fs をモック化
@@ -127,7 +127,7 @@ describe('SimpleStorage', () => {
     it('バックアップを作成できること', () => {
       const backupPath = storage.createBackup();
 
-      expect(backupPath).toContain('backup-');
+      expect(backupPath).toContain('hashes-');
       expect(backupPath).toContain('.json');
       expect(mockedFs.writeFileSync).toHaveBeenCalled();
     });

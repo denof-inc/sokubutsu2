@@ -1,7 +1,7 @@
 import { config, validateConfig, displayConfig } from './config';
-import { MonitoringScheduler } from './scheduler';
-import { logger, vibeLogger } from './logger';
-import { performanceMonitor } from './performance';
+import { MonitoringScheduler } from './core/scheduler';
+import { logger, vibeLogger } from './utils/logger';
+import { performanceMonitor } from './utils/performance';
 
 /**
  * メイン関数
@@ -25,7 +25,7 @@ async function main(): Promise<void> {
   });
 
   // 設定検証
-  if (!validateConfig()) {
+  if (!validateConfig(config)) {
     console.error('\n🚨 環境変数を .env ファイルに設定してください。');
     console.error('\n📝 設定例:');
     console.error('TELEGRAM_BOT_TOKEN=your_bot_token_here');
@@ -36,7 +36,7 @@ async function main(): Promise<void> {
   }
 
   // 設定情報表示
-  displayConfig();
+  displayConfig(config);
   console.log();
 
   // パフォーマンス指標表示

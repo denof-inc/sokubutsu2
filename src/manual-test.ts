@@ -1,8 +1,8 @@
 import { config, validateConfig, displayConfig } from './config';
-import { SimpleScraper } from './scraper';
-import { TelegramNotifier } from './telegram';
-import { SimpleStorage } from './storage';
-import { performanceMonitor } from './performance';
+import { SimpleScraper } from './infrastructure/scraper';
+import { TelegramNotifier } from './infrastructure/telegram';
+import { SimpleStorage } from './core/storage';
+import { performanceMonitor } from './utils/performance';
 
 /**
  * 手動テスト実行
@@ -18,9 +18,9 @@ async function runManualTest(): Promise<void> {
   // テスト1: 設定検証
   testsTotal++;
   console.log('\n📋 テスト1: 設定検証');
-  if (validateConfig()) {
+  if (validateConfig(config)) {
     console.log('✅ 設定検証: 成功');
-    displayConfig();
+    displayConfig(config);
     testsPassed++;
   } else {
     console.log('❌ 設定検証: 失敗');

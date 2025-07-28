@@ -1,5 +1,6 @@
-import { PerformanceMetrics } from './types';
+import { PerformanceMetrics } from '../types';
 import { vibeLogger } from './logger';
+import { formatError } from './error-handler';
 
 /**
  * パフォーマンス監視クラス
@@ -74,14 +75,7 @@ export class PerformanceMonitor {
           context: {
             functionName: fn.name,
             executionTime,
-            error:
-              error instanceof Error
-                ? {
-                    message: error.message,
-                    stack: error.stack,
-                    name: error.name,
-                  }
-                : { message: String(error) },
+            error: formatError(error),
           },
           aiTodo: '実行エラーのパターンを分析',
         });

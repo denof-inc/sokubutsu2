@@ -1,4 +1,4 @@
-import { SimpleScraper } from '../scraper';
+import { SimpleScraper } from '../infrastructure/scraper';
 import axios from 'axios';
 
 // axios をモック化
