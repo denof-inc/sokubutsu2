@@ -74,7 +74,7 @@ describe('Config', () => {
 
       expect(freshConfig.telegram.botToken).toBe('test-token');
       expect(freshConfig.telegram.chatId).toBe('test-chat-id');
-      expect(freshConfig.monitoring.urls).toEqual(['https://example1.com', 'https://example2.com']);
+      expect(freshConfig.monitoring.urls).toEqual(['https://example1.com,https://example2.com']);
       expect(freshConfig.monitoring.interval).toBe('*/10 * * * *');
       expect(freshConfig.app.port).toBe(4000);
       expect(freshConfig.app.env).toBe('production');
@@ -206,9 +206,10 @@ describe('Config', () => {
 
       freshDisplay();
 
-      expect(consoleLogSpy).toHaveBeenCalledWith('  - 監視URL数: 2件');
-      expect(consoleLogSpy).toHaveBeenCalledWith('    1. https://example1.com');
-      expect(consoleLogSpy).toHaveBeenCalledWith('    2. https://example2.com');
+      expect(consoleLogSpy).toHaveBeenCalledWith('  - 監視URL数: 1件');
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        '    1. https://example1.com,https://example2.com'
+      );
     });
 
     it('不正なポート番号の検証エラーをチェックすること', () => {

@@ -56,19 +56,40 @@ export class SimpleScraper {
 
       // athome.co.jp専用セレクター（戦略文書で実証済み）
       const selectors = [
+        'athome-search-result-list-item', // カスタム要素の可能性（最優先）
+        'athome-buy-other-object-list-item', // 売買物件リスト要素
+        'athome-object-item', // 物件要素
         '[class*="property"]', // 実証済み: 効果的
         '[class*="bukken"]', // 実証済み: 効果的
         '[class*="item"]', // 実証済み: 効果的
         '.item-cassette', // 補助的
         '.property-list-item', // 補助的
+        '[class*="object"]', // object関連クラス
+        '[class*="list-item"]', // list-item関連クラス
+        'div[class*="result"]', // result関連クラス
+        'article', // 記事要素
+        'section[class*="list"]', // セクション要素
+        // 追加の可能性
+        '.search-result-list > *', // 検索結果リストの子要素
+        '.result-list > *', // 結果リストの子要素
+        '[data-item]', // data属性を持つ要素
+        '[data-property]', // data属性を持つ要素
       ];
 
       let properties: ReturnType<typeof $> | null = null;
       let usedSelector = '';
 
       // セレクターを順次試行
+      vibeLogger.debug('scraping.selector.search', 'セレクター検索開始', {
+        context: { totalSelectors: selectors.length },
+      });
+
       for (const selector of selectors) {
         const elements = $(selector);
+        vibeLogger.debug('scraping.selector.test', `セレクターテスト: ${selector}`, {
+          context: { selector, count: elements.length },
+        });
+
         if (elements.length > 0) {
           properties = elements;
           usedSelector = selector;
@@ -84,6 +105,26 @@ export class SimpleScraper {
       }
 
       if (!properties || properties.length === 0) {
+        // デバッグ情報を出力
+        vibeLogger.debug('scraping.selector.not_found', 'セレクターが見つかりません', {
+          context: {
+            url,
+            htmlLength: response.data.length,
+            titleTag: $('title').text(),
+            bodyText: $('body').text().substring(0, 200), // 最初の200文字
+          },
+        });
+
+        // より広範なセレクターで再検索
+        const allDivs = $('div');
+        vibeLogger.debug('scraping.debug.divs', `全div要素数: ${allDivs.length}`, {
+          context: {
+            totalDivs: allDivs.length,
+            // class属性を持つdivの数
+            divsWithClass: allDivs.filter((i, el) => !!$(el).attr('class')).length,
+          },
+        });
+
         throw new Error('物件要素が見つかりませんでした');
       }
 
@@ -91,6 +132,19 @@ export class SimpleScraper {
       const contentText = properties.text();
       const hash = crypto.createHash('md5').update(contentText).digest('hex');
       const executionTime = Date.now() - startTime;
+
+      // ページ内の件数表示を探す
+      const bodyText = $('body').text();
+      const countMatches = bodyText.match(/(\d+)件/g);
+      if (countMatches && countMatches.length > 0) {
+        vibeLogger.info('scraping.page_info', 'ページ内の件数情報', {
+          context: {
+            foundCounts: countMatches,
+            detectedCount: count,
+            selector: usedSelector,
+          },
+        });
+      }
 
       vibeLogger.info('scraping.success', `スクレイピング成功: ${count}件検出`, {
         context: {
