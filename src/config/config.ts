@@ -30,9 +30,27 @@ export const config: Config = {
   },
   monitoring: {
     urls: process.env.MONITORING_URLS
-      ? process.env.MONITORING_URLS.split(',')
-          .map(url => url.trim())
-          .filter(url => url.length > 0)
+      ? (() => {
+          // URLにカンマが含まれる場合を考慮
+          const urlString = process.env.MONITORING_URLS;
+          // ダブルクォートで囲まれている場合は除去
+          const cleanedUrl = urlString.replace(/^"|"$/g, '');
+          // 複数URLの場合は改行またはセミコロンで分割
+          if (cleanedUrl.includes('\n')) {
+            return cleanedUrl
+              .split('\n')
+              .map(url => url.trim())
+              .filter(url => url.length > 0);
+          } else if (cleanedUrl.includes(';')) {
+            return cleanedUrl
+              .split(';')
+              .map(url => url.trim())
+              .filter(url => url.length > 0);
+          } else {
+            // 単一URLの場合
+            return [cleanedUrl.trim()].filter(url => url.length > 0);
+          }
+        })()
       : [],
     interval: process.env.MONITORING_INTERVAL || '*/5 * * * *', // デフォルト5分
   },
