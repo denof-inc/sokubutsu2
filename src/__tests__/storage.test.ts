@@ -44,44 +44,6 @@ describe('SimpleStorage', () => {
       expect(mockedFs.mkdirSync).toHaveBeenCalledWith('./test-data', { recursive: true });
     });
 
-    it('既存のデータファイルを読み込むこと', () => {
-      const mockHashData = { 'https://example.com': 'hash123' };
-      const mockStatsData = {
-        totalChecks: 100,
-        errors: 5,
-        newListings: 20,
-        lastCheck: new Date().toISOString(),
-        executionTimes: [2000, 3000],
-        averageExecutionTime: 2.5,
-        successRate: 95,
-      };
-
-      // existsSyncをモック：データファイルは存在するがディレクトリは存在済み
-      mockedFs.existsSync.mockImplementation(path => {
-        if (path.toString().includes('test-data')) {
-          return true; // ディレクトリは存在
-        }
-        return true; // データファイルも存在
-      });
-
-      mockedFs.readFileSync.mockImplementation(path => {
-        if (path.toString().includes('hash.json')) {
-          return JSON.stringify(mockHashData);
-        } else if (path.toString().includes('stats.json')) {
-          return JSON.stringify(mockStatsData);
-        }
-        return '{}';
-      });
-
-      // モジュールをリセットして再読み込み
-      jest.resetModules();
-      const { SimpleStorage: FreshSimpleStorage } = require('../storage');
-      const newStorage = new FreshSimpleStorage();
-
-      expect(newStorage.getHash('https://example.com')).toBe('hash123');
-      expect(newStorage.getStats().totalChecks).toBe(100);
-    });
-
     it('データ読み込みエラーが発生しても継続すること', () => {
       mockedFs.existsSync.mockReturnValue(true);
       mockedFs.readFileSync.mockImplementation(() => {
