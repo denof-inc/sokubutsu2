@@ -1,5 +1,5 @@
 # 軽量Node.jsイメージを使用
-FROM node:20-alpine
+FROM node:24-alpine
 
 # 作業ディレクトリ設定
 WORKDIR /app
