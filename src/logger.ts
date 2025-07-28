@@ -1,4 +1,5 @@
-import { createFileLogger, LogOptions } from 'vibelogger';
+// vibelogger互換の独自実装を使用
+import { createFileLogger, LogOptions } from './utils/vibe-logger-impl';
 
 /**
  * ログ管理モジュール（vibelogger統合版）
