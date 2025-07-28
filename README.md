@@ -1,294 +1,260 @@
-# ソクブツ (Sokubutsu) - 新着物件通知サービス
+# ソクブツMVP - 新着物件通知サービス
 
-<p align="center">
-  <strong>自宅サーバーで動作する軽量な新着物件監視システム</strong>
-</p>
+**完全リセット戦略準拠実装版**
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js" />
-  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
-  <img src="https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram" />
-</p>
+## 🎯 概要
 
-## 🎯 プロジェクト概要
+ソクブツMVPは、athome.co.jpの新着物件を監視し、Telegramで即座に通知する軽量なサービスです。
 
-ソクブツは、不動産ポータルサイト（初期対応：athome.co.jp）の新着物件を自動監視し、Telegramで即座に通知するサービスです。
+### 戦略準拠の特徴
 
-### 🏠 自宅サーバー特化設計
-- **WSL2 + Docker環境**での軽量・安定動作
-- **Bot検知回避**のため自宅サーバーからのアクセス
-- **月額1,500円以内**の低コスト運用
+- ✅ **HTTP-first戦略**: 軽量・高速処理（2-5秒）
+- ✅ **最小限依存関係**: 12パッケージのみ
+- ✅ **Docker対応**: 自宅サーバー最適化
+- ✅ **完全テスト環境**: Lint/Jest/CI/CD完備
+- ✅ **今日中稼働**: コピペで即座起動
 
-### ⚡ 軽量・高速処理
-- **HTTP-onlyスクレイピング**による2-5秒の高速処理
-- **メモリ使用量30-50MB**の軽量実装
-- **5分間隔監視**による即座な新着検知
+## 🚀 クイックスタート（5分で起動）
 
-## 🚀 クイックスタート
-
-### 前提条件
-- Docker & Docker Compose
-- WSL2 (Windows) または Linux環境
-- Telegram Bot Token
-
-### 1分で起動
+### 1. プロジェクトセットアップ
 ```bash
-# 1. リポジトリクローン
-git clone https://github.com/denof-inc/sokubutsu2.git
-cd sokubutsu2
+git clone <repository-url>
+cd sokubutsu-mvp
+npm install
+```
 
-# 2. 環境変数設定
+### 2. 環境変数設定
+```bash
 cp .env.example .env
-# .envファイルを編集してTelegram設定
-
-# 3. Docker起動
-docker-compose up -d
-
-# 4. 動作確認
-docker-compose logs -f
+# .envファイルを編集して以下を設定:
+# TELEGRAM_BOT_TOKEN=your_bot_token_here
+# TELEGRAM_CHAT_ID=your_chat_id_here
+# MONITORING_URLS=https://www.athome.co.jp/chintai/tokyo/list/
 ```
 
-### 環境変数設定
-```env
-# .env ファイル
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-TELEGRAM_CHAT_ID=your_chat_id_here
-MONITORING_URLS=https://www.athome.co.jp/chintai/tokyo/shibuya-city/list/
+### 3. 動作確認
+```bash
+# 手動テスト実行
+npm run manual:test
+
+# 開発モードで起動
+npm run start:dev
 ```
 
-## 📋 主要機能
+### 4. 本番稼働
+```bash
+# Docker環境で起動
+npm run docker:run
 
-### 🔍 監視機能
-- **athome.co.jp対応**: HTTP-onlyによる軽量スクレイピング
-- **新着検知**: ハッシュ値比較による変更検知
-- **5分間隔**: 設定可能な監視サイクル
-- **エラー通知**: 監視失敗時の自動アラート
+# または直接起動
+npm run build
+npm start
+```
 
-### 📱 通知機能
-- **即座通知**: 新着物件検知時のTelegramプッシュ通知
-- **システム通知**: エラー・状態変更の自動通知
-- **監視開始通知**: サービス開始時の確認通知
+## 📋 環境変数設定
 
-### 🐳 Docker環境
-- **軽量コンテナ**: 200MB以下のイメージサイズ
-- **自動再起動**: サービス停止時の自動復旧
-- **簡単デプロイ**: docker-compose.ymlによる一発起動
+| 変数名 | 必須 | 説明 | 例 |
+|--------|------|------|-----|
+| `TELEGRAM_BOT_TOKEN` | ✅ | Telegram BotのToken | `123456:ABC-DEF...` |
+| `TELEGRAM_CHAT_ID` | ✅ | 通知先のChat ID | `123456789` |
+| `MONITORING_URLS` | ✅ | 監視するURL（カンマ区切り） | `https://www.athome.co.jp/...` |
+| `MONITORING_INTERVAL` | ❌ | 監視間隔（cron形式） | `*/5 * * * *` (5分間隔) |
+| `PORT` | ❌ | ポート番号 | `3000` |
+| `NODE_ENV` | ❌ | 実行環境 | `production` |
+| `DATA_DIR` | ❌ | データディレクトリ | `./data` |
+| `LOG_LEVEL` | ❌ | ログレベル | `info` |
+
+## 🛠️ 開発コマンド
+
+```bash
+# 開発
+npm run start:dev          # 開発モード起動
+npm run manual:test        # 手動テスト実行
+
+# テスト・品質チェック
+npm run test               # テスト実行
+npm run test:watch         # テスト監視モード
+npm run test:coverage      # カバレッジ付きテスト
+npm run lint               # ESLint実行・自動修正
+npm run lint:check         # ESLint実行（修正なし）
+npm run quality:check      # 品質チェック（lint+test+build）
+
+# ビルド・起動
+npm run build              # TypeScriptビルド
+npm start                  # 本番モード起動
+
+# Docker
+npm run docker:build       # Dockerイメージビルド
+npm run docker:run         # Docker Compose起動
+npm run docker:stop        # Docker Compose停止
+```
+
+## 📊 パフォーマンス目標
+
+| 指標 | 目標値 | 実測値確認方法 |
+|------|--------|----------------|
+| 起動時間 | 1-2秒 | `npm run manual:test` |
+| メモリ使用量 | 30-50MB | `npm run manual:test` |
+| 実行時間 | 2-5秒 | ログ出力で確認 |
+| 依存関係数 | 12パッケージ | `package.json`で確認 |
 
 ## 🏗️ アーキテクチャ
 
-### MVP構成（シンプル設計）
 ```
 src/
-├── main.ts          # エントリーポイント
-├── scraper.ts       # HTTP-onlyスクレイピング
-├── telegram.ts      # Telegram通知
-├── scheduler.ts     # cron監視スケジューラー
-└── storage.ts       # JSON簡易ストレージ
+├── main.ts              # メインエントリーポイント
+├── config.ts            # 設定管理
+├── types.ts             # 型定義
+├── logger.ts            # ログ管理
+├── performance.ts       # パフォーマンス監視
+├── scraper.ts           # スクレイピング（HTTP-first）
+├── telegram.ts          # Telegram通知
+├── storage.ts           # データ保存（JSON）
+├── scheduler.ts         # 監視スケジューラー
+├── manual-test.ts       # 手動テスト
+├── test-setup.ts        # テスト設定
+└── __tests__/           # テストファイル
+    ├── scraper.test.ts
+    └── storage.test.ts
 ```
 
-### 技術スタック
-- **Runtime**: Node.js 20 (Alpine)
-- **Language**: TypeScript
-- **HTTP Client**: axios
-- **HTML Parser**: cheerio
-- **Scheduler**: node-cron
-- **Notification**: telegraf
-- **Container**: Docker + Docker Compose
+## 🐳 Docker運用
 
-## 📊 パフォーマンス
-
-| 項目 | 値 | 備考 |
-|------|-----|------|
-| メモリ使用量 | 30-50MB | 軽量実装 |
-| 実行時間 | 2-5秒 | HTTP-only |
-| 起動時間 | 1-2秒 | シンプル構成 |
-| Docker容量 | 200MB以下 | Alpine基盤 |
-| 監視間隔 | 5分 | 設定可能 |
-
-## 🛠️ 開発環境
-
-### ローカル開発
+### 基本的な使用方法
 ```bash
-# 依存関係インストール
-npm install
+# 起動
+docker-compose up -d
 
-# 開発サーバー起動
-npm run start:dev
+# ログ確認
+docker-compose logs -f
 
-# ビルド
-npm run build
+# 停止
+docker-compose down
 
-# テスト実行
-npm test
-
-# Lint実行
-npm run lint
+# 再起動
+docker-compose restart
 ```
 
-### 最小限依存関係
-```json
-{
-  "dependencies": {
-    "axios": "^1.6.0",
-    "cheerio": "^1.0.0-rc.12",
-    "node-cron": "^3.0.3",
-    "telegraf": "^4.15.0",
-    "dotenv": "^16.3.0"
-  }
-}
-```
+### リソース制限
+- メモリ制限: 256MB
+- CPU制限: 0.5コア
+- ログローテーション: 10MB × 3ファイル
 
-## 📚 ドキュメント
+## 📱 Telegram Bot設定
 
-### 新規参入者向け
-- [クイックスタートガイド](#🚀-クイックスタート) - 1分で起動
-- [環境構築手順](./docs/開発環境構築手順書.md) - 詳細セットアップ
-- [自宅サーバー運用ガイド](./docs/自宅サーバー運用ガイド.md) - WSL2環境設定
+### 1. Bot作成
+1. [@BotFather](https://t.me/BotFather) にアクセス
+2. `/newbot` コマンドでBot作成
+3. Bot Tokenを取得
 
-### 開発者向け
-- [システム設計書](./docs/システム設計書.md) - アーキテクチャ詳細
-- [軽量実装ガイド](./docs/軽量実装ガイド.md) - パフォーマンス最適化
-- [スクレイピング戦略](./docs/スクレイピング戦略.md) - HTTP-first戦略
+### 2. Chat ID取得
+1. 作成したBotに何かメッセージを送信
+2. `https://api.telegram.org/bot<BOT_TOKEN>/getUpdates` にアクセス
+3. `chat.id` を確認
 
-### 運用者向け
-- [デプロイメント手順書](./docs/デプロイメント手順書.md) - 本番環境構築
-- [トラブルシューティングガイド](./docs/トラブルシューティングガイド.md) - 問題解決
-- [テスト戦略・手順書](./docs/テスト戦略・手順書.md) - 品質保証
-
-## 🔧 設定・カスタマイズ
-
-### 監視URL追加
-```env
-# 複数URL対応（カンマ区切り）
-MONITORING_URLS=https://www.athome.co.jp/chintai/tokyo/shibuya-city/list/,https://www.athome.co.jp/chintai/osaka/osaka-city/list/
-```
-
-### 監視間隔変更
-```typescript
-// src/scheduler.ts
-// 5分間隔 → 10分間隔に変更
-cron.schedule('*/10 * * * *', async () => {
-  // 監視処理
-});
-```
-
-### Docker設定調整
-```yaml
-# docker-compose.yml
-services:
-  app:
-    deploy:
-      resources:
-        limits:
-          memory: 100M
-          cpus: '0.5'
-```
-
-## 🚨 トラブルシューティング
+## 🔧 トラブルシューティング
 
 ### よくある問題
 
-#### 1. Telegram通知が来ない
-```bash
-# Bot Token確認
-echo $TELEGRAM_BOT_TOKEN
-
-# Chat ID確認
-echo $TELEGRAM_CHAT_ID
-
-# ログ確認
-docker-compose logs app | grep telegram
+#### 1. Telegram接続エラー
 ```
+❌ Telegram接続に失敗しました
+```
+**解決方法:**
+- Bot Tokenが正しいか確認
+- Chat IDが正しいか確認
+- ネットワーク接続を確認
 
 #### 2. スクレイピングエラー
-```bash
-# ネットワーク確認
-docker exec sokubutsu_app ping www.athome.co.jp
-
-# User-Agent確認
-docker-compose logs app | grep "User-Agent"
 ```
+❌ 物件要素が見つかりませんでした
+```
+**解決方法:**
+- URLが正しいか確認
+- athome.co.jpのサイト構造変更の可能性
+- ネットワーク接続を確認
 
-#### 3. メモリ不足
+#### 3. パフォーマンス目標未達成
+```
+⚠️ 実行時間が目標を超過: 6000ms > 5000ms
+```
+**解決方法:**
+- ネットワーク速度を確認
+- 監視URL数を減らす
+- サーバースペックを確認
+
+### ログ確認方法
+
 ```bash
-# メモリ使用量確認
-docker stats sokubutsu_app
+# リアルタイムログ
+docker-compose logs -f sokubutsu-mvp
 
-# メモリ制限設定
-# docker-compose.ymlでmemory制限を追加
+# ログファイル確認
+ls -la logs/
+cat logs/sokubutsu-$(date +%Y-%m-%d).log
 ```
 
 ## 📈 監視・運用
 
-### ヘルスチェック
+### 統計情報
+- 1時間ごとにTelegramで統計レポート送信
+- `data/statistics.json` で詳細確認可能
+
+### バックアップ
+- データは自動的に `data/` ディレクトリに保存
+- バックアップは `data/backups/` に作成
+
+### アップデート
 ```bash
-# コンテナ状態確認
-docker-compose ps
+# 最新版取得
+git pull origin main
 
-# ログ監視
-docker-compose logs -f --tail=100
+# 依存関係更新
+npm install
 
-# リソース使用量
-docker stats
+# 再ビルド・再起動
+npm run build
+docker-compose restart
 ```
 
-### 手動実行
+## 🤝 開発参加
+
+### 開発環境セットアップ
 ```bash
-# 手動監視実行（テスト用）
-docker exec sokubutsu_app npm run monitor:manual
+# リポジトリクローン
+git clone <repository-url>
+cd sokubutsu-mvp
+
+# 依存関係インストール
+npm install
+
+# 開発モード起動
+npm run start:dev
 ```
 
-## 🔮 将来計画
+### コード品質基準
+- ESLint: エラー0件必須
+- テストカバレッジ: 70%以上
+- TypeScript: strict mode
+- 全テスト成功必須
 
-### 短期拡張（1週間）
-- [ ] 複数URL対応の改善
-- [ ] Web UI追加
-- [ ] 詳細ログ機能
-
-### 中期拡張（1ヶ月）
-- [ ] 他サイト対応（suumo等）
-- [ ] ユーザー管理機能
-- [ ] データベース永続化
-
-### 長期拡張（3ヶ月）
-- [ ] 本格的なTelegram Bot機能
-- [ ] 管理者ダッシュボード
-- [ ] 課金システム
-
-## 🤝 コントリビューション
-
-### 開発参加
-1. Issueを確認・作成
-2. ブランチ作成 (`feature/機能名`)
-3. 実装・テスト
+### Pull Request
+1. 機能ブランチ作成
+2. `npm run quality:check` 成功確認
+3. テスト追加・更新
 4. Pull Request作成
-
-### 品質基準
-- ESLintエラー0件
-- テストカバレッジ80%以上
-- Docker環境での動作確認
-- ドキュメント更新
 
 ## 📄 ライセンス
 
-MIT License - 詳細は[LICENSE](./LICENSE)ファイルを参照
+MIT License
 
-## 🙏 謝辞
+## 🙋‍♂️ サポート
 
-- [Node.js](https://nodejs.org/) - 軽量ランタイム
-- [Docker](https://www.docker.com/) - コンテナ化技術
-- [Telegram Bot API](https://core.telegram.org/bots/api) - 通知システム
+問題が発生した場合:
+1. `npm run manual:test` で診断実行
+2. ログファイル確認
+3. Issue作成（ログ添付）
 
 ---
 
-**ソクブツで、理想の物件を誰よりも早く見つけよう！** 🏠✨
-
-### 📞 サポート
-
-- **Issue**: [GitHub Issues](https://github.com/denof-inc/sokubutsu2/issues)
-- **Discussion**: [GitHub Discussions](https://github.com/denof-inc/sokubutsu2/discussions)
-- **Documentation**: [docs/](./docs/)
-
-新規参入者の方は、まず[クイックスタートガイド](#🚀-クイックスタート)から始めることをお勧めします！
-
+**🎉 ソクブツMVPで理想の物件との出会いをお手伝いします！**

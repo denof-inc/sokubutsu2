@@ -1,0 +1,19 @@
+# 依存関係
+node_modules/
+
+# ビルド成果物
+dist/
+
+# ログとカバレッジ
+logs/
+coverage/
+
+# データ
+data/
+
+# 設定ファイル
+*.json
+*.md
+
+# 自動生成ファイル
+package-lock.json
