@@ -14,9 +14,12 @@ export const config: Config = {
   },
   monitoring: {
     urls: process.env.MONITORING_URLS
-      ? process.env.MONITORING_URLS.split(',')
-          .map(url => url.trim())
-          .filter(url => url.length > 0)
+      ? (() => {
+          const urlString = process.env.MONITORING_URLS;
+          const cleanedUrl = urlString.replace(/^"|"$/g, '');
+          // Handle single URL with commas in query parameters
+          return [cleanedUrl.trim()].filter(url => url.length > 0);
+        })()
       : [],
     interval: process.env.MONITORING_INTERVAL || '*/5 * * * *', // デフォルト5分
   },

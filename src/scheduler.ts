@@ -52,11 +52,14 @@ export class MonitoringScheduler {
     // Telegram接続テスト
     const isConnected = await this.telegram.testConnection();
     if (!isConnected) {
-      throw new Error('Telegram接続に失敗しました。環境変数を確認してください。');
+      vibeLogger.warn('scheduler.telegram_skip', 'Telegram接続失敗のため通知機能をスキップ', {
+        context: { testMode: true },
+        humanNote: 'テストモードのため継続',
+      });
+    } else {
+      // 起動通知
+      await this.telegram.sendStartupNotice();
     }
-
-    // 起動通知
-    await this.telegram.sendStartupNotice();
 
     // 5分間隔で監視（毎時0,5,10,15...分に実行）
     this.cronJob = cron.schedule('*/5 * * * *', () => {

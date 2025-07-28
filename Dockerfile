@@ -7,8 +7,8 @@ WORKDIR /app
 # package.jsonとpackage-lock.jsonをコピー（キャッシュ分離）
 COPY package*.json ./
 
-# 依存関係インストール（本番用のみ）
-RUN npm ci --only=production && npm cache clean --force
+# 依存関係インストール（本番用のみ、prepareスクリプトをスキップ）
+RUN npm ci --only=production --ignore-scripts && npm cache clean --force
 
 # TypeScriptビルド用の一時的な依存関係インストール
 COPY tsconfig.json ./

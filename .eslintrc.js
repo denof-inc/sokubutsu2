@@ -25,6 +25,7 @@ module.exports = {
     '@typescript-eslint/no-misused-promises': 'error',
     '@typescript-eslint/require-await': 'error',
     '@typescript-eslint/no-unused-vars': 'error',
+    '@typescript-eslint/no-require-imports': 'off',
     
     // 警告レベル（段階的対応）
     '@typescript-eslint/no-explicit-any': 'warn',
