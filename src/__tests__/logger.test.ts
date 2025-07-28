@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 
-// vibeloggerのモック - importの前に設定
-jest.mock('vibelogger', () => {
+// vibe-logger-implのモック - importの前に設定
+jest.mock('../utils/vibe-logger-impl', () => {
   const mockLogger = {
     error: jest.fn(),
     warn: jest.fn(),
@@ -122,7 +122,7 @@ describe('Logger', () => {
     it('createFileLoggerが正しいプロジェクト名で呼ばれていること', () => {
       // requireされた時点で既に呼ばれているため、importをリセットする
       jest.resetModules();
-      jest.doMock('vibelogger', () => ({
+      jest.doMock('../utils/vibe-logger-impl', () => ({
         createFileLogger: jest.fn(() => ({
           error: jest.fn(),
           warn: jest.fn(),
@@ -134,7 +134,8 @@ describe('Logger', () => {
       // logger.tsを再度requireして、createFileLoggerが呼ばれることを確認
       require('../logger');
 
-      const vibeloggerMock = require('vibelogger') as typeof import('vibelogger');
+      const vibeloggerMock =
+        require('../utils/vibe-logger-impl') as typeof import('../utils/vibe-logger-impl');
       expect(vibeloggerMock.createFileLogger).toHaveBeenCalledWith('sokubutsu');
     });
   });

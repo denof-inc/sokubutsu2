@@ -115,12 +115,15 @@ describe('MonitoringScheduler', () => {
       expect(cron.schedule).toHaveBeenCalledWith('0 * * * *', expect.any(Function));
     });
 
-    it('Telegram接続失敗時はエラーを投げること', async () => {
+    it('Telegram接続失敗時でも監視を開始すること', async () => {
       mockTelegram.testConnection.mockResolvedValue(false);
 
-      await expect(scheduler.start(['https://example.com'])).rejects.toThrow(
-        'Telegram接続に失敗しました。環境変数を確認してください。'
-      );
+      await scheduler.start(['https://example.com']);
+
+      expect(mockTelegram.testConnection).toHaveBeenCalled();
+      expect(mockTelegram.sendStartupNotice).not.toHaveBeenCalled();
+      expect(cron.schedule).toHaveBeenCalledWith('*/5 * * * *', expect.any(Function));
+      expect(cron.schedule).toHaveBeenCalledWith('0 * * * *', expect.any(Function));
     });
   });
 
