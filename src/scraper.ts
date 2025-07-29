@@ -1,7 +1,7 @@
 import axios, { AxiosResponse } from 'axios';
 import * as cheerio from 'cheerio';
 import * as crypto from 'crypto';
-import { ScrapingResult } from './types';
+import { ScrapingResult, PropertyInfo } from './types';
 import { vibeLogger } from './logger';
 
 /**
@@ -132,6 +132,42 @@ export class SimpleScraper {
       const contentText = properties.text();
       const hash = crypto.createHash('md5').update(contentText).digest('hex');
       const executionTime = Date.now() - startTime;
+      
+      // 物件詳細情報を抽出
+      const propertyInfoList: PropertyInfo[] = [];
+      properties.each((index, element) => {
+        if (index < 3) { // 最新3件のみ
+          const $el = $(element);
+          const elementText = $el.text();
+          
+          // ページ件数表示（「337件」など）をスキップ
+          if (elementText.match(/^\d+件$/)) {
+            return;
+          }
+          
+          // 物件情報の抽出（athome.co.jpの実際の構造に基づく）
+          const title = $el.find('a').first().text().trim() ||
+                       $el.find('[class*="title"], h2, h3').first().text().trim() ||
+                       elementText.split('\n')[0]?.trim() || '';
+          
+          // 価格の抽出（より具体的なパターン）
+          const price = elementText.match(/[0-9,]+万円/)?.[0] || 
+                       $el.find('[class*="price"]').first().text().trim() || '';
+          
+          // 所在地の抽出
+          const location = elementText.match(/(?:広島県|岡山県|山口県)[^\n]+(?:市|町|村)[^\n]+/)?.[0] ||
+                          $el.find('[class*="location"], [class*="address"]').first().text().trim() || '';
+          
+          // タイトルが有効な物件情報の場合のみ追加
+          if (title && title.length > 2 && !title.match(/^\d+$/)) {
+            propertyInfoList.push({
+              title,
+              price,
+              location
+            });
+          }
+        }
+      });
 
       // ページ内の件数表示を探す
       const bodyText = $('body').text();
@@ -163,6 +199,7 @@ export class SimpleScraper {
         success: true,
         hash,
         count,
+        properties: propertyInfoList,
         executionTime,
         memoryUsage: Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100,
       };

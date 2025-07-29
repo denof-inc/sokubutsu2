@@ -279,4 +279,50 @@ export class SimpleStorage {
     console.log(`  - 最終チェック: ${this.stats.lastCheck.toLocaleString('ja-JP')}`);
     console.log(`  - 監視URL数: ${Object.keys(this.hashData).length}件`);
   }
+
+  /**
+   * 汎用データの保存
+   */
+  save<T>(key: string, data: T): void {
+    const dataFile = path.join(this.dataDir, `${key}.json`);
+    
+    try {
+      fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
+      vibeLogger.debug('storage.save', `データ保存完了: ${key}`, {
+        context: { key, dataFile },
+      });
+    } catch (error) {
+      vibeLogger.error('storage.save_error', `データ保存エラー: ${key}`, {
+        context: {
+          key,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * 汎用データの読み込み
+   */
+  load<T>(key: string): T | null {
+    const dataFile = path.join(this.dataDir, `${key}.json`);
+    
+    try {
+      if (!fs.existsSync(dataFile)) {
+        return null;
+      }
+      
+      const data = fs.readFileSync(dataFile, 'utf-8');
+      return JSON.parse(data) as T;
+    } catch (error) {
+      vibeLogger.error('storage.load_error', `データ読み込みエラー: ${key}`, {
+        context: {
+          key,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+      return null;
+    }
+  }
 }

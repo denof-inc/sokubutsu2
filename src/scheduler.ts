@@ -2,7 +2,8 @@ import * as cron from 'node-cron';
 import { SimpleScraper } from './scraper';
 import { TelegramNotifier } from './telegram';
 import { SimpleStorage } from './storage';
-import { NotificationData } from './types';
+import { PropertyMonitor } from './property-monitor';
+import { NewPropertyDetectionResult } from './types';
 import { vibeLogger } from './logger';
 
 /**
@@ -29,6 +30,7 @@ export class MonitoringScheduler {
   private readonly scraper = new SimpleScraper();
   private readonly telegram: TelegramNotifier;
   private readonly storage = new SimpleStorage();
+  private readonly propertyMonitor = new PropertyMonitor();
 
   private cronJob: cron.ScheduledTask | null = null;
   private statsJob: cron.ScheduledTask | null = null;
@@ -180,46 +182,111 @@ export class MonitoringScheduler {
       this.storage.recordExecutionTime(result.executionTime);
     }
 
-    const previousHash = this.storage.getHash(url);
+    // 新着物件検知ロジックを使用
+    const detectionResult = this.propertyMonitor.detectNewProperties(
+      result.properties || []
+    );
 
+    // ハッシュ値の管理（互換性のため維持）
+    const previousHash = this.storage.getHash(url);
     if (!previousHash) {
       // 初回チェック
       vibeLogger.info('monitoring.initial_url_check', `初回チェック完了: ${url}`, {
         context: { url, count: result.count, hash: result.hash },
       });
       this.storage.setHash(url, result.hash);
-    } else if (previousHash !== result.hash) {
+    } else if (detectionResult.hasNewProperty) {
       // 新着検知！
       vibeLogger.info('monitoring.new_listing_detected', `🎉 新着検知: ${url}`, {
         context: {
           url,
-          count: result.count,
-          previousHash,
-          newHash: result.hash,
+          newPropertyCount: detectionResult.newPropertyCount,
+          totalMonitored: detectionResult.totalMonitored,
+          confidence: detectionResult.confidence,
         },
         humanNote: '新着物件を検知しました！',
         aiTodo: '検知パターンを分析し、通知タイミングを最適化',
       });
       this.storage.incrementNewListings();
 
-      // 前回の物件数を推定（簡易実装）
-      const previousCount = await this.estimatePreviousCount(url);
-
-      const notificationData: NotificationData = {
-        currentCount: result.count,
-        previousCount,
-        detectedAt: new Date(),
-        url,
-        executionTime: (result.executionTime || 0) / 1000,
-      };
-
-      await this.telegram.sendNewListingNotification(notificationData);
+      // 新着物件通知を送信
+      await this.sendNewPropertyNotification(detectionResult, url);
       this.storage.setHash(url, result.hash);
     } else {
       // 変化なし
       vibeLogger.debug('monitoring.no_change', `変化なし: ${url}`, {
         context: { url, count: result.count, hash: result.hash },
       });
+    }
+  }
+
+  /**
+   * 新着物件通知を送信
+   */
+  private async sendNewPropertyNotification(detectionResult: NewPropertyDetectionResult, url: string): Promise<void> {
+    try {
+      const message = this.createNewPropertyMessage(detectionResult, url);
+      await this.telegram.sendMessage(message);
+      
+      vibeLogger.info('monitoring_scheduler.notification_sent', '新着物件通知送信完了', {
+        context: {
+          newPropertyCount: detectionResult.newPropertyCount,
+          confidence: detectionResult.confidence
+        },
+        humanNote: '新着物件通知が正常に送信されました'
+      });
+      
+    } catch (error) {
+      vibeLogger.error('monitoring_scheduler.notification_failed', '新着物件通知送信失敗', {
+        context: {
+          error: error instanceof Error ? error.message : String(error)
+        },
+        humanNote: '新着物件通知の送信に失敗しました'
+      });
+    }
+  }
+
+  /**
+   * 新着物件通知メッセージを作成
+   */
+  private createNewPropertyMessage(detectionResult: NewPropertyDetectionResult, url: string): string {
+    const { newPropertyCount, totalMonitored, confidence, detectedAt } = detectionResult;
+    
+    let message = `🆕 **新着物件発見！**\n\n`;
+    message += `📊 **検知情報**\n`;
+    message += `• 新着件数: ${newPropertyCount}件\n`;
+    message += `• 監視範囲: 最新${totalMonitored}件\n`;
+    message += `• 信頼度: ${this.getConfidenceText(confidence)}\n`;
+    message += `• 検知時刻: ${detectedAt.toLocaleString('ja-JP')}\n\n`;
+    
+    // 新着物件の詳細
+    if (detectionResult.newProperties.length > 0) {
+      message += `🏠 **新着物件詳細**\n`;
+      detectionResult.newProperties.forEach((property, index) => {
+        message += `${index + 1}. ${property.title}\n`;
+        message += `   💰 ${property.price}\n`;
+        if (property.location) {
+          message += `   📍 ${property.location}\n`;
+        }
+        message += `\n`;
+      });
+    }
+    
+    message += `🔗 **確認はこちら**\n`;
+    message += url;
+    
+    return message;
+  }
+
+  /**
+   * 信頼度テキストを取得
+   */
+  private getConfidenceText(confidence: string): string {
+    switch (confidence) {
+      case 'very_high': return '非常に高い ⭐⭐⭐';
+      case 'high': return '高い ⭐⭐';
+      case 'medium': return '中程度 ⭐';
+      default: return confidence;
     }
   }
 

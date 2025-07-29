@@ -2,6 +2,7 @@ import { config, validateConfig, displayConfig } from './config';
 import { SimpleScraper } from './scraper';
 import { TelegramNotifier } from './telegram';
 import { SimpleStorage } from './storage';
+import { PropertyMonitor } from './property-monitor';
 import { performanceMonitor } from './performance';
 
 /**
@@ -146,6 +147,72 @@ async function runManualTest(): Promise<void> {
       }
     } catch (error) {
       console.log('❌ athome.co.jpスクレイピング: エラー', error);
+    }
+  }
+
+  // テスト7: 新着物件監視機能（URLが設定されている場合）
+  if (config.monitoring.urls.length > 0) {
+    testsTotal++;
+    console.log('\n🔍 テスト7: 新着物件監視機能');
+    try {
+      const propertyMonitor = new PropertyMonitor();
+      const scraper = new SimpleScraper();
+      const testUrl = config.monitoring.urls[0];
+      
+      if (testUrl) {
+        console.log('📡 物件データ取得中...');
+        const scrapingResult = await scraper.scrapeAthome(testUrl);
+        
+        if (!scrapingResult.success) {
+          throw new Error(`スクレイピング失敗: ${scrapingResult.error}`);
+        }
+        
+        console.log(`✅ 物件データ取得成功: ${scrapingResult.count}件`);
+        
+        // 新着検知テスト
+        console.log('\n🆕 新着物件検知テスト中...');
+        const detectionResult = propertyMonitor.detectNewProperties(
+          scrapingResult.properties || []
+        );
+        
+        console.log('📊 検知結果:');
+        console.log(`   新着物件: ${detectionResult.hasNewProperty ? 'あり' : 'なし'}`);
+        console.log(`   新着件数: ${detectionResult.newPropertyCount}件`);
+        console.log(`   監視対象: ${detectionResult.totalMonitored}件`);
+        console.log(`   信頼度: ${detectionResult.confidence}`);
+        console.log(`   検知時刻: ${detectionResult.detectedAt.toLocaleString('ja-JP')}`);
+        
+        // 新着物件の詳細表示
+        if (detectionResult.newProperties.length > 0) {
+          console.log('\n🏠 新着物件詳細:');
+          detectionResult.newProperties.forEach((property, index) => {
+            console.log(`   ${index + 1}. ${property.title}`);
+            console.log(`      💰 ${property.price}`);
+            if (property.location) {
+              console.log(`      📍 ${property.location}`);
+            }
+            console.log(`      🕐 ${property.detectedAt.toLocaleString('ja-JP')}`);
+          });
+        }
+        
+        // 統計情報表示
+        console.log('\n📈 監視統計情報:');
+        const stats = propertyMonitor.getMonitoringStatistics();
+        console.log(`   総監視回数: ${stats.totalChecks}回`);
+        console.log(`   新着検知回数: ${stats.newPropertyDetections}回`);
+        console.log(`   最終監視: ${stats.lastCheckAt.toLocaleString('ja-JP')}`);
+        if (stats.lastNewPropertyAt) {
+          console.log(`   最終新着検知: ${stats.lastNewPropertyAt.toLocaleString('ja-JP')}`);
+        }
+        
+        console.log('✅ 新着物件監視機能: 成功');
+        testsPassed++;
+        
+      } else {
+        console.log('❌ 新着物件監視機能: URLが設定されていません');
+      }
+    } catch (error) {
+      console.log('❌ 新着物件監視機能: 失敗', error);
     }
   }
 
