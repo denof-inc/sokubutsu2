@@ -1,7 +1,7 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { TelegramNotifier } from '../telegram';
+import { TelegramNotifier } from '../telegram.js';
 import { Telegraf } from 'telegraf';
-import { NotificationData, Statistics } from '../types';
+import { NotificationData, Statistics } from '../types.js';
 
 // Telegram API レスポンス型定義
 interface TelegramMessage {
@@ -59,8 +59,8 @@ describe('TelegramNotifier', () => {
     };
 
     mockTelegram = {
-      getMe: jest.fn().mockResolvedValue(mockGetMeResponse),
-      sendMessage: jest.fn().mockResolvedValue(mockSendMessageResponse),
+      getMe: jest.fn(() => Promise.resolve(mockGetMeResponse)),
+      sendMessage: jest.fn(() => Promise.resolve(mockSendMessageResponse)),
     };
 
     mockBot = {
@@ -81,7 +81,7 @@ describe('TelegramNotifier', () => {
     });
 
     it('接続失敗時にfalseを返すこと', async () => {
-      mockTelegram.getMe.mockRejectedValue(new Error('Connection failed'));
+      (mockTelegram.getMe).mockRejectedValue(new Error('Connection failed'));
 
       const result = await notifier.testConnection();
 
@@ -113,7 +113,7 @@ describe('TelegramNotifier', () => {
         })
       );
 
-      const sentMessage = mockTelegram.sendMessage.mock.calls[0][1];
+      const sentMessage = (mockTelegram.sendMessage).mock.calls[0]?.[1] as string;
       expect(sentMessage).toContain('+5件増加');
       expect(sentMessage).toContain('15件');
       expect(sentMessage).toContain('10件');
@@ -131,7 +131,7 @@ describe('TelegramNotifier', () => {
 
       await notifier.sendNewListingNotification(notificationData);
 
-      const sentMessage = mockTelegram.sendMessage.mock.calls[0][1];
+      const sentMessage = (mockTelegram.sendMessage).mock.calls[0]?.[1] as string;
       expect(sentMessage).toContain('2件減少');
     });
   });
@@ -149,7 +149,7 @@ describe('TelegramNotifier', () => {
         expect.any(Object)
       );
 
-      const sentMessage = mockTelegram.sendMessage.mock.calls[0][1];
+      const sentMessage = (mockTelegram.sendMessage).mock.calls[0]?.[1] as string;
       expect(sentMessage).toContain('example.com/error');
       expect(sentMessage).toContain(error);
     });
@@ -174,7 +174,7 @@ describe('TelegramNotifier', () => {
         expect.any(Object)
       );
 
-      const sentMessage = mockTelegram.sendMessage.mock.calls[0][1];
+      const sentMessage = (mockTelegram.sendMessage).mock.calls[0]?.[1] as string;
       expect(sentMessage).toContain('100回');
       expect(sentMessage).toContain('95%');
       expect(sentMessage).toContain('2.50秒');
@@ -194,7 +194,7 @@ describe('TelegramNotifier', () => {
 
       await notifier.sendStatisticsReport(stats);
 
-      const sentMessage = mockTelegram.sendMessage.mock.calls[0][1];
+      const sentMessage = (mockTelegram.sendMessage).mock.calls[0]?.[1] as string;
       expect(sentMessage).toContain('エラー率が高めです');
     });
   });
@@ -208,7 +208,7 @@ describe('TelegramNotifier', () => {
         text: 'Test message',
       };
 
-      mockTelegram.sendMessage
+      (mockTelegram.sendMessage)
         .mockRejectedValueOnce(new Error('Temporary error'))
         .mockRejectedValueOnce(new Error('Temporary error'))
         .mockResolvedValue(mockResponse);
@@ -219,7 +219,7 @@ describe('TelegramNotifier', () => {
     });
 
     it('最大リトライ回数を超えたらエラーを投げること', async () => {
-      mockTelegram.sendMessage.mockRejectedValue(new Error('Permanent error'));
+      (mockTelegram.sendMessage).mockRejectedValue(new Error('Permanent error'));
 
       await expect(notifier.sendStartupNotice()).rejects.toThrow('Permanent error');
       expect(mockTelegram.sendMessage).toHaveBeenCalledTimes(4); // 初回 + 3回リトライ
@@ -244,7 +244,7 @@ describe('TelegramNotifier', () => {
         first_name: 'Test Bot',
       };
 
-      mockTelegram.getMe.mockResolvedValue(mockUserWithoutUsername);
+      (mockTelegram.getMe).mockResolvedValue(mockUserWithoutUsername);
 
       const botInfo = await notifier.getBotInfo();
 

@@ -14,12 +14,18 @@ jest.mock('vibelogger', () => {
   };
 });
 
-import { SimpleStorage } from '../storage';
+import { SimpleStorage } from '../storage.js';
 import * as fs from 'fs';
 
 // fs をモック化
 jest.mock('fs');
 const mockedFs = fs as jest.Mocked<typeof fs>;
+
+// fsのモックメソッドを初期化
+jest.mocked(mockedFs.existsSync).mockImplementation(() => true);
+jest.mocked(mockedFs.readFileSync).mockImplementation(() => '{}');
+jest.mocked(mockedFs.writeFileSync).mockImplementation(() => {});
+jest.mocked(mockedFs.mkdirSync).mockImplementation(() => '');
 
 describe('SimpleStorage', () => {
   let storage: SimpleStorage;
@@ -28,17 +34,17 @@ describe('SimpleStorage', () => {
     jest.clearAllMocks();
 
     // ディレクトリ存在チェックをモック
-    mockedFs.existsSync.mockReturnValue(true);
-    mockedFs.readFileSync.mockReturnValue('{}');
-    mockedFs.writeFileSync.mockImplementation(() => {});
-    mockedFs.mkdirSync.mockImplementation(() => '');
+    jest.mocked(mockedFs.existsSync).mockReturnValue(true);
+    jest.mocked(mockedFs.readFileSync).mockReturnValue(Buffer.from('{}'));
+    jest.mocked(mockedFs.writeFileSync).mockImplementation(() => {});
+    jest.mocked(mockedFs.mkdirSync).mockImplementation(() => undefined);
 
     storage = new SimpleStorage();
   });
 
   describe('初期化', () => {
     it('データディレクトリが存在しない場合は作成すること', () => {
-      mockedFs.existsSync.mockReturnValue(false);
+      jest.mocked(mockedFs.existsSync).mockReturnValue(false);
 
       new SimpleStorage();
 
@@ -46,8 +52,8 @@ describe('SimpleStorage', () => {
     });
 
     it('データ読み込みエラーが発生しても継続すること', () => {
-      mockedFs.existsSync.mockReturnValue(true);
-      mockedFs.readFileSync.mockImplementation(() => {
+      jest.mocked(mockedFs.existsSync).mockReturnValue(true);
+      jest.mocked(mockedFs.readFileSync).mockImplementation(() => {
         throw new Error('Read error');
       });
 
@@ -163,7 +169,7 @@ describe('SimpleStorage', () => {
 
   describe('統計表示', () => {
     it('統計情報を表示できること', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
       storage.displayStats();
 
@@ -181,7 +187,7 @@ describe('SimpleStorage', () => {
 
   describe('データ保存エラー処理', () => {
     it('保存エラーが発生してもクラッシュしないこと', () => {
-      mockedFs.writeFileSync.mockImplementation(() => {
+      jest.mocked(mockedFs.writeFileSync).mockImplementation(() => {
         throw new Error('Write error');
       });
 

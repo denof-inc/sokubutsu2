@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 
@@ -32,7 +32,7 @@ describe('Config', () => {
   });
 
   describe('config object', () => {
-    it('デフォルト値が正しく設定されること', () => {
+    it('デフォルト値が正しく設定されること', async () => {
       // 環境変数をクリアして、.env.exampleの影響を受けないようにする
       for (const key in process.env) {
         if (
@@ -58,7 +58,7 @@ describe('Config', () => {
       expect(freshConfig.storage.dataDir).toBe('./data');
     });
 
-    it('環境変数から値を読み込むこと', () => {
+    it('環境変数から値を読み込むこと', async () => {
       process.env.TELEGRAM_BOT_TOKEN = 'test-token';
       process.env.TELEGRAM_CHAT_ID = 'test-chat-id';
       process.env.MONITORING_URLS = 'https://example1.com,https://example2.com';
@@ -68,9 +68,8 @@ describe('Config', () => {
       process.env.DATA_DIR = '/custom/data';
 
       jest.resetModules();
-      const { config: freshConfig } = require('../config') as {
-        config: typeof import('../config').config;
-      };
+      const configModule = await import('../config.js');
+      const freshConfig = configModule.config;
 
       expect(freshConfig.telegram.botToken).toBe('test-token');
       expect(freshConfig.telegram.chatId).toBe('test-chat-id');
@@ -83,104 +82,98 @@ describe('Config', () => {
   });
 
   describe('validateConfig', () => {
-    it('必須設定が揃っている場合はtrueを返すこと', () => {
+    it('必須設定が揃っている場合はtrueを返すこと', async () => {
       process.env.TELEGRAM_BOT_TOKEN = 'test-token';
       process.env.TELEGRAM_CHAT_ID = 'test-chat-id';
       process.env.MONITORING_URLS = 'https://example.com';
 
       jest.resetModules();
-      const { validateConfig: freshValidate } = require('../config') as {
-        validateConfig: typeof import('../config').validateConfig;
-      };
+      const configModule = await import('../config.js');
+      const freshValidate = configModule.validateConfig;
 
       expect(freshValidate()).toBe(true);
     });
 
-    it('TELEGRAM_BOT_TOKENが未設定の場合はfalseを返すこと', () => {
+    it('TELEGRAM_BOT_TOKENが未設定の場合はfalseを返すこと', async () => {
       // 必要な環境変数のみクリア
       delete process.env.TELEGRAM_BOT_TOKEN;
       process.env.TELEGRAM_CHAT_ID = 'test-chat-id';
       process.env.MONITORING_URLS = 'https://example.com';
 
       jest.resetModules();
-      const { validateConfig: freshValidate } = require('../config') as {
-        validateConfig: typeof import('../config').validateConfig;
-      };
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const configModule = await import('../config.js');
+      const freshValidate = configModule.validateConfig;
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       expect(freshValidate()).toBe(false);
 
       consoleErrorSpy.mockRestore();
     });
 
-    it('TELEGRAM_CHAT_IDが未設定の場合はfalseを返すこと', () => {
+    it('TELEGRAM_CHAT_IDが未設定の場合はfalseを返すこと', async () => {
       // 必要な環境変数のみクリア
       delete process.env.TELEGRAM_CHAT_ID;
       process.env.TELEGRAM_BOT_TOKEN = 'test-token';
       process.env.MONITORING_URLS = 'https://example.com';
 
       jest.resetModules();
-      const { validateConfig: freshValidate } = require('../config') as {
-        validateConfig: typeof import('../config').validateConfig;
-      };
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const configModule = await import('../config.js');
+      const freshValidate = configModule.validateConfig;
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       expect(freshValidate()).toBe(false);
 
       consoleErrorSpy.mockRestore();
     });
 
-    it('MONITORING_URLSが未設定の場合はfalseを返すこと', () => {
+    it('MONITORING_URLSが未設定の場合はfalseを返すこと', async () => {
       // 必要な環境変数のみクリア
       delete process.env.MONITORING_URLS;
       process.env.TELEGRAM_BOT_TOKEN = 'test-token';
       process.env.TELEGRAM_CHAT_ID = 'test-chat-id';
 
       jest.resetModules();
-      const { validateConfig: freshValidate } = require('../config') as {
-        validateConfig: typeof import('../config').validateConfig;
-      };
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const configModule = await import('../config.js');
+      const freshValidate = configModule.validateConfig;
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       expect(freshValidate()).toBe(false);
 
       consoleErrorSpy.mockRestore();
     });
 
-    it('空の配列の場合はfalseを返すこと', () => {
+    it('空の配列の場合はfalseを返すこと', async () => {
       process.env.TELEGRAM_BOT_TOKEN = 'test-token';
       process.env.TELEGRAM_CHAT_ID = 'test-chat-id';
       process.env.MONITORING_URLS = '';
 
       jest.resetModules();
-      const { validateConfig: freshValidate } = require('../config') as {
-        validateConfig: typeof import('../config').validateConfig;
-      };
+      const configModule = await import('../config.js');
+      const freshValidate = configModule.validateConfig;
 
       expect(freshValidate()).toBe(false);
     });
   });
 
   describe('displayConfig', () => {
-    let consoleLogSpy: jest.SpyInstance;
+    let consoleLogSpy: ReturnType<typeof jest.spyOn>;
 
     beforeEach(() => {
-      consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+      consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     });
 
     afterEach(() => {
       consoleLogSpy.mockRestore();
     });
 
-    it('設定情報を表示すること', () => {
+    it('設定情報を表示すること', async () => {
       process.env.TELEGRAM_BOT_TOKEN = 'test-token';
       process.env.TELEGRAM_CHAT_ID = 'test-chat-id';
       process.env.MONITORING_URLS = 'https://example.com';
 
       jest.resetModules();
-      const { displayConfig: freshDisplay } = require('../config') as {
-        displayConfig: typeof import('../config').displayConfig;
-      };
+      const configModule = await import('../config.js');
+      const freshDisplay = configModule.displayConfig;
 
       freshDisplay();
 
@@ -194,15 +187,14 @@ describe('Config', () => {
       // NODE_ENVとDATA_DIRの期待値を削除（環境によって異なる可能性があるため）
     });
 
-    it('複数のURLを表示すること', () => {
+    it('複数のURLを表示すること', async () => {
       process.env.TELEGRAM_BOT_TOKEN = 'test-token';
       process.env.TELEGRAM_CHAT_ID = 'test-chat-id';
       process.env.MONITORING_URLS = 'https://example1.com,https://example2.com';
 
       jest.resetModules();
-      const { displayConfig: freshDisplay } = require('../config') as {
-        displayConfig: typeof import('../config').displayConfig;
-      };
+      const configModule = await import('../config.js');
+      const freshDisplay = configModule.displayConfig;
 
       freshDisplay();
 
@@ -212,17 +204,16 @@ describe('Config', () => {
       );
     });
 
-    it('不正なポート番号の検証エラーをチェックすること', () => {
+    it('不正なポート番号の検証エラーをチェックすること', async () => {
       process.env.TELEGRAM_BOT_TOKEN = 'test-token';
       process.env.TELEGRAM_CHAT_ID = 'test-chat-id';
       process.env.MONITORING_URLS = 'https://example.com';
       process.env.PORT = '70000';
 
       jest.resetModules();
-      const { validateConfig: freshValidate } = require('../config') as {
-        validateConfig: typeof import('../config').validateConfig;
-      };
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const configModule = await import('../config.js');
+      const freshValidate = configModule.validateConfig;
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       expect(freshValidate()).toBe(false);
       expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('PORT が不正な値です'));
@@ -230,16 +221,15 @@ describe('Config', () => {
       consoleErrorSpy.mockRestore();
     });
 
-    it('不正なURL形式の検証エラーをチェックすること', () => {
+    it('不正なURL形式の検証エラーをチェックすること', async () => {
       process.env.TELEGRAM_BOT_TOKEN = 'test-token';
       process.env.TELEGRAM_CHAT_ID = 'test-chat-id';
       process.env.MONITORING_URLS = 'not-a-valid-url';
 
       jest.resetModules();
-      const { validateConfig: freshValidate } = require('../config') as {
-        validateConfig: typeof import('../config').validateConfig;
-      };
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const configModule = await import('../config.js');
+      const freshValidate = configModule.validateConfig;
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       expect(freshValidate()).toBe(false);
       expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('不正なURL形式'));

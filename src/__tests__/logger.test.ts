@@ -14,7 +14,7 @@ jest.mock('../utils/vibe-logger-impl', () => {
   };
 });
 
-import { Logger, LogLevel, logger, vibeLogger } from '../logger';
+import { Logger, LogLevel, logger, vibeLogger } from '../logger.js';
 
 describe('Logger', () => {
   let mockVibeLogger: any;

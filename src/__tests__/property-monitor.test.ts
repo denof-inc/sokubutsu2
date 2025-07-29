@@ -1,8 +1,8 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { PropertyMonitor } from '../property-monitor';
-import { SimpleStorage } from '../storage';
-import { vibeLogger } from '../logger';
-import { PropertyMonitoringData } from '../types';
+import { PropertyMonitor } from '../property-monitor.js';
+import { SimpleStorage } from '../storage.js';
+import { vibeLogger } from '../logger.js';
+import { PropertyMonitoringData } from '../types.js';
 
 jest.mock('../storage');
 jest.mock('../logger');
@@ -17,7 +17,7 @@ describe('PropertyMonitor', () => {
     // Storageのモック設定
     mockStorage = new SimpleStorage() as jest.Mocked<SimpleStorage>;
     mockStorage.save = jest.fn();
-    mockStorage.load = jest.fn();
+    mockStorage.load = jest.fn() as any;
 
     // PropertyMonitorインスタンスを作成
     propertyMonitor = new PropertyMonitor();
