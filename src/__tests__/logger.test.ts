@@ -1,3 +1,4 @@
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 /* eslint-disable @typescript-eslint/no-var-requires */
 
 // vibe-logger-implのモック - importの前に設定

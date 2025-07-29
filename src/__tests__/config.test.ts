@@ -1,3 +1,4 @@
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 
@@ -47,9 +48,8 @@ describe('Config', () => {
 
       // configモジュールを再読み込み
       jest.resetModules();
-      const { config: freshConfig } = require('../config') as {
-        config: typeof import('../config').config;
-      };
+      const configModule = await import('../config.js');
+      const freshConfig = configModule.config;
 
       expect(freshConfig.telegram.botToken).toBe('');
       expect(freshConfig.telegram.chatId).toBe('');

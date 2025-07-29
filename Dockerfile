@@ -14,8 +14,9 @@ RUN npm ci --only=production --ignore-scripts && npm cache clean --force
 COPY tsconfig.json ./
 RUN npm install typescript @types/node --no-save
 
-# ソースコードコピー
+# ソースコードコピー（テストファイルを除外）
 COPY src/ ./src/
+RUN rm -rf src/__tests__ src/__mocks__ src/test-setup.ts
 
 # TypeScriptビルド
 RUN npx tsc

@@ -1,3 +1,4 @@
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { PropertyMonitor } from '../property-monitor';
 import { SimpleStorage } from '../storage';
 import { vibeLogger } from '../logger';

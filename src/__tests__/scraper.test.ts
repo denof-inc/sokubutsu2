@@ -1,3 +1,4 @@
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { SimpleScraper } from '../scraper';
 import axios from 'axios';
 

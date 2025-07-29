@@ -1,8 +1,8 @@
 import axios, { AxiosResponse } from 'axios';
 import * as cheerio from 'cheerio';
 import * as crypto from 'crypto';
-import { ScrapingResult, PropertyInfo } from './types';
-import { vibeLogger } from './logger';
+import { ScrapingResult, PropertyInfo } from './types.js';
+import { vibeLogger } from './logger.js';
 
 /**
  * 軽量HTTPスクレイパー（戦略準拠）

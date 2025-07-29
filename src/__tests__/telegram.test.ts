@@ -1,3 +1,4 @@
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { TelegramNotifier } from '../telegram';
 import { Telegraf } from 'telegraf';
 import { NotificationData, Statistics } from '../types';

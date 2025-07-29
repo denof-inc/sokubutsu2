@@ -1,5 +1,5 @@
 // vibelogger互換の独自実装を使用
-import { createFileLogger, LogOptions } from './utils/vibe-logger-impl';
+import { createFileLogger, LogOptions } from './utils/vibe-logger-impl.js';
 
 /**
  * ログ管理モジュール（vibelogger統合版）
@@ -103,7 +103,7 @@ export { vibeLogger };
  *
  * @example
  * ```typescript
- * import { vibeLogger } from './logger';
+ * import { vibeLogger } from './logger.js';
  *
  * // 構造化されたログ出力
  * vibeLogger.info('user.login', 'ユーザーログイン処理', {

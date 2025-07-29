@@ -1,6 +1,6 @@
 import { Telegraf } from 'telegraf';
-import { NotificationData, Statistics } from './types';
-import { vibeLogger } from './logger';
+import { NotificationData, Statistics } from './types.js';
+import { vibeLogger } from './logger.js';
 
 /**
  * Telegram通知サービス

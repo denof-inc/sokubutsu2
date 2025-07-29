@@ -2,6 +2,8 @@
  * Jest テスト環境設定
  */
 
+import { jest } from '@jest/globals';
+
 // テスト用環境変数設定
 process.env.NODE_ENV = 'test';
 process.env.TELEGRAM_BOT_TOKEN = 'test_bot_token';
