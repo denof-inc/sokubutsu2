@@ -2,47 +2,71 @@ import { TelegramNotifier } from '../telegram';
 import { Telegraf } from 'telegraf';
 import { NotificationData, Statistics } from '../types';
 
+// Telegram API レスポンス型定義
+interface TelegramMessage {
+  message_id: number;
+  date: number;
+  chat: {
+    id: number;
+    type: string;
+  };
+  text: string;
+}
+
+interface TelegramUser {
+  id: number;
+  is_bot: boolean;
+  first_name: string;
+  username?: string;
+}
+
+// Telegrafのモック型定義
+type MockTelegramApi = {
+  getMe: jest.Mock;
+  sendMessage: jest.Mock;
+};
+
+type MockTelegrafInstance = {
+  telegram: MockTelegramApi;
+};
+
 // Telegrafのモック
 jest.mock('telegraf');
 const MockedTelegraf = Telegraf as jest.MockedClass<typeof Telegraf>;
 
 describe('TelegramNotifier', () => {
   let notifier: TelegramNotifier;
-  let mockBot: {
-    telegram: {
-      getMe: jest.Mock;
-      sendMessage: jest.Mock;
-    };
-  };
-  let mockTelegram: {
-    getMe: jest.Mock;
-    sendMessage: jest.Mock;
-  };
+  let mockBot: MockTelegrafInstance;
+  let mockTelegram: MockTelegramApi;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     // Telegramモックの設定
+    const mockGetMeResponse: TelegramUser = {
+      id: 123456789,
+      is_bot: true,
+      first_name: 'Test Bot',
+      username: 'test_bot',
+    };
+
+    const mockSendMessageResponse: TelegramMessage = {
+      message_id: 1,
+      date: Date.now(),
+      chat: { id: -123456789, type: 'group' },
+      text: 'Test message',
+    };
+
     mockTelegram = {
-      getMe: jest.fn().mockResolvedValue({
-        id: 123456789,
-        is_bot: true,
-        first_name: 'Test Bot',
-        username: 'test_bot',
-      }),
-      sendMessage: jest.fn().mockResolvedValue({
-        message_id: 1,
-        date: Date.now(),
-        chat: { id: -123456789, type: 'group' },
-        text: 'Test message',
-      }),
+      getMe: jest.fn().mockResolvedValue(mockGetMeResponse),
+      sendMessage: jest.fn().mockResolvedValue(mockSendMessageResponse),
     };
 
     mockBot = {
       telegram: mockTelegram,
     };
 
-    MockedTelegraf.mockImplementation(() => mockBot as any);
+    MockedTelegraf.mockImplementation(() => mockBot as unknown as Telegraf);
 
     notifier = new TelegramNotifier('test-token', 'test-chat-id');
   });
@@ -176,10 +200,17 @@ describe('TelegramNotifier', () => {
 
   describe('リトライ機能', () => {
     it('送信失敗時にリトライすること', async () => {
+      const mockResponse: TelegramMessage = {
+        message_id: 1,
+        date: Date.now(),
+        chat: { id: -123456789, type: 'group' },
+        text: 'Test message',
+      };
+
       mockTelegram.sendMessage
         .mockRejectedValueOnce(new Error('Temporary error'))
         .mockRejectedValueOnce(new Error('Temporary error'))
-        .mockResolvedValue({ message_id: 1 });
+        .mockResolvedValue(mockResponse);
 
       await notifier.sendStartupNotice();
 
@@ -206,11 +237,13 @@ describe('TelegramNotifier', () => {
     });
 
     it('usernameがない場合にunknownを返すこと', async () => {
-      mockTelegram.getMe.mockResolvedValue({
+      const mockUserWithoutUsername: TelegramUser = {
         id: 123456789,
         is_bot: true,
         first_name: 'Test Bot',
-      });
+      };
+
+      mockTelegram.getMe.mockResolvedValue(mockUserWithoutUsername);
 
       const botInfo = await notifier.getBotInfo();
 

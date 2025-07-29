@@ -1,4 +1,16 @@
 /**
+ * 物件情報の型定義
+ */
+export interface PropertyInfo {
+  /** 物件タイトル */
+  title: string;
+  /** 価格 */
+  price: string;
+  /** 所在地 */
+  location?: string;
+}
+
+/**
  * スクレイピング結果の型定義
  */
 export interface ScrapingResult {
@@ -8,6 +20,8 @@ export interface ScrapingResult {
   hash: string;
   /** 検出された物件数 */
   count: number;
+  /** 物件データ（成功時） */
+  properties?: PropertyInfo[];
   /** エラーメッセージ（失敗時） */
   error?: string;
   /** 実行時間（ミリ秒） */
@@ -83,4 +97,52 @@ export interface PerformanceMetrics {
   executionTime: number;
   /** CPU使用率（%） */
   cpuUsage: number;
+}
+
+/**
+ * 物件監視データの型定義
+ */
+export interface PropertyMonitoringData {
+  /** 物件の一意署名 */
+  signature: string;
+  /** 物件タイトル */
+  title: string;
+  /** 価格 */
+  price: string;
+  /** 所在地 */
+  location?: string;
+  /** 検知時刻 */
+  detectedAt: Date;
+}
+
+/**
+ * 新着検知結果の型定義
+ */
+export interface NewPropertyDetectionResult {
+  /** 新着物件があるか */
+  hasNewProperty: boolean;
+  /** 新着物件数 */
+  newPropertyCount: number;
+  /** 新着物件の詳細 */
+  newProperties: PropertyMonitoringData[];
+  /** 監視対象総数 */
+  totalMonitored: number;
+  /** 検知時刻 */
+  detectedAt: Date;
+  /** 信頼度 */
+  confidence: 'very_high' | 'high' | 'medium';
+}
+
+/**
+ * 監視統計データの型定義
+ */
+export interface MonitoringStatistics {
+  /** 総監視回数 */
+  totalChecks: number;
+  /** 新着検知回数 */
+  newPropertyDetections: number;
+  /** 最終監視時刻 */
+  lastCheckAt: Date;
+  /** 最終新着検知時刻 */
+  lastNewPropertyAt?: Date;
 }
