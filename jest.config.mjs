@@ -7,7 +7,6 @@ export default {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^vibelogger$': '<rootDir>/src/__mocks__/vibelogger.js',
   },
   transform: {
     '^.+\\.ts$': [

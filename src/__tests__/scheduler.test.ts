@@ -1,132 +1,162 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import { MonitoringScheduler } from '../scheduler.js';
-import { SimpleScraper } from '../scraper.js';
-import { TelegramNotifier } from '../telegram.js';
-import { SimpleStorage } from '../storage.js';
-import { PropertyMonitor } from '../property-monitor.js';
+import { ScheduledTask } from 'node-cron';
+
+// モック関数を作成
+const mockScrapeAthome = jest.fn() as any;
+const mockValidateResult = jest.fn() as any;
+
+const mockTestConnection = jest.fn() as any;
+const mockSendStartupNotice = jest.fn() as any;
+const mockSendNewListingNotification = jest.fn() as any;
+const mockSendErrorAlert = jest.fn() as any;
+const mockSendStatisticsReport = jest.fn() as any;
+const mockSendShutdownNotice = jest.fn() as any;
+const mockSendMessage = jest.fn() as any;
+const mockGetBotInfo = jest.fn() as any;
+
+const mockGetHash = jest.fn() as any;
+const mockSetHash = jest.fn() as any;
+const mockIncrementTotalChecks = jest.fn() as any;
+const mockIncrementErrors = jest.fn() as any;
+const mockIncrementNewListings = jest.fn() as any;
+const mockRecordExecutionTime = jest.fn() as any;
+const mockGetStats = jest.fn() as any;
+const mockResetStats = jest.fn() as any;
+const mockCreateBackup = jest.fn() as any;
+const mockDisplayStats = jest.fn() as any;
+const mockSave = jest.fn() as any;
+const mockLoad = jest.fn() as any;
+
+const mockDetectNewProperties = jest.fn() as any;
+const mockGetMonitoringStatistics = jest.fn() as any;
+
+const mockCronJob = {
+  start: jest.fn(),
+  stop: jest.fn(),
+  destroy: jest.fn(),
+  getStatus: jest.fn(),
+  now: jest.fn(),
+} as unknown as ScheduledTask;
+
+const mockStatsJob = {
+  start: jest.fn(),
+  stop: jest.fn(),
+  destroy: jest.fn(),
+  getStatus: jest.fn(),
+  now: jest.fn(),
+} as unknown as ScheduledTask;
+
+const mockSchedule = jest.fn().mockImplementation(expression => {
+  if (expression === '*/5 * * * *') {
+    return mockCronJob;
+  } else if (expression === '0 * * * *') {
+    return mockStatsJob;
+  }
+  return mockCronJob;
+});
+
+// モジュールをモック
+jest.unstable_mockModule('../scraper', () => ({
+  SimpleScraper: jest.fn().mockImplementation(() => ({
+    scrapeAthome: mockScrapeAthome,
+    validateResult: mockValidateResult,
+  })),
+}));
+
+jest.unstable_mockModule('../telegram', () => ({
+  TelegramNotifier: jest.fn().mockImplementation(() => ({
+    testConnection: mockTestConnection,
+    sendStartupNotice: mockSendStartupNotice,
+    sendNewListingNotification: mockSendNewListingNotification,
+    sendErrorAlert: mockSendErrorAlert,
+    sendStatisticsReport: mockSendStatisticsReport,
+    sendShutdownNotice: mockSendShutdownNotice,
+    sendMessage: mockSendMessage,
+    getBotInfo: mockGetBotInfo,
+  })),
+}));
+
+jest.unstable_mockModule('../storage', () => ({
+  SimpleStorage: jest.fn().mockImplementation(() => ({
+    getHash: mockGetHash,
+    setHash: mockSetHash,
+    incrementTotalChecks: mockIncrementTotalChecks,
+    incrementErrors: mockIncrementErrors,
+    incrementNewListings: mockIncrementNewListings,
+    recordExecutionTime: mockRecordExecutionTime,
+    getStats: mockGetStats,
+    resetStats: mockResetStats,
+    createBackup: mockCreateBackup,
+    displayStats: mockDisplayStats,
+    save: mockSave,
+    load: mockLoad,
+  })),
+}));
+
+jest.unstable_mockModule('../property-monitor', () => ({
+  PropertyMonitor: jest.fn().mockImplementation(() => ({
+    detectNewProperties: mockDetectNewProperties,
+    getMonitoringStatistics: mockGetMonitoringStatistics,
+  })),
+}));
+
+jest.unstable_mockModule('node-cron', () => ({
+  schedule: mockSchedule,
+}));
+
+// モックの後でインポート
+const { MonitoringScheduler } = await import('../scheduler.js');
 import * as cron from 'node-cron';
 
-// モックの作成
-jest.mock('../scraper.js', () => ({ SimpleScraper: jest.fn() }));
-jest.mock('../telegram.js', () => ({ TelegramNotifier: jest.fn() }));
-jest.mock('../storage.js', () => ({ SimpleStorage: jest.fn() }));
-jest.mock('../property-monitor.js', () => ({ PropertyMonitor: jest.fn() }));
-jest.mock('node-cron');
-
-const MockedScraper = SimpleScraper as jest.MockedClass<typeof SimpleScraper>;
-const MockedTelegramNotifier = TelegramNotifier as jest.MockedClass<typeof TelegramNotifier>;
-const MockedStorage = SimpleStorage as jest.MockedClass<typeof SimpleStorage>;
-const MockedPropertyMonitor = PropertyMonitor as jest.MockedClass<typeof PropertyMonitor>;
-
 describe('MonitoringScheduler', () => {
-  let scheduler: MonitoringScheduler;
-  let mockScraper: jest.Mocked<SimpleScraper>;
-  let mockTelegram: jest.Mocked<TelegramNotifier>;
-  let mockStorage: jest.Mocked<SimpleStorage>;
-  let mockPropertyMonitor: jest.Mocked<PropertyMonitor>;
-  let mockCronJob: jest.Mocked<cron.ScheduledTask>;
-  let mockStatsJob: jest.Mocked<cron.ScheduledTask>;
+  let scheduler: InstanceType<typeof MonitoringScheduler>;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Cronジョブのモック
-    mockCronJob = {
-      start: jest.fn(),
-      stop: jest.fn(),
-      destroy: jest.fn(),
-      getStatus: jest.fn(),
-      now: jest.fn(),
-    } as any;
-
-    mockStatsJob = {
-      start: jest.fn(),
-      stop: jest.fn(),
-      destroy: jest.fn(),
-      getStatus: jest.fn(),
-      now: jest.fn(),
-    } as any;
-
-    // cron.scheduleのモック
-    (cron.schedule as jest.Mock).mockImplementation(expression => {
-      if (expression === '*/5 * * * *') {
-        return mockCronJob;
-      } else if (expression === '0 * * * *') {
-        return mockStatsJob;
-      }
-      return mockCronJob;
+    // デフォルトのモック設定
+    (mockScrapeAthome as jest.Mock).mockResolvedValue({
+      success: true,
+      hash: 'test-hash',
+      count: 10,
+      executionTime: 2000,
+      memoryUsage: 40,
     });
-
-    // 各モックインスタンスの設定
-    mockScraper = {
-      scrapeAthome: jest.fn(() =>
-        Promise.resolve({
-          success: true,
-          hash: 'test-hash',
-          count: 10,
-          executionTime: 2000,
-          memoryUsage: 40,
-        })
-      ),
-      validateResult: jest.fn(() => true),
-    } as any;
-
-    mockTelegram = {
-      testConnection: jest.fn(() => Promise.resolve(true)),
-      sendStartupNotice: jest.fn(() => Promise.resolve(undefined)),
-      sendNewListingNotification: jest.fn(() => Promise.resolve(undefined)),
-      sendErrorAlert: jest.fn(() => Promise.resolve(undefined)),
-      sendStatisticsReport: jest.fn(() => Promise.resolve(undefined)),
-      sendShutdownNotice: jest.fn(() => Promise.resolve(undefined)),
-      sendMessage: jest.fn(() => Promise.resolve(undefined)),
-      getBotInfo: jest.fn(() => Promise.resolve({ username: 'test_bot', id: 123456 })),
-    } as any;
-
-    mockStorage = {
-      getHash: jest.fn(() => undefined),
-      setHash: jest.fn(),
-      incrementTotalChecks: jest.fn(),
-      incrementErrors: jest.fn(),
-      incrementNewListings: jest.fn(),
-      recordExecutionTime: jest.fn(),
-      getStats: jest.fn(() => ({
-        totalChecks: 100,
-        errors: 5,
-        newListings: 10,
-        lastCheck: new Date(),
-        averageExecutionTime: 2.5,
-        successRate: 95,
-      })),
-      resetStats: jest.fn(),
-      createBackup: jest.fn(() => '/path/to/backup.json'),
-      displayStats: jest.fn(),
-      save: jest.fn(),
-      load: jest.fn(),
-    } as any;
-
-    mockPropertyMonitor = {
-      detectNewProperties: jest.fn(() => ({
-        hasNewProperty: false,
-        newPropertyCount: 0,
-        newProperties: [],
-        totalMonitored: 3,
-        detectedAt: new Date(),
-        confidence: 'very_high',
-      })),
-      getMonitoringStatistics: jest.fn(() => ({
-        totalChecks: 10,
-        newPropertyDetections: 2,
-        lastCheckAt: new Date(),
-        lastNewPropertyAt: new Date(),
-      })),
-    } as any;
-
-    MockedScraper.mockImplementation(() => mockScraper);
-    MockedTelegramNotifier.mockImplementation(() => mockTelegram);
-    MockedStorage.mockImplementation(() => mockStorage);
-    MockedPropertyMonitor.mockImplementation(() => mockPropertyMonitor);
+    (mockValidateResult as jest.Mock).mockReturnValue(true);
+    (mockTestConnection as jest.Mock).mockResolvedValue(true);
+    (mockSendStartupNotice as jest.Mock).mockResolvedValue(undefined);
+    (mockSendNewListingNotification as jest.Mock).mockResolvedValue(undefined);
+    (mockSendErrorAlert as jest.Mock).mockResolvedValue(undefined);
+    (mockSendStatisticsReport as jest.Mock).mockResolvedValue(undefined);
+    (mockSendShutdownNotice as jest.Mock).mockResolvedValue(undefined);
+    (mockSendMessage as jest.Mock).mockResolvedValue(undefined);
+    (mockGetBotInfo as jest.Mock).mockResolvedValue({ username: 'test_bot', id: 123456 });
+    (mockGetHash as jest.Mock).mockReturnValue(undefined);
+    (mockGetStats as jest.Mock).mockReturnValue({
+      totalChecks: 100,
+      errors: 5,
+      newListings: 10,
+      lastCheck: new Date(),
+      averageExecutionTime: 2.5,
+      successRate: 95,
+    });
+    (mockCreateBackup as jest.Mock).mockReturnValue('/path/to/backup.json');
+    (mockDetectNewProperties as jest.Mock).mockReturnValue({
+      hasNewProperty: false,
+      newPropertyCount: 0,
+      newProperties: [],
+      totalMonitored: 3,
+      detectedAt: new Date(),
+      confidence: 'very_high' as const,
+    });
+    (mockGetMonitoringStatistics as jest.Mock).mockReturnValue({
+      totalChecks: 10,
+      newPropertyDetections: 2,
+      lastCheckAt: new Date(),
+      lastNewPropertyAt: new Date(),
+    });
 
     scheduler = new MonitoringScheduler('test-token', 'test-chat-id');
   });
@@ -137,19 +167,19 @@ describe('MonitoringScheduler', () => {
 
       await scheduler.start(urls);
 
-      expect(mockTelegram.testConnection).toHaveBeenCalled();
-      expect(mockTelegram.sendStartupNotice).toHaveBeenCalled();
+      expect(mockTestConnection).toHaveBeenCalled();
+      expect(mockSendStartupNotice).toHaveBeenCalled();
       expect(cron.schedule).toHaveBeenCalledWith('*/5 * * * *', expect.any(Function));
       expect(cron.schedule).toHaveBeenCalledWith('0 * * * *', expect.any(Function));
     });
 
     it('Telegram接続失敗時でも監視を開始すること', async () => {
-      mockTelegram.testConnection.mockResolvedValue(false);
+      (mockTestConnection as jest.Mock).mockResolvedValue(false);
 
       await scheduler.start(['https://example.com']);
 
-      expect(mockTelegram.testConnection).toHaveBeenCalled();
-      expect(mockTelegram.sendStartupNotice).not.toHaveBeenCalled();
+      expect(mockTestConnection).toHaveBeenCalled();
+      expect(mockSendStartupNotice).not.toHaveBeenCalled();
       expect(cron.schedule).toHaveBeenCalledWith('*/5 * * * *', expect.any(Function));
       expect(cron.schedule).toHaveBeenCalledWith('0 * * * *', expect.any(Function));
     });
@@ -160,43 +190,38 @@ describe('MonitoringScheduler', () => {
       const urls = ['https://example.com'];
 
       // 初回チェック（ハッシュなし）- startメソッド内で実行される
-      (mockStorage.getHash as jest.Mock).mockReturnValue(undefined);
+      (mockGetHash as jest.Mock).mockReturnValue(undefined);
       await scheduler.start(urls);
 
       // 初回実行の確認
-      expect(mockStorage.incrementTotalChecks).toHaveBeenCalled();
-      expect(mockScraper.scrapeAthome).toHaveBeenCalledWith(urls[0]!);
-      expect(mockStorage.setHash).toHaveBeenCalledWith(urls[0]!, 'test-hash');
-      expect(mockStorage.incrementNewListings).not.toHaveBeenCalled();
-      expect(mockTelegram.sendNewListingNotification).not.toHaveBeenCalled();
+      expect(mockIncrementTotalChecks).toHaveBeenCalled();
+      expect(mockScrapeAthome).toHaveBeenCalledWith(urls[0]!);
+      expect(mockSetHash).toHaveBeenCalledWith(urls[0]!, 'test-hash');
+      expect(mockIncrementNewListings).not.toHaveBeenCalled();
+      expect(mockSendNewListingNotification).not.toHaveBeenCalled();
 
       // モックをリセット
-      mockStorage.incrementTotalChecks.mockClear();
-      mockStorage.setHash.mockClear();
-      mockStorage.incrementNewListings.mockClear();
-      mockTelegram.sendNewListingNotification.mockClear();
-      mockScraper.scrapeAthome.mockClear();
+      mockIncrementTotalChecks.mockClear();
+      mockSetHash.mockClear();
+      mockIncrementNewListings.mockClear();
+      mockSendNewListingNotification.mockClear();
+      mockScrapeAthome.mockClear();
 
       // PropertyMonitorをリセット
-      mockPropertyMonitor.detectNewProperties.mockClear();
+      mockDetectNewProperties.mockClear();
 
       // 2回目のチェック（新着物件を検知）
-      (mockStorage.getHash as jest.Mock).mockReturnValue('test-hash'); // 以前のハッシュ
-      mockScraper.scrapeAthome.mockResolvedValueOnce({
+      (mockGetHash as jest.Mock).mockReturnValue('test-hash'); // 以前のハッシュ
+      (mockScrapeAthome as jest.Mock).mockResolvedValueOnce({
         success: true,
         hash: 'new-hash',
         count: 12,
-        properties: [
-          { title: 'テスト物件1', price: '1,000万円', location: '広島市中区' },
-          { title: 'テスト物件2', price: '2,000万円', location: '広島市西区' },
-          { title: '新着物件', price: '1,500万円', location: '広島市南区' },
-        ],
         executionTime: 2000,
         memoryUsage: 40,
       });
 
       // PropertyMonitorが新着を検知するように設定
-      (mockPropertyMonitor.detectNewProperties as jest.Mock).mockReturnValueOnce({
+      (mockDetectNewProperties as jest.Mock).mockReturnValueOnce({
         hasNewProperty: true,
         newPropertyCount: 1,
         newProperties: [
@@ -210,16 +235,16 @@ describe('MonitoringScheduler', () => {
         ],
         totalMonitored: 3,
         detectedAt: new Date(),
-        confidence: 'very_high',
+        confidence: 'very_high' as const,
       });
 
       // runMonitoringCycleを直接呼び出す（cronJobのisRunningチェックを回避）
       await (scheduler as any).runMonitoringCycle(urls);
 
-      expect(mockPropertyMonitor.detectNewProperties).toHaveBeenCalled();
-      expect(mockStorage.incrementNewListings).toHaveBeenCalled();
+      expect(mockDetectNewProperties).toHaveBeenCalled();
+      expect(mockIncrementNewListings).toHaveBeenCalled();
       // sendNewPropertyNotificationメソッドが呼ばれることを確認
-      expect(mockTelegram.sendMessage).toHaveBeenCalled();
+      expect(mockSendMessage).toHaveBeenCalled();
     });
 
     it('スクレイピングエラー時にエラー通知を送ること', async () => {
@@ -227,15 +252,14 @@ describe('MonitoringScheduler', () => {
       await scheduler.start(urls);
 
       // モックをリセット
-      mockStorage.incrementErrors.mockClear();
-      mockTelegram.sendErrorAlert.mockClear();
-      mockScraper.scrapeAthome.mockClear();
+      mockIncrementErrors.mockClear();
+      mockSendErrorAlert.mockClear();
+      mockScrapeAthome.mockClear();
 
-      mockScraper.scrapeAthome.mockResolvedValue({
+      (mockScrapeAthome as jest.Mock).mockResolvedValue({
         success: false,
         hash: '',
         count: 0,
-        error: 'Network error',
         executionTime: 1000,
         memoryUsage: 30,
       });
@@ -243,8 +267,8 @@ describe('MonitoringScheduler', () => {
       const cronCallback = (cron.schedule as jest.Mock).mock.calls[0]?.[1] as () => Promise<void>;
       await cronCallback();
 
-      expect(mockStorage.incrementErrors).toHaveBeenCalled();
-      expect(mockTelegram.sendErrorAlert).toHaveBeenCalledWith(urls[0]!, 'Network error');
+      expect(mockIncrementErrors).toHaveBeenCalled();
+      expect(mockSendErrorAlert).toHaveBeenCalledWith(urls[0]!, 'Network error');
     });
   });
 
@@ -256,7 +280,7 @@ describe('MonitoringScheduler', () => {
       const statsCallback = (cron.schedule as jest.Mock).mock.calls[1]?.[1] as () => Promise<void>;
       await statsCallback();
 
-      expect(mockTelegram.sendStatisticsReport).toHaveBeenCalledWith({
+      expect(mockSendStatisticsReport).toHaveBeenCalledWith({
         totalChecks: 100,
         errors: 5,
         newListings: 10,
@@ -273,9 +297,9 @@ describe('MonitoringScheduler', () => {
 
       scheduler.stop();
 
-      expect(mockCronJob.stop).toHaveBeenCalled();
-      expect(mockStatsJob.stop).toHaveBeenCalled();
-      expect(mockTelegram.sendShutdownNotice).toHaveBeenCalled();
+      expect(mockCronJob.stop as jest.Mock).toHaveBeenCalled();
+      expect(mockStatsJob.stop as jest.Mock).toHaveBeenCalled();
+      expect(mockSendShutdownNotice).toHaveBeenCalled();
     });
   });
 
@@ -303,14 +327,14 @@ describe('MonitoringScheduler', () => {
       await scheduler.start(urls);
 
       // モックをリセット
-      mockStorage.incrementTotalChecks.mockClear();
-      mockScraper.scrapeAthome.mockClear();
+      mockIncrementTotalChecks.mockClear();
+      mockScrapeAthome.mockClear();
 
       // 手動チェック実行
       await scheduler.runManualCheck(urls);
 
-      expect(mockStorage.incrementTotalChecks).toHaveBeenCalled();
-      expect(mockScraper.scrapeAthome).toHaveBeenCalledWith(urls[0]!);
+      expect(mockIncrementTotalChecks).toHaveBeenCalled();
+      expect(mockScrapeAthome).toHaveBeenCalledWith(urls[0]!);
     });
   });
 
@@ -319,7 +343,7 @@ describe('MonitoringScheduler', () => {
       await scheduler.start(['https://example.com']);
 
       // sendStatisticsReportがエラーを投げるように設定
-      mockTelegram.sendStatisticsReport.mockRejectedValue(new Error('Report error'));
+      (mockSendStatisticsReport as jest.Mock).mockRejectedValue(new Error('Report error'));
 
       // 統計ジョブのコールバックを取得して実行
       const statsCallback = (cron.schedule as jest.Mock).mock.calls[1]?.[1] as () => Promise<void>;
@@ -328,7 +352,7 @@ describe('MonitoringScheduler', () => {
       await statsCallback();
 
       // エラーがログされたことを確認（エラーは内部で処理される）
-      expect(mockTelegram.sendStatisticsReport).toHaveBeenCalled();
+      expect(mockSendStatisticsReport).toHaveBeenCalled();
     });
   });
 
@@ -337,7 +361,7 @@ describe('MonitoringScheduler', () => {
       await scheduler.start(['https://example.com']);
 
       // sendShutdownNoticeがエラーを投げるように設定
-      mockTelegram.sendShutdownNotice.mockRejectedValue(new Error('Shutdown notice error'));
+      (mockSendShutdownNotice as jest.Mock).mockRejectedValue(new Error('Shutdown notice error'));
 
       // エラーが発生してもクラッシュしない
       expect(() => scheduler.stop()).not.toThrow();
@@ -352,33 +376,29 @@ describe('MonitoringScheduler', () => {
       const urls = ['https://example.com'];
 
       // 初回チェック
-      (mockStorage.getHash as jest.Mock).mockReturnValue(undefined);
+      (mockGetHash as jest.Mock).mockReturnValue(undefined);
       await scheduler.start(urls);
 
       // モックをリセット
-      mockStorage.incrementTotalChecks.mockClear();
-      mockStorage.setHash.mockClear();
-      mockStorage.incrementNewListings.mockClear();
-      mockTelegram.sendMessage.mockClear();
-      mockScraper.scrapeAthome.mockClear();
-      mockPropertyMonitor.detectNewProperties.mockClear();
+      mockIncrementTotalChecks.mockClear();
+      mockSetHash.mockClear();
+      mockIncrementNewListings.mockClear();
+      mockSendMessage.mockClear();
+      mockScrapeAthome.mockClear();
+      mockDetectNewProperties.mockClear();
 
       // 2回目のチェック（新着物件を検知）
-      (mockStorage.getHash as jest.Mock).mockReturnValue('test-hash'); // 以前のハッシュ
-      mockScraper.scrapeAthome.mockResolvedValueOnce({
+      (mockGetHash as jest.Mock).mockReturnValue('test-hash'); // 以前のハッシュ
+      (mockScrapeAthome as jest.Mock).mockResolvedValueOnce({
         success: true,
         hash: 'new-hash',
         count: 12,
-        properties: [
-          { title: 'テスト物件1', price: '1,000万円', location: '広島市中区' },
-          { title: '新着物件', price: '1,500万円', location: '広島市南区' },
-        ],
         executionTime: 2000,
         memoryUsage: 40,
       });
 
       // PropertyMonitorが新着を検知するように設定
-      (mockPropertyMonitor.detectNewProperties as jest.Mock).mockReturnValueOnce({
+      (mockDetectNewProperties as jest.Mock).mockReturnValueOnce({
         hasNewProperty: true,
         newPropertyCount: 1,
         newProperties: [
@@ -392,16 +412,16 @@ describe('MonitoringScheduler', () => {
         ],
         totalMonitored: 2,
         detectedAt: new Date(),
-        confidence: 'very_high',
+        confidence: 'very_high' as const,
       });
 
       // runMonitoringCycleを直接呼び出す
       await (scheduler as any).runMonitoringCycle(urls);
 
       // PropertyMonitorベースの実装では、新着検知と通知が行われる
-      expect(mockPropertyMonitor.detectNewProperties).toHaveBeenCalled();
-      expect(mockStorage.incrementNewListings).toHaveBeenCalled();
-      expect(mockTelegram.sendMessage).toHaveBeenCalled();
+      expect(mockDetectNewProperties).toHaveBeenCalled();
+      expect(mockIncrementNewListings).toHaveBeenCalled();
+      expect(mockSendMessage).toHaveBeenCalled();
     });
   });
 });

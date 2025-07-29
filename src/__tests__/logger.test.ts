@@ -2,11 +2,27 @@ import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/unbound-method */
 
-// モジュールをモック
-jest.mock('../utils/vibe-logger-impl.js');
+// モック関数を作成
+const mockError = jest.fn();
+const mockWarn = jest.fn();
+const mockInfo = jest.fn();
+const mockDebug = jest.fn();
 
-import { Logger, LogLevel, logger, vibeLogger } from '../logger.js';
-import { createFileLogger } from '../utils/vibe-logger-impl.js';
+const mockCreateFileLogger = jest.fn(() => ({
+  error: mockError,
+  warn: mockWarn,
+  info: mockInfo,
+  debug: mockDebug,
+}));
+
+// モジュールをモック
+jest.unstable_mockModule('../utils/vibe-logger-impl.js', () => ({
+  createFileLogger: mockCreateFileLogger,
+}));
+
+// モックの後でインポート
+const { Logger, LogLevel, logger, vibeLogger } = await import('../logger.js');
+const { createFileLogger } = await import('../utils/vibe-logger-impl.js');
 
 describe('Logger', () => {
   beforeEach(() => {
@@ -28,7 +44,7 @@ describe('Logger', () => {
     it('errorメソッドがvibeLoggerを呼び出すこと', () => {
       testLogger.error('テストエラー');
 
-      expect(vibeLogger.error).toHaveBeenCalledWith('legacy.error', 'テストエラー', {
+      expect(mockError).toHaveBeenCalledWith('legacy.error', 'テストエラー', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
       });
     });
@@ -37,7 +53,7 @@ describe('Logger', () => {
       const data = { userId: 123, action: 'test' };
       testLogger.error('エラーメッセージ', data);
 
-      expect(vibeLogger.error).toHaveBeenCalledWith('legacy.error', 'エラーメッセージ', {
+      expect(mockError).toHaveBeenCalledWith('legacy.error', 'エラーメッセージ', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
         context: { data },
       });
@@ -46,7 +62,7 @@ describe('Logger', () => {
     it('warnメソッドがvibeLoggerを呼び出すこと', () => {
       testLogger.warn('警告メッセージ');
 
-      expect(vibeLogger.warn).toHaveBeenCalledWith('legacy.warn', '警告メッセージ', {
+      expect(mockWarn).toHaveBeenCalledWith('legacy.warn', '警告メッセージ', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
       });
     });
@@ -55,7 +71,7 @@ describe('Logger', () => {
       const data = { threshold: 90, current: 95 };
       testLogger.warn('閾値超過', data);
 
-      expect(vibeLogger.warn).toHaveBeenCalledWith('legacy.warn', '閾値超過', {
+      expect(mockWarn).toHaveBeenCalledWith('legacy.warn', '閾値超過', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
         context: { data },
       });
@@ -64,7 +80,7 @@ describe('Logger', () => {
     it('infoメソッドがvibeLoggerを呼び出すこと', () => {
       testLogger.info('情報メッセージ');
 
-      expect(vibeLogger.info).toHaveBeenCalledWith('legacy.info', '情報メッセージ', {
+      expect(mockInfo).toHaveBeenCalledWith('legacy.info', '情報メッセージ', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
       });
     });
@@ -73,7 +89,7 @@ describe('Logger', () => {
       const data = { status: 'running', pid: 1234 };
       testLogger.info('プロセス状態', data);
 
-      expect(vibeLogger.info).toHaveBeenCalledWith('legacy.info', 'プロセス状態', {
+      expect(mockInfo).toHaveBeenCalledWith('legacy.info', 'プロセス状態', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
         context: { data },
       });
@@ -82,7 +98,7 @@ describe('Logger', () => {
     it('debugメソッドがvibeLoggerを呼び出すこと', () => {
       testLogger.debug('デバッグメッセージ');
 
-      expect(vibeLogger.debug).toHaveBeenCalledWith('legacy.debug', 'デバッグメッセージ', {
+      expect(mockDebug).toHaveBeenCalledWith('legacy.debug', 'デバッグメッセージ', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
       });
     });
@@ -91,7 +107,7 @@ describe('Logger', () => {
       const data = { query: 'SELECT * FROM users', time: 120 };
       testLogger.debug('クエリ実行', data);
 
-      expect(vibeLogger.debug).toHaveBeenCalledWith('legacy.debug', 'クエリ実行', {
+      expect(mockDebug).toHaveBeenCalledWith('legacy.debug', 'クエリ実行', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
         context: { data },
       });
@@ -112,7 +128,7 @@ describe('Logger', () => {
       // モジュールインポート時にcreateFileLoggerが呼ばれているはず
       expect(createFileLogger).toHaveBeenCalled();
       // 引数の確認
-      const calls = (createFileLogger as jest.Mock).mock.calls as any[];
+      const calls = mockCreateFileLogger.mock.calls as any[];
       expect(calls[0]?.[0]).toBe('sokubutsu');
     });
   });
