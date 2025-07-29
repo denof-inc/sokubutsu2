@@ -4,23 +4,27 @@ import { MonitoringScheduler } from '../scheduler';
 import { SimpleScraper } from '../scraper';
 import { TelegramNotifier } from '../telegram';
 import { SimpleStorage } from '../storage';
+import { PropertyMonitor } from '../property-monitor';
 import * as cron from 'node-cron';
 
 // モックの作成
 jest.mock('../scraper');
 jest.mock('../telegram');
 jest.mock('../storage');
+jest.mock('../property-monitor');
 jest.mock('node-cron');
 
 const MockedScraper = SimpleScraper as jest.MockedClass<typeof SimpleScraper>;
 const MockedTelegramNotifier = TelegramNotifier as jest.MockedClass<typeof TelegramNotifier>;
 const MockedStorage = SimpleStorage as jest.MockedClass<typeof SimpleStorage>;
+const MockedPropertyMonitor = PropertyMonitor as jest.MockedClass<typeof PropertyMonitor>;
 
 describe('MonitoringScheduler', () => {
   let scheduler: MonitoringScheduler;
   let mockScraper: jest.Mocked<SimpleScraper>;
   let mockTelegram: jest.Mocked<TelegramNotifier>;
   let mockStorage: jest.Mocked<SimpleStorage>;
+  let mockPropertyMonitor: jest.Mocked<PropertyMonitor>;
   let mockCronJob: jest.Mocked<cron.ScheduledTask>;
   let mockStatsJob: jest.Mocked<cron.ScheduledTask>;
 
@@ -73,6 +77,7 @@ describe('MonitoringScheduler', () => {
       sendErrorAlert: jest.fn().mockResolvedValue(undefined),
       sendStatisticsReport: jest.fn().mockResolvedValue(undefined),
       sendShutdownNotice: jest.fn().mockResolvedValue(undefined),
+      sendMessage: jest.fn().mockResolvedValue(undefined),
       getBotInfo: jest.fn().mockResolvedValue({ username: 'test_bot', id: 123456 }),
     } as any;
 
@@ -94,11 +99,31 @@ describe('MonitoringScheduler', () => {
       resetStats: jest.fn(),
       createBackup: jest.fn().mockReturnValue('/path/to/backup.json'),
       displayStats: jest.fn(),
+      save: jest.fn(),
+      load: jest.fn(),
+    } as any;
+
+    mockPropertyMonitor = {
+      detectNewProperties: jest.fn().mockReturnValue({
+        hasNewProperty: false,
+        newPropertyCount: 0,
+        newProperties: [],
+        totalMonitored: 3,
+        detectedAt: new Date(),
+        confidence: 'very_high',
+      }),
+      getMonitoringStatistics: jest.fn().mockReturnValue({
+        totalChecks: 10,
+        newPropertyDetections: 2,
+        lastCheckAt: new Date(),
+        lastNewPropertyAt: new Date(),
+      }),
     } as any;
 
     MockedScraper.mockImplementation(() => mockScraper);
     MockedTelegramNotifier.mockImplementation(() => mockTelegram);
     MockedStorage.mockImplementation(() => mockStorage);
+    MockedPropertyMonitor.mockImplementation(() => mockPropertyMonitor);
 
     scheduler = new MonitoringScheduler('test-token', 'test-chat-id');
   });
@@ -149,35 +174,59 @@ describe('MonitoringScheduler', () => {
       mockTelegram.sendNewListingNotification.mockClear();
       mockScraper.scrapeAthome.mockClear();
 
-      // 2回目のチェック（ハッシュが変更）
+      // PropertyMonitorをリセット
+      mockPropertyMonitor.detectNewProperties.mockClear();
+
+      // 2回目のチェック（新着物件を検知）
       mockStorage.getHash.mockReturnValue('test-hash'); // 以前のハッシュ
-      mockScraper.scrapeAthome
-        .mockResolvedValueOnce({
-          success: true,
-          hash: 'new-hash',
-          count: 12,
-          executionTime: 2000,
-          memoryUsage: 40,
-        })
-        .mockResolvedValueOnce({
-          // estimatePreviousCount内のscrapeAthome呼び出し用
-          success: true,
-          hash: 'new-hash',
-          count: 12,
-          executionTime: 2000,
-          memoryUsage: 40,
-        });
+      mockScraper.scrapeAthome.mockResolvedValueOnce({
+        success: true,
+        hash: 'new-hash',
+        count: 12,
+        properties: [
+          { title: 'テスト物件1', price: '1,000万円', location: '広島市中区' },
+          { title: 'テスト物件2', price: '2,000万円', location: '広島市西区' },
+          { title: '新着物件', price: '1,500万円', location: '広島市南区' },
+        ],
+        executionTime: 2000,
+        memoryUsage: 40,
+      });
+
+      // PropertyMonitorが新着を検知するように設定
+      mockPropertyMonitor.detectNewProperties.mockReturnValueOnce({
+        hasNewProperty: true,
+        newPropertyCount: 1,
+        newProperties: [
+          {
+            signature: '新着物件:1,500万円:広島市南区',
+            title: '新着物件',
+            price: '1,500万円',
+            location: '広島市南区',
+            detectedAt: new Date(),
+          },
+        ],
+        totalMonitored: 3,
+        detectedAt: new Date(),
+        confidence: 'very_high',
+      });
 
       // runMonitoringCycleを直接呼び出す（cronJobのisRunningチェックを回避）
       await (scheduler as any).runMonitoringCycle(urls);
 
+      expect(mockPropertyMonitor.detectNewProperties).toHaveBeenCalled();
       expect(mockStorage.incrementNewListings).toHaveBeenCalled();
-      expect(mockTelegram.sendNewListingNotification).toHaveBeenCalled();
+      // sendNewPropertyNotificationメソッドが呼ばれることを確認
+      expect(mockTelegram.sendMessage).toHaveBeenCalled();
     });
 
     it('スクレイピングエラー時にエラー通知を送ること', async () => {
       const urls = ['https://example.com'];
       await scheduler.start(urls);
+
+      // モックをリセット
+      mockStorage.incrementErrors.mockClear();
+      mockTelegram.sendErrorAlert.mockClear();
+      mockScraper.scrapeAthome.mockClear();
 
       mockScraper.scrapeAthome.mockResolvedValue({
         success: false,
@@ -230,6 +279,10 @@ describe('MonitoringScheduler', () => {
   describe('getStatus', () => {
     it('ステータスを取得できること', async () => {
       await scheduler.start(['https://example.com']);
+
+      // PropertyMonitorの検知により、初回実行でエラーが発生していない想定
+      // consecutiveErrorsをリセット
+      (scheduler as any).consecutiveErrors = 0;
 
       const status = scheduler.getStatus();
 
@@ -303,35 +356,49 @@ describe('MonitoringScheduler', () => {
       mockStorage.incrementTotalChecks.mockClear();
       mockStorage.setHash.mockClear();
       mockStorage.incrementNewListings.mockClear();
-      mockTelegram.sendNewListingNotification.mockClear();
+      mockTelegram.sendMessage.mockClear();
       mockScraper.scrapeAthome.mockClear();
+      mockPropertyMonitor.detectNewProperties.mockClear();
 
-      // 2回目のチェック（ハッシュが変更）
+      // 2回目のチェック（新着物件を検知）
       mockStorage.getHash.mockReturnValue('test-hash'); // 以前のハッシュ
-      mockScraper.scrapeAthome
-        .mockResolvedValueOnce({
-          success: true,
-          hash: 'new-hash',
-          count: 12,
-          executionTime: 2000,
-          memoryUsage: 40,
-        })
-        .mockResolvedValueOnce({
-          // estimatePreviousCount内のscrapeAthome呼び出しでエラー
-          success: false,
-          hash: '',
-          count: 0,
-          error: 'Estimation error',
-          executionTime: 1000,
-          memoryUsage: 30,
-        });
+      mockScraper.scrapeAthome.mockResolvedValueOnce({
+        success: true,
+        hash: 'new-hash',
+        count: 12,
+        properties: [
+          { title: 'テスト物件1', price: '1,000万円', location: '広島市中区' },
+          { title: '新着物件', price: '1,500万円', location: '広島市南区' },
+        ],
+        executionTime: 2000,
+        memoryUsage: 40,
+      });
+
+      // PropertyMonitorが新着を検知するように設定
+      mockPropertyMonitor.detectNewProperties.mockReturnValueOnce({
+        hasNewProperty: true,
+        newPropertyCount: 1,
+        newProperties: [
+          {
+            signature: '新着物件:1,500万円:広島市南区',
+            title: '新着物件',
+            price: '1,500万円',
+            location: '広島市南区',
+            detectedAt: new Date(),
+          },
+        ],
+        totalMonitored: 2,
+        detectedAt: new Date(),
+        confidence: 'very_high',
+      });
 
       // runMonitoringCycleを直接呼び出す
       await (scheduler as any).runMonitoringCycle(urls);
 
-      // 推定エラーが発生しても新着通知は送られる（差分は不明として）
+      // PropertyMonitorベースの実装では、新着検知と通知が行われる
+      expect(mockPropertyMonitor.detectNewProperties).toHaveBeenCalled();
       expect(mockStorage.incrementNewListings).toHaveBeenCalled();
-      expect(mockTelegram.sendNewListingNotification).toHaveBeenCalled();
+      expect(mockTelegram.sendMessage).toHaveBeenCalled();
     });
   });
 });

@@ -205,11 +205,12 @@ export class SimpleScraper {
             '';
 
           if (title && price) {
-            propertyInfoList.push({
+            const propertyInfo: PropertyInfo = {
               title,
               price,
-              location: location || undefined,
-            });
+              ...(location ? { location } : {}),
+            };
+            propertyInfoList.push(propertyInfo);
           }
         }
       });
