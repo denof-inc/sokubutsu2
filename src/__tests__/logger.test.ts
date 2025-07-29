@@ -1,28 +1,16 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 /* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable @typescript-eslint/unbound-method */
 
-// vibe-logger-implのモック - importの前に設定
-jest.mock('../utils/vibe-logger-impl', () => {
-  const mockLogger = {
-    error: jest.fn(),
-    warn: jest.fn(),
-    info: jest.fn(),
-    debug: jest.fn(),
-  };
-  return {
-    createFileLogger: jest.fn(() => mockLogger),
-  };
-});
+// モジュールをモック
+jest.mock('../utils/vibe-logger-impl.js');
 
 import { Logger, LogLevel, logger, vibeLogger } from '../logger.js';
+import { createFileLogger } from '../utils/vibe-logger-impl.js';
 
 describe('Logger', () => {
-  let mockVibeLogger: any;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    // モックからvibeLoggerを取得
-    mockVibeLogger = vibeLogger;
   });
 
   describe('LogLevel', () => {
@@ -40,7 +28,7 @@ describe('Logger', () => {
     it('errorメソッドがvibeLoggerを呼び出すこと', () => {
       testLogger.error('テストエラー');
 
-      expect(mockVibeLogger.error).toHaveBeenCalledWith('legacy.error', 'テストエラー', {
+      expect(vibeLogger.error).toHaveBeenCalledWith('legacy.error', 'テストエラー', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
       });
     });
@@ -49,7 +37,7 @@ describe('Logger', () => {
       const data = { userId: 123, action: 'test' };
       testLogger.error('エラーメッセージ', data);
 
-      expect(mockVibeLogger.error).toHaveBeenCalledWith('legacy.error', 'エラーメッセージ', {
+      expect(vibeLogger.error).toHaveBeenCalledWith('legacy.error', 'エラーメッセージ', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
         context: { data },
       });
@@ -58,7 +46,7 @@ describe('Logger', () => {
     it('warnメソッドがvibeLoggerを呼び出すこと', () => {
       testLogger.warn('警告メッセージ');
 
-      expect(mockVibeLogger.warn).toHaveBeenCalledWith('legacy.warn', '警告メッセージ', {
+      expect(vibeLogger.warn).toHaveBeenCalledWith('legacy.warn', '警告メッセージ', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
       });
     });
@@ -67,7 +55,7 @@ describe('Logger', () => {
       const data = { threshold: 90, current: 95 };
       testLogger.warn('閾値超過', data);
 
-      expect(mockVibeLogger.warn).toHaveBeenCalledWith('legacy.warn', '閾値超過', {
+      expect(vibeLogger.warn).toHaveBeenCalledWith('legacy.warn', '閾値超過', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
         context: { data },
       });
@@ -76,7 +64,7 @@ describe('Logger', () => {
     it('infoメソッドがvibeLoggerを呼び出すこと', () => {
       testLogger.info('情報メッセージ');
 
-      expect(mockVibeLogger.info).toHaveBeenCalledWith('legacy.info', '情報メッセージ', {
+      expect(vibeLogger.info).toHaveBeenCalledWith('legacy.info', '情報メッセージ', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
       });
     });
@@ -85,7 +73,7 @@ describe('Logger', () => {
       const data = { status: 'running', pid: 1234 };
       testLogger.info('プロセス状態', data);
 
-      expect(mockVibeLogger.info).toHaveBeenCalledWith('legacy.info', 'プロセス状態', {
+      expect(vibeLogger.info).toHaveBeenCalledWith('legacy.info', 'プロセス状態', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
         context: { data },
       });
@@ -94,7 +82,7 @@ describe('Logger', () => {
     it('debugメソッドがvibeLoggerを呼び出すこと', () => {
       testLogger.debug('デバッグメッセージ');
 
-      expect(mockVibeLogger.debug).toHaveBeenCalledWith('legacy.debug', 'デバッグメッセージ', {
+      expect(vibeLogger.debug).toHaveBeenCalledWith('legacy.debug', 'デバッグメッセージ', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
       });
     });
@@ -103,7 +91,7 @@ describe('Logger', () => {
       const data = { query: 'SELECT * FROM users', time: 120 };
       testLogger.debug('クエリ実行', data);
 
-      expect(mockVibeLogger.debug).toHaveBeenCalledWith('legacy.debug', 'クエリ実行', {
+      expect(vibeLogger.debug).toHaveBeenCalledWith('legacy.debug', 'クエリ実行', {
         humanNote: 'レガシーAPIからの移行。詳細なコンテキストを追加することを推奨',
         context: { data },
       });
@@ -117,27 +105,15 @@ describe('Logger', () => {
 
     it('vibeLoggerがエクスポートされていること', () => {
       expect(vibeLogger).toBeDefined();
-      expect(vibeLogger).toBe(mockVibeLogger);
+      expect(vibeLogger).toBeDefined();
     });
 
     it('createFileLoggerが正しいプロジェクト名で呼ばれていること', () => {
-      // requireされた時点で既に呼ばれているため、importをリセットする
-      jest.resetModules();
-      jest.doMock('../utils/vibe-logger-impl', () => ({
-        createFileLogger: jest.fn(() => ({
-          error: jest.fn(),
-          warn: jest.fn(),
-          info: jest.fn(),
-          debug: jest.fn(),
-        })),
-      }));
-
-      // logger.tsを再度requireして、createFileLoggerが呼ばれることを確認
-      require('../logger');
-
-      const vibeloggerMock =
-        require('../utils/vibe-logger-impl') as typeof import('../utils/vibe-logger-impl');
-      expect(vibeloggerMock.createFileLogger).toHaveBeenCalledWith('sokubutsu');
+      // モジュールインポート時にcreateFileLoggerが呼ばれているはず
+      expect(createFileLogger).toHaveBeenCalled();
+      // 引数の確認
+      const calls = (createFileLogger as jest.Mock).mock.calls as any[];
+      expect(calls[0]?.[0]).toBe('sokubutsu');
     });
   });
 });

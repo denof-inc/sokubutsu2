@@ -1,23 +1,24 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+import { PropertyMonitoringData } from '../types.js';
+
+// モジュールをモック
+jest.mock('../storage.js');
+jest.mock('../logger.js');
+
 import { PropertyMonitor } from '../property-monitor.js';
 import { SimpleStorage } from '../storage.js';
 import { vibeLogger } from '../logger.js';
-import { PropertyMonitoringData } from '../types.js';
-
-jest.mock('../storage');
-jest.mock('../logger');
 
 describe('PropertyMonitor', () => {
   let propertyMonitor: PropertyMonitor;
-  let mockStorage: jest.Mocked<SimpleStorage>;
+  let mockStorage: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     // Storageのモック設定
-    mockStorage = new SimpleStorage() as jest.Mocked<SimpleStorage>;
-    mockStorage.save = jest.fn();
-    mockStorage.load = jest.fn() as any;
+    mockStorage = new SimpleStorage() as any;
 
     // PropertyMonitorインスタンスを作成
     propertyMonitor = new PropertyMonitor();
@@ -163,17 +164,17 @@ describe('PropertyMonitor', () => {
       const properties = [{ title: '物件1', price: '1,000万円' }];
       propertyMonitor.detectNewProperties(properties);
 
-      expect(mockStorage.save.mock.calls.find(call => call[0] === 'monitoring_statistics')).toEqual(
-        [
-          'monitoring_statistics',
-          expect.objectContaining({
-            totalChecks: 1,
-            newPropertyDetections: 1,
-            lastCheckAt: expect.any(Date),
-            lastNewPropertyAt: expect.any(Date),
-          }),
-        ]
-      );
+      expect(
+        mockStorage.save.mock.calls.find((call: any) => call[0] === 'monitoring_statistics')
+      ).toEqual([
+        'monitoring_statistics',
+        expect.objectContaining({
+          totalChecks: 1,
+          newPropertyDetections: 1,
+          lastCheckAt: expect.any(Date),
+          lastNewPropertyAt: expect.any(Date),
+        }),
+      ]);
 
       // 2回目実行（新着なし）
       mockStorage.save.mockClear();
@@ -198,15 +199,15 @@ describe('PropertyMonitor', () => {
 
       propertyMonitor.detectNewProperties(properties);
 
-      expect(mockStorage.save.mock.calls.find(call => call[0] === 'monitoring_statistics')).toEqual(
-        [
-          'monitoring_statistics',
-          expect.objectContaining({
-            totalChecks: 2,
-            newPropertyDetections: 1, // 増えない
-          }),
-        ]
-      );
+      expect(
+        mockStorage.save.mock.calls.find((call: any) => call[0] === 'monitoring_statistics')
+      ).toEqual([
+        'monitoring_statistics',
+        expect.objectContaining({
+          totalChecks: 2,
+          newPropertyDetections: 1, // 増えない
+        }),
+      ]);
     });
   });
 

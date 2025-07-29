@@ -9,10 +9,10 @@ import { PropertyMonitor } from '../property-monitor.js';
 import * as cron from 'node-cron';
 
 // モックの作成
-jest.mock('../scraper', () => ({ SimpleScraper: jest.fn() }));
-jest.mock('../telegram', () => ({ TelegramNotifier: jest.fn() }));
-jest.mock('../storage', () => ({ SimpleStorage: jest.fn() }));
-jest.mock('../property-monitor', () => ({ PropertyMonitor: jest.fn() }));
+jest.mock('../scraper.js', () => ({ SimpleScraper: jest.fn() }));
+jest.mock('../telegram.js', () => ({ TelegramNotifier: jest.fn() }));
+jest.mock('../storage.js', () => ({ SimpleStorage: jest.fn() }));
+jest.mock('../property-monitor.js', () => ({ PropertyMonitor: jest.fn() }));
 jest.mock('node-cron');
 
 const MockedScraper = SimpleScraper as jest.MockedClass<typeof SimpleScraper>;

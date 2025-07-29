@@ -2,8 +2,11 @@ export default {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
+  modulePaths: ['<rootDir>/src'],
+  moduleDirectories: ['node_modules', 'src'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@/(.*)$': '<rootDir>/src/$1',
     '^vibelogger$': '<rootDir>/src/__mocks__/vibelogger.js',
   },
   transform: {
@@ -11,6 +14,10 @@ export default {
       'ts-jest',
       {
         useESM: true,
+        tsconfig: {
+          moduleResolution: 'node',
+          allowJs: true,
+        },
       },
     ],
   },
