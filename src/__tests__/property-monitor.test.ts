@@ -136,7 +136,7 @@ describe('PropertyMonitor', () => {
 
       expect(result.hasNewProperty).toBe(true);
       expect(result.newPropertyCount).toBe(1);
-      expect(vibeLogger.warn.mock.calls.length).toBeGreaterThan(0);
+      expect((vibeLogger.warn as jest.Mock).mock.calls.length).toBeGreaterThan(0);
     });
 
     it('データ保存エラー時は例外を投げる', () => {
@@ -150,7 +150,7 @@ describe('PropertyMonitor', () => {
         propertyMonitor.detectNewProperties(currentProperties);
       }).toThrow('Save error');
 
-      expect(vibeLogger.error.mock.calls.length).toBeGreaterThan(0);
+      expect((vibeLogger.error as jest.Mock).mock.calls.length).toBeGreaterThan(0);
     });
 
     it('統計情報の更新が正しく行われる', () => {
