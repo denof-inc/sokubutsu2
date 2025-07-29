@@ -21,12 +21,6 @@ import * as fs from 'fs';
 jest.mock('fs');
 const mockedFs = fs as jest.Mocked<typeof fs>;
 
-// fsのモックメソッドを初期化
-jest.mocked(mockedFs.existsSync).mockImplementation(() => true);
-jest.mocked(mockedFs.readFileSync).mockImplementation(() => '{}');
-jest.mocked(mockedFs.writeFileSync).mockImplementation(() => {});
-jest.mocked(mockedFs.mkdirSync).mockImplementation(() => '');
-
 describe('SimpleStorage', () => {
   let storage: SimpleStorage;
 

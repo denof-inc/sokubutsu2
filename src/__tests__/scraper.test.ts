@@ -5,6 +5,7 @@ import axios from 'axios';
 // axios をモック化
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
+(mockedAxios.get as any) = jest.fn();
 
 describe('SimpleScraper', () => {
   let scraper: SimpleScraper;
@@ -27,7 +28,7 @@ describe('SimpleScraper', () => {
         </html>
       `;
 
-      (mockedAxios.get as jest.Mock).mockResolvedValue({
+      (mockedAxios.get as any).mockResolvedValue({
         data: testHtml,
         status: 200,
         statusText: 'OK',
@@ -47,7 +48,7 @@ describe('SimpleScraper', () => {
     it('物件が見つからない場合はエラーを返すこと', async () => {
       const testHtml = '<html><body><p>物件なし</p></body></html>';
 
-      (mockedAxios.get as jest.Mock).mockResolvedValue({
+      (mockedAxios.get as any).mockResolvedValue({
         data: testHtml,
         status: 200,
         statusText: 'OK',
@@ -62,7 +63,7 @@ describe('SimpleScraper', () => {
     });
 
     it('ネットワークエラーを適切に処理すること', async () => {
-      (mockedAxios.get as jest.Mock).mockRejectedValue(new Error('Network Error'));
+      (mockedAxios.get as any).mockRejectedValue(new Error('Network Error'));
 
       const result = await scraper.scrapeAthome('https://example.com');
 
@@ -71,7 +72,7 @@ describe('SimpleScraper', () => {
     });
 
     it('リトライ機能が動作すること', async () => {
-      (mockedAxios.get as jest.Mock)
+      (mockedAxios.get as any)
         .mockRejectedValueOnce(new Error('Temporary Error'))
         .mockRejectedValueOnce(new Error('Temporary Error'))
         .mockResolvedValue({
