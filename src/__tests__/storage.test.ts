@@ -28,17 +28,17 @@ describe('SimpleStorage', () => {
     jest.clearAllMocks();
 
     // ディレクトリ存在チェックをモック
-    jest.mocked(mockedFs.existsSync).mockReturnValue(true);
-    jest.mocked(mockedFs.readFileSync).mockReturnValue(Buffer.from('{}'));
-    jest.mocked(mockedFs.writeFileSync).mockImplementation(() => {});
-    jest.mocked(mockedFs.mkdirSync).mockImplementation(() => undefined);
+    (mockedFs.existsSync as jest.Mock).mockReturnValue(true);
+    (mockedFs.readFileSync as jest.Mock).mockReturnValue(Buffer.from('{}'));
+    (mockedFs.writeFileSync as jest.Mock).mockImplementation(() => {});
+    (mockedFs.mkdirSync as jest.Mock).mockImplementation(() => undefined);
 
     storage = new SimpleStorage();
   });
 
   describe('初期化', () => {
     it('データディレクトリが存在しない場合は作成すること', () => {
-      jest.mocked(mockedFs.existsSync).mockReturnValue(false);
+      (mockedFs.existsSync as jest.Mock).mockReturnValue(false);
 
       new SimpleStorage();
 
@@ -46,8 +46,8 @@ describe('SimpleStorage', () => {
     });
 
     it('データ読み込みエラーが発生しても継続すること', () => {
-      jest.mocked(mockedFs.existsSync).mockReturnValue(true);
-      jest.mocked(mockedFs.readFileSync).mockImplementation(() => {
+      (mockedFs.existsSync as jest.Mock).mockReturnValue(true);
+      (mockedFs.readFileSync as jest.Mock).mockImplementation(() => {
         throw new Error('Read error');
       });
 
@@ -181,7 +181,7 @@ describe('SimpleStorage', () => {
 
   describe('データ保存エラー処理', () => {
     it('保存エラーが発生してもクラッシュしないこと', () => {
-      jest.mocked(mockedFs.writeFileSync).mockImplementation(() => {
+      (mockedFs.writeFileSync as jest.Mock).mockImplementation(() => {
         throw new Error('Write error');
       });
 
