@@ -267,6 +267,39 @@ export class SimpleStorage {
   }
 
   /**
+   * 汎用的なデータ保存
+   */
+  save<T>(key: string, data: T): void {
+    const filePath = path.join(this.dataDir, `${key}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    vibeLogger.debug('storage.save', `データ保存: ${key}`, {
+      context: { key, filePath },
+    });
+  }
+
+  /**
+   * 汎用的なデータ読み込み
+   */
+  load<T>(key: string): T | null {
+    const filePath = path.join(this.dataDir, `${key}.json`);
+    try {
+      if (fs.existsSync(filePath)) {
+        const data = fs.readFileSync(filePath, 'utf-8');
+        return JSON.parse(data) as T;
+      }
+    } catch (error) {
+      vibeLogger.error('storage.load_error', `データ読み込みエラー: ${key}`, {
+        context: {
+          key,
+          filePath,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+    return null;
+  }
+
+  /**
    * 統計情報を表示
    */
   displayStats(): void {

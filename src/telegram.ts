@@ -170,7 +170,7 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
   /**
    * メッセージ送信（リトライ機能付き）
    */
-  private async sendMessage(message: string, retryCount = 0): Promise<void> {
+  async sendMessage(message: string, retryCount = 0): Promise<void> {
     try {
       await this.bot.telegram.sendMessage(this.chatId, message, {
         parse_mode: 'Markdown',
