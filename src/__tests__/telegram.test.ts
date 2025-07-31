@@ -2,8 +2,8 @@ import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { NotificationData, Statistics } from '../types.js';
 
 // モック関数を作成
-const mockGetMe = jest.fn() as any;
-const mockSendMessage = jest.fn() as any;
+const mockGetMe = jest.fn<() => Promise<any>>();
+const mockSendMessage = jest.fn<() => Promise<any>>();
 
 const mockTelegraf = jest.fn(() => ({
   telegram: {

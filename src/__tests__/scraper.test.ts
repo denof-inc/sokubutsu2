@@ -1,6 +1,6 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { SimpleScraper } from '../scraper.js';
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 
 // axios をモック化
 jest.mock('axios');
@@ -28,13 +28,14 @@ describe('SimpleScraper', () => {
         </html>
       `;
 
-      (mockedAxios.get as any).mockResolvedValue({
+      const mockResponse: AxiosResponse = {
         data: testHtml,
         status: 200,
         statusText: 'OK',
         headers: {},
-        config: {},
-      });
+        config: {} as any,
+      };
+      (mockedAxios.get as jest.MockedFunction<typeof axios.get>).mockResolvedValue(mockResponse);
 
       const result = await scraper.scrapeAthome('https://example.com');
 
@@ -48,13 +49,14 @@ describe('SimpleScraper', () => {
     it('物件が見つからない場合はエラーを返すこと', async () => {
       const testHtml = '<html><body><p>物件なし</p></body></html>';
 
-      (mockedAxios.get as any).mockResolvedValue({
+      const mockResponse: AxiosResponse = {
         data: testHtml,
         status: 200,
         statusText: 'OK',
         headers: {},
-        config: {},
-      });
+        config: {} as any,
+      };
+      (mockedAxios.get as jest.MockedFunction<typeof axios.get>).mockResolvedValue(mockResponse);
 
       const result = await scraper.scrapeAthome('https://example.com');
 
@@ -63,7 +65,9 @@ describe('SimpleScraper', () => {
     });
 
     it('ネットワークエラーを適切に処理すること', async () => {
-      (mockedAxios.get as any).mockRejectedValue(new Error('Network Error'));
+      (mockedAxios.get as jest.MockedFunction<typeof axios.get>).mockRejectedValue(
+        new Error('Network Error')
+      );
 
       const result = await scraper.scrapeAthome('https://example.com');
 
@@ -72,16 +76,17 @@ describe('SimpleScraper', () => {
     });
 
     it('リトライ機能が動作すること', async () => {
-      (mockedAxios.get as any)
+      const mockSuccessResponse: AxiosResponse = {
+        data: '<html><body><div class="property">物件1</div></body></html>',
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any,
+      };
+      (mockedAxios.get as jest.MockedFunction<typeof axios.get>)
         .mockRejectedValueOnce(new Error('Temporary Error'))
         .mockRejectedValueOnce(new Error('Temporary Error'))
-        .mockResolvedValue({
-          data: '<html><body><div class="property">物件1</div></body></html>',
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-          config: {},
-        });
+        .mockResolvedValue(mockSuccessResponse);
 
       const result = await scraper.scrapeAthome('https://example.com');
 

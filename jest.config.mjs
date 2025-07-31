@@ -9,17 +9,25 @@ export default {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   transform: {
-    '^.+\\.ts$': [
+    '^.+\\.tsx?$': [
       'ts-jest',
       {
         useESM: true,
         tsconfig: {
+          module: 'ES2022',
+          target: 'ES2022',
           moduleResolution: 'node',
           allowJs: true,
+          esModuleInterop: true,
+          allowSyntheticDefaultImports: true,
         },
       },
     ],
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!(telegraf)/)',
+  ],
+  resolver: undefined,
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   collectCoverageFrom: [

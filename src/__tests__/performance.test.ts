@@ -77,7 +77,7 @@ describe('PerformanceMonitor', () => {
     });
 
     afterEach(() => {
-      (consoleSpy).mockRestore();
+      consoleSpy.mockRestore();
     });
 
     it('メトリクスを表示できること', () => {
