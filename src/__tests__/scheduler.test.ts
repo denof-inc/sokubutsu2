@@ -117,24 +117,24 @@ describe('MonitoringScheduler', () => {
     jest.clearAllMocks();
 
     // デフォルトのモック設定
-    (mockScrapeAthome as jest.Mock).mockResolvedValue({
+    mockScrapeAthome.mockResolvedValue({
       success: true,
       hash: 'test-hash',
       count: 10,
       executionTime: 2000,
       memoryUsage: 40,
     });
-    (mockValidateResult as jest.Mock).mockReturnValue(true);
-    (mockTestConnection as jest.Mock).mockResolvedValue(true);
-    (mockSendStartupNotice as jest.Mock).mockResolvedValue(undefined);
-    (mockSendNewListingNotification as jest.Mock).mockResolvedValue(undefined);
-    (mockSendErrorAlert as jest.Mock).mockResolvedValue(undefined);
-    (mockSendStatisticsReport as jest.Mock).mockResolvedValue(undefined);
-    (mockSendShutdownNotice as jest.Mock).mockResolvedValue(undefined);
-    (mockSendMessage as jest.Mock).mockResolvedValue(undefined);
-    (mockGetBotInfo as jest.Mock).mockResolvedValue({ username: 'test_bot', id: 123456 });
-    (mockGetHash as jest.Mock).mockReturnValue(undefined);
-    (mockGetStats as jest.Mock).mockReturnValue({
+    mockValidateResult.mockReturnValue(true);
+    mockTestConnection.mockResolvedValue(true);
+    mockSendStartupNotice.mockResolvedValue(undefined);
+    mockSendNewListingNotification.mockResolvedValue(undefined);
+    mockSendErrorAlert.mockResolvedValue(undefined);
+    mockSendStatisticsReport.mockResolvedValue(undefined);
+    mockSendShutdownNotice.mockResolvedValue(undefined);
+    mockSendMessage.mockResolvedValue(undefined);
+    mockGetBotInfo.mockResolvedValue({ username: 'test_bot', id: 123456 });
+    mockGetHash.mockReturnValue(undefined);
+    mockGetStats.mockReturnValue({
       totalChecks: 100,
       errors: 5,
       newListings: 10,
@@ -142,8 +142,8 @@ describe('MonitoringScheduler', () => {
       averageExecutionTime: 2.5,
       successRate: 95,
     });
-    (mockCreateBackup as jest.Mock).mockReturnValue('/path/to/backup.json');
-    (mockDetectNewProperties as jest.Mock).mockReturnValue({
+    mockCreateBackup.mockReturnValue('/path/to/backup.json');
+    mockDetectNewProperties.mockReturnValue({
       hasNewProperty: false,
       newPropertyCount: 0,
       newProperties: [],
@@ -151,7 +151,7 @@ describe('MonitoringScheduler', () => {
       detectedAt: new Date(),
       confidence: 'very_high' as const,
     });
-    (mockGetMonitoringStatistics as jest.Mock).mockReturnValue({
+    mockGetMonitoringStatistics.mockReturnValue({
       totalChecks: 10,
       newPropertyDetections: 2,
       lastCheckAt: new Date(),
@@ -174,7 +174,7 @@ describe('MonitoringScheduler', () => {
     });
 
     it('Telegram接続失敗時でも監視を開始すること', async () => {
-      (mockTestConnection as jest.Mock).mockResolvedValue(false);
+      mockTestConnection.mockResolvedValue(false);
 
       await scheduler.start(['https://example.com']);
 
@@ -190,7 +190,7 @@ describe('MonitoringScheduler', () => {
       const urls = ['https://example.com'];
 
       // 初回チェック（ハッシュなし）- startメソッド内で実行される
-      (mockGetHash as jest.Mock).mockReturnValue(undefined);
+      mockGetHash.mockReturnValue(undefined);
       await scheduler.start(urls);
 
       // 初回実行の確認
@@ -211,8 +211,8 @@ describe('MonitoringScheduler', () => {
       mockDetectNewProperties.mockClear();
 
       // 2回目のチェック（新着物件を検知）
-      (mockGetHash as jest.Mock).mockReturnValue('test-hash'); // 以前のハッシュ
-      (mockScrapeAthome as jest.Mock).mockResolvedValueOnce({
+      mockGetHash.mockReturnValue('test-hash'); // 以前のハッシュ
+      mockScrapeAthome.mockResolvedValueOnce({
         success: true,
         hash: 'new-hash',
         count: 12,
@@ -221,7 +221,7 @@ describe('MonitoringScheduler', () => {
       });
 
       // PropertyMonitorが新着を検知するように設定
-      (mockDetectNewProperties as jest.Mock).mockReturnValueOnce({
+      mockDetectNewProperties.mockReturnValueOnce({
         hasNewProperty: true,
         newPropertyCount: 1,
         newProperties: [
@@ -256,7 +256,7 @@ describe('MonitoringScheduler', () => {
       mockSendErrorAlert.mockClear();
       mockScrapeAthome.mockClear();
 
-      (mockScrapeAthome as jest.Mock).mockResolvedValue({
+      mockScrapeAthome.mockResolvedValue({
         success: false,
         hash: '',
         count: 0,
@@ -264,7 +264,7 @@ describe('MonitoringScheduler', () => {
         memoryUsage: 30,
       });
 
-      const cronCallback = (cron.schedule as jest.Mock).mock.calls[0]?.[1] as () => Promise<void>;
+      const cronCallback = mockSchedule.mock.calls[0]?.[1] as () => Promise<void>;
       await cronCallback();
 
       expect(mockIncrementErrors).toHaveBeenCalled();
@@ -277,7 +277,7 @@ describe('MonitoringScheduler', () => {
       await scheduler.start(['https://example.com']);
 
       // 統計ジョブのコールバックを取得して実行
-      const statsCallback = (cron.schedule as jest.Mock).mock.calls[1]?.[1] as () => Promise<void>;
+      const statsCallback = mockSchedule.mock.calls[1]?.[1] as () => Promise<void>;
       await statsCallback();
 
       expect(mockSendStatisticsReport).toHaveBeenCalledWith({
@@ -297,8 +297,8 @@ describe('MonitoringScheduler', () => {
 
       scheduler.stop();
 
-      expect(mockCronJob.stop as jest.Mock).toHaveBeenCalled();
-      expect(mockStatsJob.stop as jest.Mock).toHaveBeenCalled();
+      expect(mockCronJob.stop).toHaveBeenCalled();
+      expect(mockStatsJob.stop).toHaveBeenCalled();
       expect(mockSendShutdownNotice).toHaveBeenCalled();
     });
   });
@@ -343,10 +343,10 @@ describe('MonitoringScheduler', () => {
       await scheduler.start(['https://example.com']);
 
       // sendStatisticsReportがエラーを投げるように設定
-      (mockSendStatisticsReport as jest.Mock).mockRejectedValue(new Error('Report error'));
+      mockSendStatisticsReport.mockRejectedValue(new Error('Report error'));
 
       // 統計ジョブのコールバックを取得して実行
-      const statsCallback = (cron.schedule as jest.Mock).mock.calls[1]?.[1] as () => Promise<void>;
+      const statsCallback = mockSchedule.mock.calls[1]?.[1] as () => Promise<void>;
 
       // エラーが発生してもクラッシュしない
       await statsCallback();
@@ -361,7 +361,7 @@ describe('MonitoringScheduler', () => {
       await scheduler.start(['https://example.com']);
 
       // sendShutdownNoticeがエラーを投げるように設定
-      (mockSendShutdownNotice as jest.Mock).mockRejectedValue(new Error('Shutdown notice error'));
+      mockSendShutdownNotice.mockRejectedValue(new Error('Shutdown notice error'));
 
       // エラーが発生してもクラッシュしない
       expect(() => scheduler.stop()).not.toThrow();
@@ -376,7 +376,7 @@ describe('MonitoringScheduler', () => {
       const urls = ['https://example.com'];
 
       // 初回チェック
-      (mockGetHash as jest.Mock).mockReturnValue(undefined);
+      mockGetHash.mockReturnValue(undefined);
       await scheduler.start(urls);
 
       // モックをリセット
@@ -388,8 +388,8 @@ describe('MonitoringScheduler', () => {
       mockDetectNewProperties.mockClear();
 
       // 2回目のチェック（新着物件を検知）
-      (mockGetHash as jest.Mock).mockReturnValue('test-hash'); // 以前のハッシュ
-      (mockScrapeAthome as jest.Mock).mockResolvedValueOnce({
+      mockGetHash.mockReturnValue('test-hash'); // 以前のハッシュ
+      mockScrapeAthome.mockResolvedValueOnce({
         success: true,
         hash: 'new-hash',
         count: 12,
@@ -398,7 +398,7 @@ describe('MonitoringScheduler', () => {
       });
 
       // PropertyMonitorが新着を検知するように設定
-      (mockDetectNewProperties as jest.Mock).mockReturnValueOnce({
+      mockDetectNewProperties.mockReturnValueOnce({
         hasNewProperty: true,
         newPropertyCount: 1,
         newProperties: [

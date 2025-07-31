@@ -39,6 +39,7 @@ export default {
     },
   },
   setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts'],
+  testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/dist/'],
   modulePathIgnorePatterns: ['<rootDir>/dist/'],
   testTimeout: 10000,
   verbose: true,

@@ -27,14 +27,14 @@ describe('TelegramNotifier', () => {
     jest.clearAllMocks();
 
     // デフォルトのモック設定
-    (mockGetMe as jest.Mock<any, any>).mockResolvedValue({
+    mockGetMe.mockResolvedValue({
       id: 123456789,
       is_bot: true,
       first_name: 'Test Bot',
       username: 'test_bot',
     });
 
-    (mockSendMessage as jest.Mock<any, any>).mockResolvedValue({
+    mockSendMessage.mockResolvedValue({
       message_id: 1,
       date: Date.now(),
       chat: { id: -123456789, type: 'group' },
@@ -53,7 +53,7 @@ describe('TelegramNotifier', () => {
     });
 
     it('接続失敗時にfalseを返すこと', async () => {
-      (mockGetMe as jest.Mock<any, any>).mockRejectedValue(new Error('Connection failed'));
+      mockGetMe.mockRejectedValue(new Error('Connection failed'));
 
       const result = await notifier.testConnection();
 
@@ -173,7 +173,7 @@ describe('TelegramNotifier', () => {
 
   describe('リトライ機能', () => {
     it('送信失敗時にリトライすること', async () => {
-      (mockSendMessage as jest.Mock)
+      mockSendMessage
         .mockRejectedValueOnce(new Error('Temporary error'))
         .mockRejectedValueOnce(new Error('Temporary error'))
         .mockResolvedValue({
@@ -189,7 +189,7 @@ describe('TelegramNotifier', () => {
     });
 
     it('最大リトライ回数を超えたらエラーを投げること', async () => {
-      (mockSendMessage as jest.Mock).mockRejectedValue(new Error('Permanent error'));
+      mockSendMessage.mockRejectedValue(new Error('Permanent error'));
 
       await expect(notifier.sendStartupNotice()).rejects.toThrow('Permanent error');
       expect(mockSendMessage).toHaveBeenCalledTimes(4); // 初回 + 3回リトライ
@@ -208,7 +208,7 @@ describe('TelegramNotifier', () => {
     });
 
     it('usernameがない場合にunknownを返すこと', async () => {
-      (mockGetMe as jest.Mock).mockResolvedValue({
+      mockGetMe.mockResolvedValue({
         id: 123456789,
         is_bot: true,
         first_name: 'Test Bot',

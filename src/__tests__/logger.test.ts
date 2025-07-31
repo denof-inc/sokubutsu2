@@ -16,13 +16,12 @@ const mockCreateFileLogger = jest.fn(() => ({
 }));
 
 // モジュールをモック
-jest.unstable_mockModule('../utils/vibe-logger-impl.js', () => ({
+jest.unstable_mockModule('../utils/vibe-logger-impl', () => ({
   createFileLogger: mockCreateFileLogger,
 }));
 
 // モックの後でインポート
 const { Logger, LogLevel, logger, vibeLogger } = await import('../logger.js');
-const { createFileLogger } = await import('../utils/vibe-logger-impl.js');
 
 describe('Logger', () => {
   beforeEach(() => {
@@ -126,7 +125,7 @@ describe('Logger', () => {
 
     it('createFileLoggerが正しいプロジェクト名で呼ばれていること', () => {
       // モジュールインポート時にcreateFileLoggerが呼ばれているはず
-      expect(createFileLogger).toHaveBeenCalled();
+      expect(mockCreateFileLogger).toHaveBeenCalled();
       // 引数の確認
       const calls = mockCreateFileLogger.mock.calls as any[];
       expect(calls[0]?.[0]).toBe('sokubutsu');

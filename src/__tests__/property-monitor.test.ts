@@ -28,7 +28,7 @@ const mockVibeLoggerError = jest.fn();
 const mockVibeLoggerInfo = jest.fn();
 
 // モジュールをモック
-jest.unstable_mockModule('../storage.js', () => ({
+jest.unstable_mockModule('../storage', () => ({
   SimpleStorage: jest.fn().mockImplementation(() => ({
     save: mockSave,
     load: mockLoad,
@@ -45,7 +45,7 @@ jest.unstable_mockModule('../storage.js', () => ({
   })),
 }));
 
-jest.unstable_mockModule('../logger.js', () => ({
+jest.unstable_mockModule('../logger', () => ({
   vibeLogger: {
     warn: mockVibeLoggerWarn,
     error: mockVibeLoggerError,
@@ -202,11 +202,11 @@ describe('PropertyMonitor', () => {
     });
 
     it('データ保存エラー時は例外を投げる', () => {
-      mockSave.mockImplementation(() => {
+      const currentProperties = [{ title: '物件1', price: '1,000万円', location: '広島市中区' }];
+
+      mockSave.mockImplementationOnce(() => {
         throw new Error('Save error');
       });
-
-      const currentProperties = [{ title: '物件1', price: '1,000万円', location: '広島市中区' }];
 
       expect(() => {
         propertyMonitor.detectNewProperties(currentProperties);
@@ -276,7 +276,7 @@ describe('PropertyMonitor', () => {
         lastNewPropertyAt: new Date(),
       };
 
-      mockStorage.load.mockReturnValue(mockStats);
+      mockLoad.mockReturnValue(mockStats);
 
       const stats = propertyMonitor.getMonitoringStatistics();
 
