@@ -1,7 +1,11 @@
 export default {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
+  testEnvironmentOptions: {
+    url: 'http://localhost',
+  },
   extensionsToTreatAsEsm: ['.ts'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   modulePaths: ['<rootDir>/src'],
   moduleDirectories: ['node_modules', 'src'],
   moduleNameMapper: {
@@ -25,7 +29,7 @@ export default {
     ],
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(telegraf)/)',
+    'node_modules/(?!(telegraf|axios|cheerio)/)',
   ],
   resolver: undefined,
   roots: ['<rootDir>/src'],

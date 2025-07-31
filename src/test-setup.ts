@@ -21,6 +21,9 @@ global.console = {
   error: jest.fn(),
 };
 
+// グローバルモックの設定
+(globalThis as any).__JEST_MOCK_REGISTRY__ = new Map();
+
 // テスト後のクリーンアップ
 afterEach(() => {
   jest.clearAllMocks();
