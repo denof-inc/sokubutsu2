@@ -36,46 +36,86 @@ jest.unstable_mockModule('node-cron', () => ({
 
 // test-setup.tsで設定されたモジュールをインポート
 const { MonitoringScheduler } = await import('../scheduler.js');
-const { SimpleScraper } = await import('scraper');
-const { SimpleStorage } = await import('storage');
-const { PropertyMonitor } = await import('property-monitor');
-const { TelegramNotifier } = await import('telegram');
+const { SimpleScraper } = await import('../scraper.js');
+const { SimpleStorage } = await import('../storage.js');
+const { PropertyMonitor } = await import('../property-monitor.js');
+const { TelegramNotifier } = await import('../telegram.js');
 import * as cron from 'node-cron';
 
 // モック関数への参照を取得
 const mockScraperInstance = new SimpleScraper();
-const mockScrapeAthome = mockScraperInstance.scrapeAthome as jest.Mock;
-const mockValidateResult = mockScraperInstance.validateResult as jest.Mock;
+const mockScrapeAthome = jest.fn() as jest.MockedFunction<typeof mockScraperInstance.scrapeAthome>;
+const mockValidateResult = jest.fn() as jest.MockedFunction<
+  typeof mockScraperInstance.validateResult
+>;
+(mockScraperInstance as any).scrapeAthome = mockScrapeAthome;
+(mockScraperInstance as any).validateResult = mockValidateResult;
 
 const mockStorageInstance = new SimpleStorage();
-const mockGetHash = mockStorageInstance.getHash as jest.Mock;
-const mockSetHash = mockStorageInstance.setHash as jest.Mock;
-const mockIncrementTotalChecks = mockStorageInstance.incrementTotalChecks as jest.Mock;
-const mockIncrementErrors = mockStorageInstance.incrementErrors as jest.Mock;
-const mockIncrementNewListings = mockStorageInstance.incrementNewListings as jest.Mock;
-// const mockRecordExecutionTime = mockStorageInstance.recordExecutionTime as jest.Mock;
-const mockGetStats = mockStorageInstance.getStats as jest.Mock;
-// const mockResetStats = mockStorageInstance.resetStats as jest.Mock;
-const mockCreateBackup = mockStorageInstance.createBackup as jest.Mock;
+const mockGetHash = jest.fn() as jest.MockedFunction<typeof mockStorageInstance.getHash>;
+const mockSetHash = jest.fn() as jest.MockedFunction<typeof mockStorageInstance.setHash>;
+const mockIncrementTotalChecks = jest.fn() as jest.MockedFunction<
+  typeof mockStorageInstance.incrementTotalChecks
+>;
+const mockIncrementErrors = jest.fn() as jest.MockedFunction<
+  typeof mockStorageInstance.incrementErrors
+>;
+const mockIncrementNewListings = jest.fn() as jest.MockedFunction<
+  typeof mockStorageInstance.incrementNewListings
+>;
+const mockGetStats = jest.fn() as jest.MockedFunction<typeof mockStorageInstance.getStats>;
+const mockCreateBackup = jest.fn() as jest.MockedFunction<typeof mockStorageInstance.createBackup>;
+(mockStorageInstance as any).getHash = mockGetHash;
+(mockStorageInstance as any).setHash = mockSetHash;
+(mockStorageInstance as any).incrementTotalChecks = mockIncrementTotalChecks;
+(mockStorageInstance as any).incrementErrors = mockIncrementErrors;
+(mockStorageInstance as any).incrementNewListings = mockIncrementNewListings;
+(mockStorageInstance as any).getStats = mockGetStats;
+(mockStorageInstance as any).createBackup = mockCreateBackup;
 // const mockDisplayStats = mockStorageInstance.displayStats as jest.Mock;
 // const mockSave = mockStorageInstance.save as jest.Mock;
 // const mockLoad = mockStorageInstance.load as jest.Mock;
 
 const mockPropertyMonitorInstance = new PropertyMonitor();
-const mockDetectNewProperties = mockPropertyMonitorInstance.detectNewProperties as jest.Mock;
-const mockGetMonitoringStatistics =
-  mockPropertyMonitorInstance.getMonitoringStatistics as jest.Mock;
+const mockDetectNewProperties = jest.fn() as jest.MockedFunction<
+  typeof mockPropertyMonitorInstance.detectNewProperties
+>;
+const mockGetMonitoringStatistics = jest.fn() as jest.MockedFunction<
+  typeof mockPropertyMonitorInstance.getMonitoringStatistics
+>;
+(mockPropertyMonitorInstance as any).detectNewProperties = mockDetectNewProperties;
+(mockPropertyMonitorInstance as any).getMonitoringStatistics = mockGetMonitoringStatistics;
 
 // Telegramのモック関数への参照を取得
-const mockTelegramInstance = new TelegramNotifier();
-const mockTestConnection = mockTelegramInstance.testConnection as jest.Mock;
-const mockSendStartupNotice = mockTelegramInstance.sendStartupNotice as jest.Mock;
-const mockSendNewListingNotification = mockTelegramInstance.sendNewListingNotification as jest.Mock;
-const mockSendErrorAlert = mockTelegramInstance.sendErrorAlert as jest.Mock;
-const mockSendStatisticsReport = mockTelegramInstance.sendStatisticsReport as jest.Mock;
-const mockSendShutdownNotice = mockTelegramInstance.sendShutdownNotice as jest.Mock;
-const mockSendMessage = mockTelegramInstance.sendMessage as jest.Mock;
-const mockGetBotInfo = mockTelegramInstance.getBotInfo as jest.Mock;
+const mockTelegramInstance = new TelegramNotifier('test_bot_token', 'test_chat_id');
+const mockTestConnection = jest.fn() as jest.MockedFunction<
+  typeof mockTelegramInstance.testConnection
+>;
+const mockSendStartupNotice = jest.fn() as jest.MockedFunction<
+  typeof mockTelegramInstance.sendStartupNotice
+>;
+const mockSendNewListingNotification = jest.fn() as jest.MockedFunction<
+  typeof mockTelegramInstance.sendNewListingNotification
+>;
+const mockSendErrorAlert = jest.fn() as jest.MockedFunction<
+  typeof mockTelegramInstance.sendErrorAlert
+>;
+const mockSendStatisticsReport = jest.fn() as jest.MockedFunction<
+  typeof mockTelegramInstance.sendStatisticsReport
+>;
+const mockSendShutdownNotice = jest.fn() as jest.MockedFunction<
+  typeof mockTelegramInstance.sendShutdownNotice
+>;
+const mockSendMessage = jest.fn() as jest.MockedFunction<typeof mockTelegramInstance.sendMessage>;
+const mockGetBotInfo = jest.fn() as jest.MockedFunction<typeof mockTelegramInstance.getBotInfo>;
+(mockTelegramInstance as any).testConnection = mockTestConnection;
+(mockTelegramInstance as any).sendStartupNotice = mockSendStartupNotice;
+(mockTelegramInstance as any).sendNewListingNotification = mockSendNewListingNotification;
+(mockTelegramInstance as any).sendErrorAlert = mockSendErrorAlert;
+(mockTelegramInstance as any).sendStatisticsReport = mockSendStatisticsReport;
+(mockTelegramInstance as any).sendShutdownNotice = mockSendShutdownNotice;
+(mockTelegramInstance as any).sendMessage = mockSendMessage;
+(mockTelegramInstance as any).getBotInfo = mockGetBotInfo;
 
 describe.skip('MonitoringScheduler', () => {
   let scheduler: InstanceType<typeof MonitoringScheduler>;
@@ -84,7 +124,7 @@ describe.skip('MonitoringScheduler', () => {
     jest.clearAllMocks();
 
     // TelegramNotifierコンストラクタのモックをリセット
-    TelegramNotifier.mockClear();
+    (TelegramNotifier as unknown as jest.Mock).mockClear();
 
     // デフォルトのモック設定
     mockScrapeAthome.mockResolvedValue({
@@ -129,7 +169,7 @@ describe.skip('MonitoringScheduler', () => {
     });
 
     // TelegramNotifierコンストラクタモックの返り値を設定
-    TelegramNotifier.mockReturnValue(mockTelegramInstance);
+    (TelegramNotifier as unknown as jest.Mock).mockReturnValue(mockTelegramInstance);
 
     scheduler = new MonitoringScheduler('test-token', 'test-chat-id');
 

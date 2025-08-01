@@ -70,7 +70,7 @@ describe('PerformanceMonitor', () => {
   });
 
   describe('パフォーマンス表示', () => {
-    let consoleSpy: ReturnType<typeof jest.spyOn>;
+    let consoleSpy: jest.SpiedFunction<typeof console.log>;
 
     beforeEach(() => {
       consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});

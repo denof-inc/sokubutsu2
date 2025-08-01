@@ -5,8 +5,8 @@ import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
 // test-setup.tsでモックは設定済みのため、インポートのみ
-const { Logger, LogLevel, logger, vibeLogger } = await import('logger');
-const { createFileLogger } = await import('utils/vibe-logger-impl');
+const { Logger, LogLevel, logger, vibeLogger } = await import('../logger.js');
+const { createFileLogger } = await import('../utils/vibe-logger-impl.js');
 
 // モック関数への参照を取得
 const mockCreateFileLogger = createFileLogger as jest.Mock;
