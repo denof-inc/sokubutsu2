@@ -1,5 +1,5 @@
 import { config as loadEnv } from 'dotenv';
-import { Config } from './types';
+import { Config } from './types.js';
 
 // .envファイルを読み込む
 loadEnv();

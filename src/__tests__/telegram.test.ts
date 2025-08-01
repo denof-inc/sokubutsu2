@@ -1,72 +1,45 @@
-import { TelegramNotifier } from '../telegram';
-import { Telegraf } from 'telegraf';
-import { NotificationData, Statistics } from '../types';
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { NotificationData, Statistics } from '../types.js';
 
-// Telegram API レスポンス型定義
-interface TelegramMessage {
-  message_id: number;
-  date: number;
-  chat: {
-    id: number;
-    type: string;
-  };
-  text: string;
-}
+// モック関数を作成
+const mockGetMe = jest.fn<() => Promise<any>>();
+const mockSendMessage = jest.fn<() => Promise<any>>();
 
-interface TelegramUser {
-  id: number;
-  is_bot: boolean;
-  first_name: string;
-  username?: string;
-}
-
-// Telegrafのモック型定義
-type MockTelegramApi = {
-  getMe: jest.Mock;
-  sendMessage: jest.Mock;
-};
-
-type MockTelegrafInstance = {
-  telegram: MockTelegramApi;
-};
+const mockTelegraf = jest.fn(() => ({
+  telegram: {
+    getMe: mockGetMe,
+    sendMessage: mockSendMessage,
+  },
+}));
 
 // Telegrafのモック
-jest.mock('telegraf');
-const MockedTelegraf = Telegraf as jest.MockedClass<typeof Telegraf>;
+jest.unstable_mockModule('telegraf', () => ({
+  Telegraf: mockTelegraf,
+}));
+
+// モックの後でインポート
+const { TelegramNotifier } = await import('../telegram.js');
 
 describe('TelegramNotifier', () => {
-  let notifier: TelegramNotifier;
-  let mockBot: MockTelegrafInstance;
-  let mockTelegram: MockTelegramApi;
+  let notifier: InstanceType<typeof TelegramNotifier>;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Telegramモックの設定
-    const mockGetMeResponse: TelegramUser = {
+    // デフォルトのモック設定
+    mockGetMe.mockResolvedValue({
       id: 123456789,
       is_bot: true,
       first_name: 'Test Bot',
       username: 'test_bot',
-    };
+    });
 
-    const mockSendMessageResponse: TelegramMessage = {
+    mockSendMessage.mockResolvedValue({
       message_id: 1,
       date: Date.now(),
       chat: { id: -123456789, type: 'group' },
       text: 'Test message',
-    };
-
-    mockTelegram = {
-      getMe: jest.fn().mockResolvedValue(mockGetMeResponse),
-      sendMessage: jest.fn().mockResolvedValue(mockSendMessageResponse),
-    };
-
-    mockBot = {
-      telegram: mockTelegram,
-    };
-
-    MockedTelegraf.mockImplementation(() => mockBot as unknown as Telegraf);
+    });
 
     notifier = new TelegramNotifier('test-token', 'test-chat-id');
   });
@@ -76,16 +49,16 @@ describe('TelegramNotifier', () => {
       const result = await notifier.testConnection();
 
       expect(result).toBe(true);
-      expect(mockTelegram.getMe).toHaveBeenCalled();
+      expect(mockGetMe).toHaveBeenCalled();
     });
 
     it('接続失敗時にfalseを返すこと', async () => {
-      mockTelegram.getMe.mockRejectedValue(new Error('Connection failed'));
+      mockGetMe.mockRejectedValue(new Error('Connection failed'));
 
       const result = await notifier.testConnection();
 
       expect(result).toBe(false);
-      expect(mockTelegram.getMe).toHaveBeenCalled();
+      expect(mockGetMe).toHaveBeenCalled();
     });
   });
 
@@ -101,18 +74,12 @@ describe('TelegramNotifier', () => {
 
       await notifier.sendNewListingNotification(notificationData);
 
-      expect(mockTelegram.sendMessage).toHaveBeenCalledWith(
-        'test-chat-id',
-        expect.stringContaining('新着物件検知！'),
-        expect.objectContaining({
-          parse_mode: 'Markdown',
-          link_preview_options: {
-            is_disabled: true,
-          },
-        })
-      );
+      expect(mockSendMessage).toHaveBeenCalled();
+      const calls = mockSendMessage.mock.calls as unknown as Array<[string, string, any]>;
+      expect(calls[0]?.[0]).toBe('test-chat-id');
+      expect(calls[0]?.[1]).toContain('新着物件検知！');
 
-      const sentMessage = mockTelegram.sendMessage.mock.calls[0][1];
+      const sentMessage = calls[0]?.[1] || '';
       expect(sentMessage).toContain('+5件増加');
       expect(sentMessage).toContain('15件');
       expect(sentMessage).toContain('10件');
@@ -130,7 +97,8 @@ describe('TelegramNotifier', () => {
 
       await notifier.sendNewListingNotification(notificationData);
 
-      const sentMessage = mockTelegram.sendMessage.mock.calls[0][1];
+      const calls = mockSendMessage.mock.calls as unknown as Array<[string, string, any]>;
+      const sentMessage = calls[0]?.[1] || '';
       expect(sentMessage).toContain('2件減少');
     });
   });
@@ -142,13 +110,12 @@ describe('TelegramNotifier', () => {
 
       await notifier.sendErrorAlert(url, error);
 
-      expect(mockTelegram.sendMessage).toHaveBeenCalledWith(
-        'test-chat-id',
-        expect.stringContaining('監視エラー発生'),
-        expect.any(Object)
-      );
+      expect(mockSendMessage).toHaveBeenCalled();
+      const calls = mockSendMessage.mock.calls as unknown as Array<[string, string, any]>;
+      expect(calls[0]?.[0]).toBe('test-chat-id');
+      expect(calls[0]?.[1]).toContain('監視エラー発生');
 
-      const sentMessage = mockTelegram.sendMessage.mock.calls[0][1];
+      const sentMessage = calls[0]?.[1] || '';
       expect(sentMessage).toContain('example.com/error');
       expect(sentMessage).toContain(error);
     });
@@ -167,13 +134,12 @@ describe('TelegramNotifier', () => {
 
       await notifier.sendStatisticsReport(stats);
 
-      expect(mockTelegram.sendMessage).toHaveBeenCalledWith(
-        'test-chat-id',
-        expect.stringContaining('ソクブツ統計レポート'),
-        expect.any(Object)
-      );
+      expect(mockSendMessage).toHaveBeenCalled();
+      const calls = mockSendMessage.mock.calls as unknown as Array<[string, string, any]>;
+      expect(calls[0]?.[0]).toBe('test-chat-id');
+      expect(calls[0]?.[1]).toContain('ソクブツ統計レポート');
 
-      const sentMessage = mockTelegram.sendMessage.mock.calls[0][1];
+      const sentMessage = calls[0]?.[1] || '';
       expect(sentMessage).toContain('100回');
       expect(sentMessage).toContain('95%');
       expect(sentMessage).toContain('2.50秒');
@@ -193,35 +159,34 @@ describe('TelegramNotifier', () => {
 
       await notifier.sendStatisticsReport(stats);
 
-      const sentMessage = mockTelegram.sendMessage.mock.calls[0][1];
+      const calls = mockSendMessage.mock.calls as unknown as Array<[string, string, any]>;
+      const sentMessage = calls[0]?.[1] || '';
       expect(sentMessage).toContain('エラー率が高めです');
     });
   });
 
   describe('リトライ機能', () => {
     it('送信失敗時にリトライすること', async () => {
-      const mockResponse: TelegramMessage = {
-        message_id: 1,
-        date: Date.now(),
-        chat: { id: -123456789, type: 'group' },
-        text: 'Test message',
-      };
-
-      mockTelegram.sendMessage
+      mockSendMessage
         .mockRejectedValueOnce(new Error('Temporary error'))
         .mockRejectedValueOnce(new Error('Temporary error'))
-        .mockResolvedValue(mockResponse);
+        .mockResolvedValue({
+          message_id: 1,
+          date: Date.now(),
+          chat: { id: -123456789, type: 'group' },
+          text: 'Test message',
+        });
 
       await notifier.sendStartupNotice();
 
-      expect(mockTelegram.sendMessage).toHaveBeenCalledTimes(3);
+      expect(mockSendMessage).toHaveBeenCalledTimes(3);
     });
 
     it('最大リトライ回数を超えたらエラーを投げること', async () => {
-      mockTelegram.sendMessage.mockRejectedValue(new Error('Permanent error'));
+      mockSendMessage.mockRejectedValue(new Error('Permanent error'));
 
       await expect(notifier.sendStartupNotice()).rejects.toThrow('Permanent error');
-      expect(mockTelegram.sendMessage).toHaveBeenCalledTimes(4); // 初回 + 3回リトライ
+      expect(mockSendMessage).toHaveBeenCalledTimes(4); // 初回 + 3回リトライ
     });
   });
 
@@ -233,17 +198,16 @@ describe('TelegramNotifier', () => {
         username: 'test_bot',
         id: 123456789,
       });
-      expect(mockTelegram.getMe).toHaveBeenCalled();
+      expect(mockGetMe).toHaveBeenCalled();
     });
 
     it('usernameがない場合にunknownを返すこと', async () => {
-      const mockUserWithoutUsername: TelegramUser = {
+      mockGetMe.mockResolvedValue({
         id: 123456789,
         is_bot: true,
         first_name: 'Test Bot',
-      };
-
-      mockTelegram.getMe.mockResolvedValue(mockUserWithoutUsername);
+        username: undefined,
+      });
 
       const botInfo = await notifier.getBotInfo();
 

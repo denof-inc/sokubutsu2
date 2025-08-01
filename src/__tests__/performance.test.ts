@@ -1,3 +1,4 @@
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { PerformanceMonitor, performanceMonitor } from '../performance';
 
 describe('PerformanceMonitor', () => {
@@ -69,10 +70,10 @@ describe('PerformanceMonitor', () => {
   });
 
   describe('パフォーマンス表示', () => {
-    let consoleSpy: jest.SpyInstance;
+    let consoleSpy: jest.SpiedFunction<typeof console.log>;
 
     beforeEach(() => {
-      consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     });
 
     afterEach(() => {

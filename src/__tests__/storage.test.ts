@@ -1,4 +1,11 @@
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 /* eslint-disable @typescript-eslint/no-var-requires */
+
+// モック関数を作成
+const mockExistsSync = jest.fn();
+const mockReadFileSync = jest.fn();
+const mockWriteFileSync = jest.fn();
+const mockMkdirSync = jest.fn();
 
 // vibeloggerのモック
 jest.mock('vibelogger', () => {
@@ -13,40 +20,46 @@ jest.mock('vibelogger', () => {
   };
 });
 
-import { SimpleStorage } from '../storage';
-import * as fs from 'fs';
+// fsモジュールをモック
+jest.unstable_mockModule('fs', () => ({
+  __esModule: true,
+  existsSync: mockExistsSync,
+  readFileSync: mockReadFileSync,
+  writeFileSync: mockWriteFileSync,
+  mkdirSync: mockMkdirSync,
+}));
 
-// fs をモック化
-jest.mock('fs');
-const mockedFs = fs as jest.Mocked<typeof fs>;
+// モックの後でインポート
+await import('fs');
+const { SimpleStorage } = await import('../storage.js');
 
 describe('SimpleStorage', () => {
-  let storage: SimpleStorage;
+  let storage: InstanceType<typeof SimpleStorage>;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     // ディレクトリ存在チェックをモック
-    mockedFs.existsSync.mockReturnValue(true);
-    mockedFs.readFileSync.mockReturnValue('{}');
-    mockedFs.writeFileSync.mockImplementation(() => {});
-    mockedFs.mkdirSync.mockImplementation(() => '');
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(Buffer.from('{}'));
+    mockWriteFileSync.mockImplementation(() => {});
+    mockMkdirSync.mockImplementation(() => undefined);
 
     storage = new SimpleStorage();
   });
 
   describe('初期化', () => {
     it('データディレクトリが存在しない場合は作成すること', () => {
-      mockedFs.existsSync.mockReturnValue(false);
+      mockExistsSync.mockReturnValue(false);
 
       new SimpleStorage();
 
-      expect(mockedFs.mkdirSync).toHaveBeenCalledWith('./test-data', { recursive: true });
+      expect(mockMkdirSync).toHaveBeenCalledWith('./test-data', { recursive: true });
     });
 
     it('データ読み込みエラーが発生しても継続すること', () => {
-      mockedFs.existsSync.mockReturnValue(true);
-      mockedFs.readFileSync.mockImplementation(() => {
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockImplementation(() => {
         throw new Error('Read error');
       });
 
@@ -129,7 +142,7 @@ describe('SimpleStorage', () => {
 
       expect(backupPath).toContain('backup-');
       expect(backupPath).toContain('.json');
-      expect(mockedFs.writeFileSync).toHaveBeenCalled();
+      expect(mockWriteFileSync).toHaveBeenCalled();
     });
   });
 
@@ -162,7 +175,7 @@ describe('SimpleStorage', () => {
 
   describe('統計表示', () => {
     it('統計情報を表示できること', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
       storage.displayStats();
 
@@ -180,7 +193,7 @@ describe('SimpleStorage', () => {
 
   describe('データ保存エラー処理', () => {
     it('保存エラーが発生してもクラッシュしないこと', () => {
-      mockedFs.writeFileSync.mockImplementation(() => {
+      mockWriteFileSync.mockImplementation(() => {
         throw new Error('Write error');
       });
 

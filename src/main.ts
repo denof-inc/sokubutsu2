@@ -1,7 +1,7 @@
-import { config, validateConfig, displayConfig } from './config';
-import { MonitoringScheduler } from './scheduler';
-import { logger, vibeLogger } from './logger';
-import { performanceMonitor } from './performance';
+import { config, validateConfig, displayConfig } from './config.js';
+import { MonitoringScheduler } from './scheduler.js';
+import { logger, vibeLogger } from './logger.js';
+import { performanceMonitor } from './performance.js';
 
 /**
  * メイン関数

@@ -1,10 +1,10 @@
 import * as cron from 'node-cron';
-import { SimpleScraper } from './scraper';
-import { TelegramNotifier } from './telegram';
-import { SimpleStorage } from './storage';
-import { PropertyMonitor } from './property-monitor';
-import { NewPropertyDetectionResult } from './types';
-import { vibeLogger } from './logger';
+import { SimpleScraper } from './scraper.js';
+import { TelegramNotifier } from './telegram.js';
+import { SimpleStorage } from './storage.js';
+import { PropertyMonitor } from './property-monitor.js';
+import { NewPropertyDetectionResult } from './types.js';
+import { vibeLogger } from './logger.js';
 
 /**
  * 監視スケジューラー

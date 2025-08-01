@@ -1,8 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Statistics } from './types';
-import { config } from './config';
-import { vibeLogger } from './logger';
+import { Statistics } from './types.js';
+import { config } from './config.js';
+import { vibeLogger } from './logger.js';
 
 /**
  * シンプルなJSONファイルストレージ

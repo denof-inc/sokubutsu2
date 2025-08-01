@@ -2,6 +2,8 @@
  * Jest テスト環境設定
  */
 
+import { jest } from '@jest/globals';
+
 // テスト用環境変数設定
 process.env.NODE_ENV = 'test';
 process.env.TELEGRAM_BOT_TOKEN = 'test_bot_token';
@@ -18,6 +20,11 @@ global.console = {
   warn: jest.fn(),
   error: jest.fn(),
 };
+
+// グローバルモックの設定
+(globalThis as any).__JEST_MOCK_REGISTRY__ = new Map();
+
+// 共通モックの事前登録 - 最小限に留める
 
 // テスト後のクリーンアップ
 afterEach(() => {

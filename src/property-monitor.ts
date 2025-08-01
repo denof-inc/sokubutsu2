@@ -1,6 +1,6 @@
-import { SimpleStorage } from './storage';
-import { PropertyMonitoringData, NewPropertyDetectionResult, MonitoringStatistics } from './types';
-import { vibeLogger } from './logger';
+import { SimpleStorage } from './storage.js';
+import { PropertyMonitoringData, NewPropertyDetectionResult, MonitoringStatistics } from './types.js';
+import { vibeLogger } from './logger.js';
 
 /**
  * 新着物件監視サービス

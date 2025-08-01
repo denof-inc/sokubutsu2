@@ -1,5 +1,5 @@
-import { PerformanceMetrics } from './types';
-import { vibeLogger } from './logger';
+import { PerformanceMetrics } from './types.js';
+import { vibeLogger } from './logger.js';
 
 /**
  * パフォーマンス監視クラス

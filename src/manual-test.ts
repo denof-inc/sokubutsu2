@@ -1,9 +1,9 @@
-import { config, validateConfig, displayConfig } from './config';
-import { SimpleScraper } from './scraper';
-import { TelegramNotifier } from './telegram';
-import { SimpleStorage } from './storage';
-import { PropertyMonitor } from './property-monitor';
-import { performanceMonitor } from './performance';
+import { config, validateConfig, displayConfig } from './config.js';
+import { SimpleScraper } from './scraper.js';
+import { TelegramNotifier } from './telegram.js';
+import { SimpleStorage } from './storage.js';
+import { PropertyMonitor } from './property-monitor.js';
+import { performanceMonitor } from './performance.js';
 
 /**
  * 手動テスト実行
