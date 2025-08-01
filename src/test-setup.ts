@@ -24,6 +24,8 @@ global.console = {
 // グローバルモックの設定
 (globalThis as any).__JEST_MOCK_REGISTRY__ = new Map();
 
+// 共通モックの事前登録 - 最小限に留める
+
 // テスト後のクリーンアップ
 afterEach(() => {
   jest.clearAllMocks();
