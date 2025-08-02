@@ -1,5 +1,9 @@
 import { SimpleStorage } from './storage.js';
-import { PropertyMonitoringData, NewPropertyDetectionResult, MonitoringStatistics } from './types.js';
+import {
+  PropertyMonitoringData,
+  NewPropertyDetectionResult,
+  MonitoringStatistics,
+} from './types.js';
 import { vibeLogger } from './logger.js';
 
 /**

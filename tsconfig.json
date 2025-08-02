@@ -1,37 +1,67 @@
 {
   "compilerOptions": {
+    /* Language and Environment */
     "target": "ES2022",
     "module": "ES2022",
     "lib": ["ES2022"],
+    "moduleResolution": "node",
+    "moduleDetection": "auto",
+    
+    /* Emit */
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    },
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
     "removeComments": true,
+    "newLine": "lf",
+    "noEmitOnError": true,
+    
+    /* Interop Constraints */
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": false,
+    
+    /* Type Checking */
+    "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
     "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "useUnknownInCatchVariables": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "exactOptionalPropertyTypes": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    "isolatedModules": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": false,
+    
+    /* Completeness */
+    "skipLibCheck": true,
+    
+    /* Projects */
+    "composite": false,
+    
+    /* JavaScript Support */
     "allowJs": true,
-    "allowImportingTsExtensions": false,
-    "verbatimModuleSyntax": false
+    "checkJs": false,
+    
+    /* Experimental */
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "coverage"],
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  }
 }
