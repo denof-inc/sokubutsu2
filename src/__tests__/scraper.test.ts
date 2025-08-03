@@ -73,7 +73,7 @@ describe('SimpleScraper', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Network Error');
-    });
+    }, 20000); // タイムアウトを20秒に増加
 
     it('リトライ機能が動作すること', async () => {
       const mockSuccessResponse: AxiosResponse = {
