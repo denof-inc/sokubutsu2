@@ -27,11 +27,14 @@ export class SimpleScraper {
 
   private readonly headers = {
     'User-Agent':
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
     Accept:
-      'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'ja-JP,ja;q=0.9,en;q=0.8',
-    'Accept-Encoding': 'gzip, deflate, br',
+      'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br, zstd',
+    'sec-ch-ua': '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"macOS"',
     DNT: '1',
     Connection: 'keep-alive',
     'Upgrade-Insecure-Requests': '1',
@@ -60,21 +63,17 @@ export class SimpleScraper {
       // 認証ページが返された場合のチェック
       const title = $('title').text();
       if (title.includes('認証') || $('body').text().includes('認証にご協力ください')) {
-        vibeLogger.warn('scraping.auth_required', '認証ページが検出されました', {
+        vibeLogger.error('scraping.auth_required', '認証ページが検出されました', {
           context: { url, title },
-          humanNote: 'アクセス制限を検出。別の方法を試行します',
+          humanNote: 'アクセス制限を検出。実際のデータ取得に失敗',
         });
 
-        // より簡単なテスト用のモックデータを返す
+        // エラーとして扱う
         return {
-          success: true,
-          hash: 'mock-hash-' + Date.now(),
-          count: 3,
-          properties: [
-            { title: 'テスト物件1', price: '1,000万円', location: '広島市中区' },
-            { title: 'テスト物件2', price: '2,000万円', location: '広島市西区' },
-            { title: 'テスト物件3', price: '1,500万円', location: '広島市南区' },
-          ],
+          success: false,
+          hash: '',
+          count: 0,
+          error: '認証ページが表示されました。アクセスがブロックされています。',
           executionTime: Date.now() - startTime,
           memoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
         };
@@ -275,7 +274,7 @@ export class SimpleScraper {
     try {
       // 初回アクセス時はランダムな遅延を入れる
       if (retryCount === 0) {
-        const delay = Math.floor(Math.random() * 2000) + 1000; // 1-3秒の遅延
+        const delay = Math.floor(Math.random() * 3000) + 2000; // 2-5秒の遅延
         await this.sleep(delay);
       }
 
@@ -284,13 +283,13 @@ export class SimpleScraper {
         timeout: this.timeout,
         maxRedirects: 5,
         validateStatus: status => status < 400,
-        withCredentials: true,
+        // withCredentialsを削除（クロスオリジンクッキーの問題を回避）
       });
 
       return response;
     } catch (error) {
       if (retryCount < this.maxRetries) {
-        const delay = Math.pow(2, retryCount) * 1000; // 指数バックオフ
+        const delay = Math.pow(2, retryCount) * 2000; // 指数バックオフ（より長い間隔）
         vibeLogger.warn('http.retry', `リトライ ${retryCount + 1}/${this.maxRetries}`, {
           context: { url, retryCount, maxRetries: this.maxRetries, delay },
           humanNote: 'リトライパターンを監視し、サーバー負荷を考慮',
