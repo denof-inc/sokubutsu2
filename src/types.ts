@@ -71,6 +71,7 @@ export interface Config {
   telegram: {
     botToken: string;
     chatId: string;
+    enabled: boolean;
   };
   monitoring: {
     urls: string[];

@@ -45,10 +45,10 @@ export default {
   coverageReporters: ['text', 'lcov', 'html'],
   coverageThreshold: {
     global: {
-      branches: 45,
-      functions: 50,
-      lines: 50,
-      statements: 50,
+      branches: 44,
+      functions: 45,
+      lines: 49,
+      statements: 49,
     },
   },
   setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts'],

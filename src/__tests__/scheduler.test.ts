@@ -117,14 +117,14 @@ const mockGetBotInfo = jest.fn() as jest.MockedFunction<typeof mockTelegramInsta
 (mockTelegramInstance as any).sendMessage = mockSendMessage;
 (mockTelegramInstance as any).getBotInfo = mockGetBotInfo;
 
-describe.skip('MonitoringScheduler', () => {
+describe.skip('MonitoringScheduler - Complex Mock', () => {
   let scheduler: InstanceType<typeof MonitoringScheduler>;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     // TelegramNotifierコンストラクタのモックをリセット
-    (TelegramNotifier as unknown as jest.Mock).mockClear();
+    // TelegramNotifierは実際のクラスなのでmockClearは不要
 
     // デフォルトのモック設定
     mockScrapeAthome.mockResolvedValue({
@@ -169,7 +169,7 @@ describe.skip('MonitoringScheduler', () => {
     });
 
     // TelegramNotifierコンストラクタモックの返り値を設定
-    (TelegramNotifier as unknown as jest.Mock).mockReturnValue(mockTelegramInstance);
+    // TelegramNotifierは実際のクラスなので、この設定は不要
 
     scheduler = new MonitoringScheduler('test-token', 'test-chat-id');
 
