@@ -15,7 +15,7 @@ const mockWarn = vibeLogger.warn as jest.Mock;
 const mockInfo = vibeLogger.info as jest.Mock;
 const mockDebug = vibeLogger.debug as jest.Mock;
 
-describe.skip('Logger', () => {
+describe('Logger', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
