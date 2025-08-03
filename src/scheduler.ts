@@ -45,22 +45,29 @@ export class MonitoringScheduler {
   /**
    * 監視開始
    */
-  async start(urls: string[]): Promise<void> {
+  async start(urls: string[], telegramEnabled: boolean = true): Promise<void> {
     vibeLogger.info('monitoring.start', `監視開始: ${urls.length}件のURL`, {
-      context: { urlCount: urls.length, urls },
+      context: { urlCount: urls.length, urls, telegramEnabled },
       humanNote: 'システムの監視プロセスを開始',
     });
 
-    // Telegram接続テスト
-    const isConnected = await this.telegram.testConnection();
-    if (!isConnected) {
-      vibeLogger.warn('scheduler.telegram_skip', 'Telegram接続失敗のため通知機能をスキップ', {
-        context: { testMode: true },
-        humanNote: 'テストモードのため継続',
-      });
+    if (telegramEnabled) {
+      // Telegram接続テスト
+      const isConnected = await this.telegram.testConnection();
+      if (!isConnected) {
+        vibeLogger.warn('scheduler.telegram_skip', 'Telegram接続失敗のため通知機能をスキップ', {
+          context: { testMode: true },
+          humanNote: 'テストモードのため継続',
+        });
+      } else {
+        // 起動通知
+        await this.telegram.sendStartupNotice();
+      }
     } else {
-      // 起動通知
-      await this.telegram.sendStartupNotice();
+      vibeLogger.info('scheduler.telegram_disabled', 'Telegram通知は無効化されています', {
+        context: { telegramEnabled: false },
+        humanNote: 'テストモードでの統計表示',
+      });
     }
 
     // 5分間隔で監視（毎時0,5,10,15...分に実行）
@@ -73,19 +80,19 @@ export class MonitoringScheduler {
         return;
       }
 
-      void this.runMonitoringCycle(urls);
+      void this.runMonitoringCycle(urls, telegramEnabled);
     });
 
     // 1時間ごとに統計レポート送信
     this.statsJob = cron.schedule('0 * * * *', () => {
-      void this.sendStatisticsReport();
+      void this.sendStatisticsReport(telegramEnabled);
     });
 
     // 初回実行
     vibeLogger.info('monitoring.initial_check', '初回チェックを実行します...', {
       context: { urls },
     });
-    await this.runMonitoringCycle(urls);
+    await this.runMonitoringCycle(urls, telegramEnabled);
     vibeLogger.info('monitoring.initial_check_complete', '初回チェック完了', {
       humanNote: 'システムが正常に稼働開始',
     });
@@ -94,7 +101,7 @@ export class MonitoringScheduler {
   /**
    * 監視サイクル実行
    */
-  private async runMonitoringCycle(urls: string[]): Promise<void> {
+  private async runMonitoringCycle(urls: string[], telegramEnabled: boolean = true): Promise<void> {
     this.isRunning = true;
     const cycleStartTime = Date.now();
 
@@ -112,7 +119,7 @@ export class MonitoringScheduler {
 
     for (const url of urls) {
       try {
-        await this.monitorUrl(url);
+        await this.monitorUrl(url, telegramEnabled);
         successCount++;
         this.consecutiveErrors = 0; // 成功時はリセット
 
@@ -138,7 +145,7 @@ export class MonitoringScheduler {
         });
 
         // 連続エラーが多い場合は警告
-        if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
+        if (telegramEnabled && this.consecutiveErrors >= this.maxConsecutiveErrors) {
           await this.telegram.sendErrorAlert(url, `連続エラー${this.consecutiveErrors}回`);
         }
       }
@@ -156,13 +163,18 @@ export class MonitoringScheduler {
       humanNote: '監視サイクルのパフォーマンスを確認',
     });
 
+    // Telegram無効時は統計を表示
+    if (!telegramEnabled) {
+      this.displayStatisticsToConsole();
+    }
+
     this.isRunning = false;
   }
 
   /**
    * URL監視
    */
-  private async monitorUrl(url: string): Promise<void> {
+  private async monitorUrl(url: string, telegramEnabled: boolean = true): Promise<void> {
     vibeLogger.info('monitoring.url.check', `チェック開始: ${url}`, {
       context: { url },
     });
@@ -173,7 +185,9 @@ export class MonitoringScheduler {
 
     if (!result.success) {
       this.storage.incrementErrors();
-      await this.telegram.sendErrorAlert(url, result.error || '不明なエラー');
+      if (telegramEnabled) {
+        await this.telegram.sendErrorAlert(url, result.error || '不明なエラー');
+      }
       return;
     }
 
@@ -208,7 +222,9 @@ export class MonitoringScheduler {
       this.storage.incrementNewListings();
 
       // 新着物件通知を送信
-      await this.sendNewPropertyNotification(detectionResult, url);
+      if (telegramEnabled) {
+        await this.sendNewPropertyNotification(detectionResult, url);
+      }
       this.storage.setHash(url, result.hash);
     } else {
       // 変化なし
@@ -310,13 +326,17 @@ export class MonitoringScheduler {
   /**
    * 統計レポート送信
    */
-  private async sendStatisticsReport(): Promise<void> {
+  private async sendStatisticsReport(telegramEnabled: boolean = true): Promise<void> {
     try {
       const stats = this.storage.getStats();
-      await this.telegram.sendStatisticsReport(stats);
-      vibeLogger.info('monitoring.stats_report_sent', '統計レポート送信完了', {
-        context: { stats },
-      });
+      if (telegramEnabled) {
+        await this.telegram.sendStatisticsReport(stats);
+        vibeLogger.info('monitoring.stats_report_sent', '統計レポート送信完了', {
+          context: { stats },
+        });
+      } else {
+        this.displayStatisticsToConsole();
+      }
     } catch (error) {
       vibeLogger.error('monitoring.stats_report_error', '統計レポート送信エラー', {
         context: {
@@ -382,11 +402,11 @@ export class MonitoringScheduler {
   /**
    * 手動実行（テスト用）
    */
-  async runManualCheck(urls: string[]): Promise<void> {
+  async runManualCheck(urls: string[], telegramEnabled: boolean = true): Promise<void> {
     vibeLogger.info('monitoring.manual_check_start', '手動チェック開始', {
       context: { urls },
     });
-    await this.runMonitoringCycle(urls);
+    await this.runMonitoringCycle(urls, telegramEnabled);
     vibeLogger.info('monitoring.manual_check_complete', '手動チェック完了', {
       humanNote: '手動チェックが正常に完了',
     });
@@ -401,5 +421,34 @@ export class MonitoringScheduler {
       consecutiveErrors: this.consecutiveErrors,
       hasJobs: this.cronJob !== null && this.statsJob !== null,
     };
+  }
+
+  /**
+   * 統計情報をコンソールに表示
+   */
+  private displayStatisticsToConsole(): void {
+    const stats = this.storage.getStats();
+    const monitoringStats = this.propertyMonitor.getMonitoringStatistics();
+
+    console.log('\n📊 監視統計レポート');
+    console.log('===================');
+    console.log(`📅 ${new Date().toLocaleString('ja-JP')}`);
+    console.log();
+    console.log('📈 全体統計:');
+    console.log(`  • 総チェック数: ${stats.totalChecks}回`);
+    console.log(`  • 成功率: ${stats.successRate}%`);
+    console.log(`  • 平均実行時間: ${stats.averageExecutionTime.toFixed(2)}秒`);
+    console.log();
+    console.log('🏠 物件監視統計:');
+    console.log(`  • 新着検知回数: ${monitoringStats.newPropertyDetections}回`);
+    console.log(`  • 最終監視: ${monitoringStats.lastCheckAt.toLocaleString('ja-JP')}`);
+    if (monitoringStats.lastNewPropertyAt) {
+      console.log(`  • 最終新着検知: ${monitoringStats.lastNewPropertyAt.toLocaleString('ja-JP')}`);
+    }
+    console.log();
+    console.log('⚠️  エラー統計:');
+    console.log(`  • エラー回数: ${stats.errors}回`);
+    console.log(`  • エラー率: ${(100 - stats.successRate).toFixed(1)}%`);
+    console.log('===================\n');
   }
 }

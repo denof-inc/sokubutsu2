@@ -47,7 +47,7 @@ async function main(): Promise<void> {
   const scheduler = new MonitoringScheduler(config.telegram.botToken, config.telegram.chatId);
 
   try {
-    await scheduler.start(config.monitoring.urls);
+    await scheduler.start(config.monitoring.urls, config.telegram.enabled);
 
     console.log('✅ 監視を開始しました。5分間隔で実行されます。');
     console.log('📊 統計レポートは1時間ごとに送信されます。');

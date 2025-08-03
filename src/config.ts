@@ -11,6 +11,7 @@ export const config: Config = {
   telegram: {
     botToken: process.env.TELEGRAM_BOT_TOKEN || '',
     chatId: process.env.TELEGRAM_CHAT_ID || '',
+    enabled: process.env.TELEGRAM_ENABLED !== 'false',
   },
   monitoring: {
     urls: process.env.MONITORING_URLS
@@ -80,6 +81,7 @@ export function displayConfig(): void {
   console.log('⚙️  設定情報:');
   console.log(`  - Telegram Bot Token: ${config.telegram.botToken.substring(0, 10)}...`);
   console.log(`  - Telegram Chat ID: ${config.telegram.chatId}`);
+  console.log(`  - Telegram通知: ${config.telegram.enabled ? '有効' : '無効'}`);
   console.log(`  - 監視URL数: ${config.monitoring.urls.length}件`);
   config.monitoring.urls.forEach((url, index) => {
     console.log(`    ${index + 1}. ${url}`);
