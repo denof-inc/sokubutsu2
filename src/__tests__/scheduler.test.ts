@@ -117,7 +117,7 @@ const mockGetBotInfo = jest.fn() as jest.MockedFunction<typeof mockTelegramInsta
 (mockTelegramInstance as any).sendMessage = mockSendMessage;
 (mockTelegramInstance as any).getBotInfo = mockGetBotInfo;
 
-describe.skip('MonitoringScheduler', () => {
+describe.skip('MonitoringScheduler - Complex Mock', () => {
   let scheduler: InstanceType<typeof MonitoringScheduler>;
 
   beforeEach(() => {
