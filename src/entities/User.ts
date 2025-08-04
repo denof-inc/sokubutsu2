@@ -5,8 +5,9 @@ import {
   OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
+  type Relation,
 } from 'typeorm';
-import { UserUrl } from './UserUrl.js';
+import type { UserUrl } from './UserUrl.js';
 
 @Entity('users')
 export class User {
@@ -28,8 +29,8 @@ export class User {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @OneToMany(() => UserUrl, userUrl => userUrl.user)
-  urls!: UserUrl[];
+  @OneToMany('UserUrl', 'user')
+  urls!: Relation<UserUrl[]>;
 
   // ビジネスロジック
   canAddUrl(): boolean {

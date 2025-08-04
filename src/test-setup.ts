@@ -22,9 +22,51 @@ global.console = {
 };
 
 // グローバルモックの設定
-(globalThis as any).__JEST_MOCK_REGISTRY__ = new Map();
+// @ts-expect-error - テスト用のグローバル設定
+globalThis.__JEST_MOCK_REGISTRY__ = new Map();
 
 // 共通モックの事前登録 - 最小限に留める
+// ESMモジュールの手動モック設定
+jest.mock('./storage.js', () => {
+  const mockStorage = {
+    load: jest.fn(),
+    save: jest.fn(),
+    updateStatistics: jest.fn(),
+  };
+  return {
+    SimpleStorage: jest.fn(() => mockStorage),
+  };
+});
+
+jest.mock('./telegram.js', () => ({
+  TelegramNotifier: jest.fn().mockImplementation(() => ({
+    sendMessage: jest.fn(),
+    sendNewListingNotification: jest.fn(),
+    sendErrorAlert: jest.fn(),
+    sendStatisticsReport: jest.fn(),
+    testConnection: jest.fn(),
+    getBotInfo: jest.fn(),
+  })),
+}));
+
+jest.mock('./logger.js', () => ({
+  vibeLogger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    step: jest.fn(),
+    success: jest.fn(),
+  },
+}));
+
+jest.mock('./database/connection.js', () => ({
+  AppDataSource: {
+    getRepository: jest.fn(),
+    isInitialized: false,
+    initialize: jest.fn(),
+  },
+}));
 
 // テスト後のクリーンアップ
 afterEach(() => {

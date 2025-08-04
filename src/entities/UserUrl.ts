@@ -6,8 +6,9 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   JoinColumn,
+  type Relation,
 } from 'typeorm';
-import { User } from './User.js';
+import type { User } from './User.js';
 
 @Entity('user_urls')
 export class UserUrl {
@@ -38,9 +39,9 @@ export class UserUrl {
   @Column()
   userId!: string;
 
-  @ManyToOne(() => User, user => user.urls)
+  @ManyToOne('User', 'urls')
   @JoinColumn({ name: 'userId' })
-  user!: User;
+  user!: Relation<User>;
 
   // 最後の監視結果
   @Column({ nullable: true })
