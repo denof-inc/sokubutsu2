@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { PropertyMonitor } from '../property-monitor.js';
 import { PropertyMonitoringData } from '../types.js';
+import { isDefined } from '../types/test.js';
 
 // モジュール全体のモック
 const mockStorage = {
@@ -132,7 +133,11 @@ describe('PropertyMonitor', () => {
       propertyMonitor.detectNewProperties(currentProperties);
 
       expect(mockStorage.updateStatistics).toHaveBeenCalled();
-      const updateCall = (mockStorage.updateStatistics as jest.Mock).mock.calls[0][0];
+      const updateCalls = (mockStorage.updateStatistics as jest.Mock).mock.calls;
+      if (!isDefined(updateCalls[0])) {
+        throw new Error('updateStatistics was not called');
+      }
+      const updateCall = updateCalls[0][0] as { hasNewProperty: boolean };
       expect(updateCall.hasNewProperty).toBe(true);
     });
 
@@ -146,8 +151,15 @@ describe('PropertyMonitor', () => {
       propertyMonitor.detectNewProperties(currentProperties);
 
       expect(mockStorage.save).toHaveBeenCalled();
-      const saveCall = (mockStorage.save as jest.Mock).mock.calls[0];
+      const saveCalls = (mockStorage.save as jest.Mock).mock.calls;
+      
+      if (!isDefined(saveCalls[0])) {
+        throw new Error('save method was not called');
+      }
+      
+      const saveCall = saveCalls[0];
       expect(saveCall[0]).toBe('previous_properties');
+      expect(saveCall[1]).toBeDefined();
       expect(saveCall[1]).toHaveLength(1);
       expect(saveCall[1][0].title).toBe('物件A');
     });

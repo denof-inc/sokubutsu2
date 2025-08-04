@@ -235,7 +235,7 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
   async getBotInfo(): Promise<{ username: string; id: number }> {
     const me = await this.bot.telegram.getMe();
     return {
-      username: me.username || 'unknown',
+      username: me.username ?? 'unknown',
       id: me.id,
     };
   }

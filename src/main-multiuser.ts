@@ -31,7 +31,7 @@ export async function startMultiUserMode(): Promise<void> {
     // 管理者サーバー起動
     if (config.admin?.enabled !== false) {
       const adminServer = new AdminServer();
-      adminServer.start(config.admin?.port || 3001);
+      adminServer.start(config.admin?.port ?? 3001);
     }
 
     console.log('✅ マルチユーザーモード起動完了');
@@ -39,7 +39,7 @@ export async function startMultiUserMode(): Promise<void> {
       context: {
         telegramEnabled: config.telegram.enabled,
         adminEnabled: config.admin?.enabled !== false,
-        adminPort: config.admin?.port || 3001,
+        adminPort: config.admin?.port ?? 3001,
       },
       humanNote: 'ソクブツがマルチユーザーモードで起動しました',
     });

@@ -34,12 +34,12 @@ export class User {
 
   // ビジネスロジック
   canAddUrl(): boolean {
-    const activeUrls = this.urls?.filter(url => url.isActive) || [];
+    const activeUrls = this.urls?.filter(url => url.isActive) ?? [];
     return activeUrls.length < 3; // RFP要件: 1-3件制限
   }
 
   getUrlsByPrefecture(prefecture: string): UserUrl[] {
-    return this.urls?.filter(url => url.prefecture === prefecture && url.isActive) || [];
+    return this.urls?.filter(url => url.prefecture === prefecture && url.isActive) ?? [];
   }
 
   canAddUrlInPrefecture(prefecture: string): boolean {

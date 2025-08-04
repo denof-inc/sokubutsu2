@@ -85,9 +85,9 @@ export class PropertyMonitor {
   private convertToMonitoringData(properties: any[]): PropertyMonitoringData[] {
     return properties.map(property => ({
       signature: this.createPropertySignature(property),
-      title: property.title || '',
-      price: property.price || '',
-      location: property.location || '',
+      title: property.title ?? '',
+      price: property.price ?? '',
+      location: property.location ?? '',
       detectedAt: new Date(),
     }));
   }
