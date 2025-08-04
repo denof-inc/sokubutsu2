@@ -31,6 +31,19 @@ export const config: Config = {
   storage: {
     dataDir: process.env.DATA_DIR || './data',
   },
+  database: {
+    type: 'sqlite' as const,
+    database: process.env.DATABASE_PATH || './data/sokubutsu.db',
+    synchronize: process.env.NODE_ENV !== 'production',
+    logging: process.env.DATABASE_LOGGING === 'true',
+  },
+  admin: {
+    port: parseInt(process.env.ADMIN_PORT || '3001', 10),
+    enabled: process.env.ADMIN_ENABLED !== 'false',
+  },
+  multiUser: {
+    enabled: process.env.MULTI_USER_MODE === 'true',
+  },
 };
 
 /**

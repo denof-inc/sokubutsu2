@@ -7,6 +7,14 @@ import { performanceMonitor } from './performance.js';
  * メイン関数
  */
 async function main(): Promise<void> {
+  // マルチユーザーモードチェック
+  if (config.multiUser?.enabled) {
+    console.log('🔄 マルチユーザーモードで起動します...');
+    const { startMultiUserMode } = await import('./main-multiuser.js');
+    await startMultiUserMode();
+    return;
+  }
+
   console.log('===========================================');
   console.log('   ソクブツ MVP - 新着物件通知サービス   ');
   console.log('     完全リセット戦略準拠実装版         ');

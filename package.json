@@ -10,6 +10,8 @@
     "start": "node dist/main.js",
     "start:dev": "node --loader tsx --no-warnings src/main.ts",
     "start:dev:watch": "node --loader tsx --watch --no-warnings src/main.ts",
+    "start:multiuser": "MULTI_USER_MODE=true node --loader tsx --no-warnings src/main.ts",
+    "start:multiuser:dev": "MULTI_USER_MODE=true node --loader tsx --watch --no-warnings src/main.ts",
     "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
     "test:watch": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --watch",
     "test:coverage": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --coverage",
@@ -31,11 +33,17 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.3",
     "axios": "^1.6.0",
+    "better-sqlite3": "^11.10.0",
     "cheerio": "^1.0.0-rc.12",
     "dotenv": "^17.2.1",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
     "node-cron": "^3.0.3",
-    "telegraf": "^4.15.0",
+    "telegraf": "^4.16.3",
+    "typeorm": "^0.3.25",
     "vibelogger": "^0.1.0"
   },
   "devDependencies": {
