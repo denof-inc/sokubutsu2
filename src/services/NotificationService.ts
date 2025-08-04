@@ -6,12 +6,11 @@ import { vibeLogger } from '../logger.js';
 
 export class NotificationService {
   private readonly userService: UserService;
-  private readonly telegramNotifier: TelegramNotifier;
+  private readonly botToken: string;
 
   constructor(botToken: string) {
     this.userService = new UserService();
-    // 古いTelegramNotifierを使用（互換性のため）
-    this.telegramNotifier = new TelegramNotifier(botToken, ''); // Chat IDは動的設定
+    this.botToken = botToken;
   }
 
   /**
@@ -113,9 +112,9 @@ ${
    */
   private async sendMessageToUser(chatId: string, message: string): Promise<void> {
     try {
-      // 既存のTelegramNotifierのメソッドをオーバーライドして使用
-      (this.telegramNotifier as any).chatId = chatId;
-      await this.telegramNotifier.sendMessage(message);
+      // TelegramNotifierの新しいインスタンスを作成してユーザー個別送信
+      const userNotifier = new TelegramNotifier(this.botToken, chatId);
+      await userNotifier.sendMessage(message);
 
       vibeLogger.info('notification.sent', 'ユーザーへ通知送信', {
         context: { chatId, messageLength: message.length },

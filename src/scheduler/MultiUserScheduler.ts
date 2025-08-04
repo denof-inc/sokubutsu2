@@ -122,7 +122,7 @@ export class MultiUserMonitoringScheduler {
 
       // 新着物件検知
       const detectionResult = this.propertyMonitor.detectNewProperties(
-        scrapingResult.properties || []
+        scrapingResult.properties ?? []
       );
 
       // ハッシュ更新

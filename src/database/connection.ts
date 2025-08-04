@@ -6,7 +6,7 @@ import { vibeLogger } from '../logger.js';
 
 export const AppDataSource = new DataSource({
   type: 'better-sqlite3',
-  database: config.database?.database || `${config.storage.dataDir}/sokubutsu.db`,
+  database: config.database?.database ?? `${config.storage.dataDir}/sokubutsu.db`,
   entities: [User, UserUrl],
   synchronize: config.database?.synchronize ?? true,
   logging: config.database?.logging ?? config.app.env === 'development',
@@ -19,7 +19,7 @@ export async function initializeDatabase(): Promise<void> {
       console.log('✅ データベース接続完了');
       vibeLogger.info('database.initialized', 'データベース接続完了', {
         context: {
-          database: config.database?.database || `${config.storage.dataDir}/sokubutsu.db`,
+          database: config.database?.database ?? `${config.storage.dataDir}/sokubutsu.db`,
           entities: ['User', 'UserUrl'],
           synchronize: config.database?.synchronize ?? true,
         },

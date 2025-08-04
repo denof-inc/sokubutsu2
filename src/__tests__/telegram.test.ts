@@ -79,7 +79,7 @@ describe('TelegramNotifier', () => {
       expect(calls[0]?.[0]).toBe('test-chat-id');
       expect(calls[0]?.[1]).toContain('新着物件検知！');
 
-      const sentMessage = calls[0]?.[1] || '';
+      const sentMessage = calls[0]?.[1] ?? '';
       expect(sentMessage).toContain('+5件増加');
       expect(sentMessage).toContain('15件');
       expect(sentMessage).toContain('10件');
@@ -98,7 +98,7 @@ describe('TelegramNotifier', () => {
       await notifier.sendNewListingNotification(notificationData);
 
       const calls = mockSendMessage.mock.calls as unknown as Array<[string, string, any]>;
-      const sentMessage = calls[0]?.[1] || '';
+      const sentMessage = calls[0]?.[1] ?? '';
       expect(sentMessage).toContain('2件減少');
     });
   });
@@ -115,7 +115,7 @@ describe('TelegramNotifier', () => {
       expect(calls[0]?.[0]).toBe('test-chat-id');
       expect(calls[0]?.[1]).toContain('監視エラー発生');
 
-      const sentMessage = calls[0]?.[1] || '';
+      const sentMessage = calls[0]?.[1] ?? '';
       expect(sentMessage).toContain('example.com/error');
       expect(sentMessage).toContain(error);
     });
@@ -139,7 +139,7 @@ describe('TelegramNotifier', () => {
       expect(calls[0]?.[0]).toBe('test-chat-id');
       expect(calls[0]?.[1]).toContain('ソクブツ統計レポート');
 
-      const sentMessage = calls[0]?.[1] || '';
+      const sentMessage = calls[0]?.[1] ?? '';
       expect(sentMessage).toContain('100回');
       expect(sentMessage).toContain('95%');
       expect(sentMessage).toContain('2.50秒');
@@ -160,7 +160,7 @@ describe('TelegramNotifier', () => {
       await notifier.sendStatisticsReport(stats);
 
       const calls = mockSendMessage.mock.calls as unknown as Array<[string, string, any]>;
-      const sentMessage = calls[0]?.[1] || '';
+      const sentMessage = calls[0]?.[1] ?? '';
       expect(sentMessage).toContain('エラー率が高めです');
     });
   });
