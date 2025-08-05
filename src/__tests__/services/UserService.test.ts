@@ -43,12 +43,11 @@ describe('UserService', () => {
 
     // AppDataSourceモックの設定
     const mockedAppDataSource = AppDataSource as jest.Mocked<typeof AppDataSource>;
-    mockedAppDataSource.getRepository.mockImplementation((entity: unknown) => {
-      if (entity === User)
-        return mockUserRepository as ReturnType<typeof AppDataSource.getRepository>;
-      if (entity === UserUrl)
-        return mockUrlRepository as ReturnType<typeof AppDataSource.getRepository>;
-      throw new Error(`Unknown entity: ${String(entity)}`);
+    // @ts-expect-error - モックの型が複雑なため一時的に無視
+    mockedAppDataSource.getRepository.mockImplementation(entity => {
+      if (entity === User) return mockUserRepository;
+      if (entity === UserUrl) return mockUrlRepository;
+      throw new Error('Unknown entity');
     });
 
     userService = new UserService();
