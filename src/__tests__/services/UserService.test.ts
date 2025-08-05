@@ -1,36 +1,32 @@
 import { jest } from '@jest/globals';
+import type { Repository } from 'typeorm';
 import { UserService } from '../../services/UserService.js';
 import { User } from '../../entities/User.js';
 import { UserUrl } from '../../entities/UserUrl.js';
 import { AppDataSource } from '../../database/connection.js';
-
-// TypeORMのRepository型のモックを作成するためのヘルパー型
-type MockRepository<T> = {
-  findOne: jest.MockedFunction<(options?: any) => Promise<T | null>>;
-  find: jest.MockedFunction<(options?: any) => Promise<T[]>>;
-  create: jest.MockedFunction<(entityLike?: any) => T>;
-  save: jest.MockedFunction<(entity: T) => Promise<T>>;
-};
+import { createMockRepository } from '../../types/test.js';
 
 describe('UserService', () => {
   let userService: UserService;
-  let mockUserRepository: MockRepository<User>;
-  let mockUrlRepository: MockRepository<UserUrl>;
+  let mockUserRepository: ReturnType<typeof createMockRepository<User>>;
+  let mockUrlRepository: ReturnType<typeof createMockRepository<UserUrl>>;
 
   beforeEach(() => {
-    // リポジトリモックの設定
+    // 型安全なモック設定を追加
     mockUserRepository = {
-      findOne: jest.fn<(options?: any) => Promise<User | null>>().mockResolvedValue(null),
-      find: jest.fn<(options?: any) => Promise<User[]>>().mockResolvedValue([]),
-      create: jest.fn<(entityLike?: any) => User>().mockImplementation(() => new User()),
-      save: jest.fn<(entity: User) => Promise<User>>().mockImplementation((entity) => Promise.resolve(entity)),
+      find: jest.fn<() => Promise<User[]>>().mockResolvedValue([]),
+      findOne: jest.fn<(options: any) => Promise<User | null>>().mockResolvedValue(null),
+      save: jest.fn<(entity: User | User[]) => Promise<User | User[]>>().mockImplementation((entity) => Promise.resolve(entity)),
+      create: jest.fn<(userData: Partial<User>) => User>().mockImplementation(() => new User()),
+      remove: jest.fn<(entity: User | User[]) => Promise<User | User[]>>().mockImplementation((entity) => Promise.resolve(entity)),
     };
 
     mockUrlRepository = {
-      findOne: jest.fn<(options?: any) => Promise<UserUrl | null>>().mockResolvedValue(null),
-      find: jest.fn<(options?: any) => Promise<UserUrl[]>>().mockResolvedValue([]),
-      create: jest.fn<(entityLike?: any) => UserUrl>().mockImplementation(() => new UserUrl()),
-      save: jest.fn<(entity: UserUrl) => Promise<UserUrl>>().mockImplementation((entity) => Promise.resolve(entity)),
+      find: jest.fn<() => Promise<UserUrl[]>>().mockResolvedValue([]),
+      findOne: jest.fn<(options: any) => Promise<UserUrl | null>>().mockResolvedValue(null),
+      save: jest.fn<(entity: UserUrl | UserUrl[]) => Promise<UserUrl | UserUrl[]>>().mockImplementation((entity) => Promise.resolve(entity)),
+      create: jest.fn<(urlData: Partial<UserUrl>) => UserUrl>().mockImplementation(() => new UserUrl()),
+      remove: jest.fn<(entity: UserUrl | UserUrl[]) => Promise<UserUrl | UserUrl[]>>().mockImplementation((entity) => Promise.resolve(entity)),
     };
 
     // AppDataSourceモックの設定

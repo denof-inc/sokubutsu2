@@ -30,43 +30,6 @@ jest.setTimeout(10000);
 // @ts-expect-error - テスト用のグローバル設定
 globalThis.__JEST_MOCK_REGISTRY__ = new Map();
 
-// Storage mock is now in __mocks__ directory
-
-jest.mock('../telegram.js', () => {
-  const createMockNotifier = () => ({
-    sendMessage: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-    sendNewListingNotification: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-    sendErrorAlert: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-    sendStatisticsReport: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-    testConnection: jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
-    getBotInfo: jest.fn<() => Promise<{ username: string }>>().mockResolvedValue({ username: 'testbot' }),
-  });
-  
-  return {
-    TelegramNotifier: jest.fn().mockImplementation(() => createMockNotifier()),
-  };
-});
-
-jest.mock('../logger.js', () => ({
-  vibeLogger: {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-    debug: jest.fn(),
-    step: jest.fn(),
-    success: jest.fn(),
-  },
-}));
-
-jest.mock('../database/connection.js', () => ({
-  AppDataSource: {
-    getRepository: jest.fn<() => any>(),
-    isInitialized: false,
-    initialize: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-    destroy: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-  },
-}));
-
 // テスト後のクリーンアップ
 afterEach(() => {
   jest.clearAllMocks();
