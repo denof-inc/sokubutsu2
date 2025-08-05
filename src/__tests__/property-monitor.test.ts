@@ -30,13 +30,17 @@ import { PropertyMonitoringData } from '../types.js';
 
 describe('PropertyMonitor', () => {
   let propertyMonitor: PropertyMonitor;
-  let mockStorageInstance: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
     
+    // Reset mock implementation for each test
+    mockStorage.load.mockReset();
+    mockStorage.save.mockReset();
+    
     // Setup default mock behavior for different keys
-    mockStorage.load.mockImplementation((key: string): any => {
+    mockStorage.load.mockImplementation((...args: unknown[]) => {
+      const key = args[0] as string;
       if (key === 'previous_properties') {
         return null; // Default: no previous properties
       } else if (key === 'monitoring_statistics') {
@@ -51,9 +55,6 @@ describe('PropertyMonitor', () => {
     
     // Create the PropertyMonitor which will create a SimpleStorage instance internally
     propertyMonitor = new PropertyMonitor();
-    
-    // Use the global mockStorage
-    mockStorageInstance = mockStorage;
   });
 
   afterEach(() => {
@@ -85,7 +86,19 @@ describe('PropertyMonitor', () => {
         createProperty('物件B', '2000万円', '神奈川県'), // 新着
       ];
 
-      mockStorageInstance.load.mockReturnValue(previousData);
+      mockStorage.load.mockImplementation((...args: unknown[]) => {
+        const key = args[0] as string;
+        if (key === 'previous_properties') {
+          return previousData;
+        } else if (key === 'monitoring_statistics') {
+          return {
+            totalChecks: 0,
+            newPropertyDetections: 0,
+            lastCheckAt: new Date(),
+          };
+        }
+        return null;
+      });
 
       const result = propertyMonitor.detectNewProperties(currentProperties);
 
@@ -111,7 +124,7 @@ describe('PropertyMonitor', () => {
         createProperty('物件A', '1000万円', '東京都'), // 既存のみ
       ];
 
-      mockStorageInstance.load.mockReturnValue(previousData);
+      mockStorage.load.mockReturnValue(previousData);
 
       const result = propertyMonitor.detectNewProperties(currentProperties);
 
@@ -126,7 +139,20 @@ describe('PropertyMonitor', () => {
         createProperty('物件B', '2000万円', '神奈川県'),
       ];
 
-      mockStorageInstance.load.mockReturnValue(null); // 前回データなし
+      // 初回チェック時はprevious_propertiesが存在しない
+      mockStorage.load.mockImplementation((...args: unknown[]) => {
+        const key = args[0] as string;
+        if (key === 'previous_properties') {
+          return null; // 前回データなし
+        } else if (key === 'monitoring_statistics') {
+          return {
+            totalChecks: 0,
+            newPropertyDetections: 0,
+            lastCheckAt: new Date(),
+          };
+        }
+        return null;
+      });
 
       const result = propertyMonitor.detectNewProperties(currentProperties);
 
@@ -138,7 +164,7 @@ describe('PropertyMonitor', () => {
     it('空の物件リストを処理できること', () => {
       const currentProperties: any[] = [];
 
-      mockStorageInstance.load.mockReturnValue([]);
+      mockStorage.load.mockReturnValue([]);
 
       const result = propertyMonitor.detectNewProperties(currentProperties);
 
@@ -153,16 +179,16 @@ describe('PropertyMonitor', () => {
         createProperty('物件A', '1000万円', '東京都'),
       ];
 
-      mockStorageInstance.load.mockReturnValue([]);
+      mockStorage.load.mockReturnValue([]);
 
       propertyMonitor.detectNewProperties(currentProperties);
 
-      expect(mockStorageInstance.save).toHaveBeenCalledTimes(2); // previous_properties and monitoring_statistics
-      const saveCalls = mockStorageInstance.save.mock.calls;
+      expect(mockStorage.save).toHaveBeenCalledTimes(2); // previous_properties and monitoring_statistics
+      const saveCalls = mockStorage.save.mock.calls as Array<[string, any]>;
       // Find the monitoring_statistics save call
-      const statsCall = saveCalls.find((call: any) => call[0] === 'monitoring_statistics');
+      const statsCall = saveCalls.find((call) => call[0] === 'monitoring_statistics');
       expect(statsCall).toBeDefined();
-      if (statsCall) {
+      if (statsCall?.[1]) {
         const stats = statsCall[1];
         expect(stats.newPropertyDetections).toBeGreaterThan(0);
       }
@@ -173,24 +199,25 @@ describe('PropertyMonitor', () => {
         createProperty('物件A', '1000万円', '東京都'),
       ];
 
-      mockStorageInstance.load.mockReturnValue([]);
+      mockStorage.load.mockReturnValue([]);
 
       propertyMonitor.detectNewProperties(currentProperties);
 
-      expect(mockStorageInstance.save).toHaveBeenCalled();
-      const saveCalls = mockStorageInstance.save.mock.calls;
-      expect(saveCalls).toHaveLength(1);
-      expect(saveCalls[0]).toBeDefined();
+      expect(mockStorage.save).toHaveBeenCalled();
+      const saveCalls = mockStorage.save.mock.calls as Array<[string, any]>;
+      expect(saveCalls).toHaveLength(2); // previous_properties と monitoring_statistics
       
-      const saveCall = saveCalls[0];
-      if (!saveCall) {
-        throw new Error('Save was not called');
+      // previous_properties の保存を確認
+      const propertiesSaveCall = saveCalls.find(call => call[0] === 'previous_properties');
+      expect(propertiesSaveCall).toBeDefined();
+      if (!propertiesSaveCall || propertiesSaveCall.length < 2) {
+        throw new Error('Save was not called with expected arguments');
       }
-      expect(saveCall[0]).toBe('previous_properties');
-      expect(saveCall[1]).toBeDefined();
-      expect(Array.isArray(saveCall[1])).toBe(true);
+      expect(propertiesSaveCall[0]).toBe('previous_properties');
+      expect(propertiesSaveCall[1]).toBeDefined();
+      expect(Array.isArray(propertiesSaveCall[1])).toBe(true);
       
-      const savedData = saveCall[1] as PropertyMonitoringData[];
+      const savedData = propertiesSaveCall[1] as PropertyMonitoringData[];
       expect(savedData).toHaveLength(1);
       expect(savedData[0]?.title).toBe('物件A');
     });
@@ -202,7 +229,7 @@ describe('PropertyMonitor', () => {
         createProperty('物件B', '2000万円'),
         createProperty('物件C', '3000万円'),
       ];
-      mockStorageInstance.load.mockReturnValue([]);
+      mockStorage.load.mockReturnValue([]);
       
       let result = propertyMonitor.detectNewProperties(properties1);
       expect(result.confidence).toBe('very_high');
@@ -226,7 +253,8 @@ describe('PropertyMonitor', () => {
     });
 
     it('エラー時に例外を投げること', () => {
-      mockStorageInstance.load.mockImplementation(() => {
+      // saveでエラーを投げるようにモックを設定
+      mockStorage.save.mockImplementation(() => {
         throw new Error('Storage error');
       });
 
@@ -248,7 +276,7 @@ describe('PropertyMonitor', () => {
         location: '東京都渋谷区',
       };
 
-      mockStorageInstance.load.mockReturnValue([]);
+      mockStorage.load.mockReturnValue([]);
       // プライベートメソッドのテストは間接的に
       const result = propertyMonitor.detectNewProperties([property]);
       
@@ -262,7 +290,7 @@ describe('PropertyMonitor', () => {
         location: '  東京都渋谷区  ',
       };
 
-      mockStorageInstance.load.mockReturnValue([]);
+      mockStorage.load.mockReturnValue([]);
       const result = propertyMonitor.detectNewProperties([property]);
       
       expect(result.newProperties[0]?.signature).toBe('新築マンション:3000万円:東京都渋谷区');
@@ -274,7 +302,7 @@ describe('PropertyMonitor', () => {
         price: '3000万円',
       };
 
-      mockStorageInstance.load.mockReturnValue([]);
+      mockStorage.load.mockReturnValue([]);
       const result = propertyMonitor.detectNewProperties([property]);
       
       expect(result.newProperties[0]?.signature).toBe('新築マンション:3000万円:');
@@ -283,19 +311,34 @@ describe('PropertyMonitor', () => {
 
   describe('loadPreviousProperties', () => {
     it('前回データの読み込みエラーをハンドルすること', () => {
-      mockStorageInstance.load.mockImplementation(() => {
-        throw new Error('File not found');
+      // loadがエラーを投げるが、saveでエラーが発生しないようにする
+      mockStorage.load.mockImplementation((...args: unknown[]) => {
+        const key = args[0] as string;
+        if (key === 'previous_properties') {
+          throw new Error('File not found');
+        } else if (key === 'monitoring_statistics') {
+          return {
+            totalChecks: 0,
+            newPropertyDetections: 0,
+            lastCheckAt: new Date(),
+          };
+        }
+        return null;
       });
+      mockStorage.save.mockImplementation(() => {});
 
       // エラーが発生しても続行（空配列として扱う）
       const currentProperties = [
         { title: '物件A', price: '1000万円' },
       ];
 
-      // エラーをスローする
-      expect(() => {
-        propertyMonitor.detectNewProperties(currentProperties);
-      }).toThrow('File not found');
+      // loadPreviousPropertiesはエラーをキャッチして空配列を返すため、エラーは投げられない
+      const result = propertyMonitor.detectNewProperties(currentProperties);
+      
+      // 初回チェックとして全て新着扱いになる
+      expect(result.hasNewProperty).toBe(true);
+      expect(result.newPropertyCount).toBe(1);
+      expect(result.newProperties).toHaveLength(1);
     });
   });
 
@@ -305,13 +348,13 @@ describe('PropertyMonitor', () => {
         { title: '新着物件', price: '1000万円' },
       ];
 
-      mockStorageInstance.load.mockReturnValue([]); // 前回データなし
+      mockStorage.load.mockReturnValue([]); // 前回データなし
 
       propertyMonitor.detectNewProperties(currentProperties);
 
       // monitoring_statistics save callを確認
-      const saveCalls = mockStorageInstance.save.mock.calls;
-      const statsCall = saveCalls.find((call: any) => call[0] === 'monitoring_statistics');
+      const saveCalls = mockStorage.save.mock.calls as Array<[string, any]>;
+      const statsCall = saveCalls.find((call) => call[0] === 'monitoring_statistics');
       expect(statsCall).toBeDefined();
     });
 
@@ -329,13 +372,13 @@ describe('PropertyMonitor', () => {
         { title: '既存物件', price: '1000万円' },
       ];
 
-      mockStorageInstance.load.mockReturnValue(previousData);
+      mockStorage.load.mockReturnValue(previousData);
 
       propertyMonitor.detectNewProperties(currentProperties);
 
       // monitoring_statistics save callを確認
-      const saveCalls = mockStorageInstance.save.mock.calls;
-      const statsCall = saveCalls.find((call: any) => call[0] === 'monitoring_statistics');
+      const saveCalls = mockStorage.save.mock.calls as Array<[string, any]>;
+      const statsCall = saveCalls.find((call) => call[0] === 'monitoring_statistics');
       expect(statsCall).toBeDefined();
     });
   });
@@ -359,7 +402,7 @@ describe('PropertyMonitor', () => {
         { title: '新着D', price: '4000万円', location: '埼玉' },
       ];
 
-      mockStorageInstance.load.mockReturnValue(previousData);
+      mockStorage.load.mockReturnValue(previousData);
 
       const result = propertyMonitor.detectNewProperties(currentProperties);
 
@@ -387,7 +430,7 @@ describe('PropertyMonitor', () => {
         { title: '物件A', price: '1000万円', location: '神奈川' }, // 新着（場所が違う）
       ];
 
-      mockStorageInstance.load.mockReturnValue(previousData);
+      mockStorage.load.mockReturnValue(previousData);
 
       const result = propertyMonitor.detectNewProperties(currentProperties);
 

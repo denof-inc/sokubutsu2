@@ -34,12 +34,12 @@ globalThis.__JEST_MOCK_REGISTRY__ = new Map();
 
 jest.mock('../telegram.js', () => {
   const createMockNotifier = () => ({
-    sendMessage: jest.fn().mockResolvedValue(undefined),
-    sendNewListingNotification: jest.fn().mockResolvedValue(undefined),
-    sendErrorAlert: jest.fn().mockResolvedValue(undefined),
-    sendStatisticsReport: jest.fn().mockResolvedValue(undefined),
-    testConnection: jest.fn().mockResolvedValue(true),
-    getBotInfo: jest.fn().mockResolvedValue({ username: 'testbot' }),
+    sendMessage: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    sendNewListingNotification: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    sendErrorAlert: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    sendStatisticsReport: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    testConnection: jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
+    getBotInfo: jest.fn<() => Promise<{ username: string }>>().mockResolvedValue({ username: 'testbot' }),
   });
   
   return {
@@ -60,10 +60,10 @@ jest.mock('../logger.js', () => ({
 
 jest.mock('../database/connection.js', () => ({
   AppDataSource: {
-    getRepository: jest.fn(),
+    getRepository: jest.fn<() => any>(),
     isInitialized: false,
-    initialize: jest.fn().mockResolvedValue(undefined),
-    destroy: jest.fn().mockResolvedValue(undefined),
+    initialize: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    destroy: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
   },
 }));
 

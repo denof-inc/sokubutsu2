@@ -1,6 +1,25 @@
-jest.mock('../../telegram.js');
-jest.mock('../../services/UserService.js');
-jest.mock('../../logger.js');
+// モックを手動でインポート
+jest.unstable_mockModule('../../telegram.js', () => ({
+  TelegramNotifier: jest.fn().mockImplementation(() => ({
+    sendMessage: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
+
+jest.unstable_mockModule('../../services/UserService.js', () => ({
+  UserService: jest.fn().mockImplementation(() => ({
+    getUserUrls: jest.fn().mockResolvedValue([]),
+    getUserById: jest.fn().mockResolvedValue(null),
+  })),
+}));
+
+jest.unstable_mockModule('../../logger.js', () => ({
+  vibeLogger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
 
 import { jest } from '@jest/globals';
 import { NotificationService } from '../../services/NotificationService.js';
@@ -8,9 +27,9 @@ import { TelegramNotifier } from '../../telegram.js';
 import { UserService } from '../../services/UserService.js';
 import { UserUrl } from '../../entities/UserUrl.js';
 import { User } from '../../entities/User.js';
-import { NewPropertyDetectionResult } from '../../types.js';
+import type { NewPropertyDetectionResult } from '../../types.js';
 
-// Get mocked constructors
+// モックのインスタンスとコンストラクタを正しく取得
 const MockedTelegramNotifier = TelegramNotifier as jest.MockedClass<typeof TelegramNotifier>;
 const MockedUserService = UserService as jest.MockedClass<typeof UserService>;
 
@@ -33,17 +52,32 @@ describe('NotificationService', () => {
 
   describe('sendNewPropertyNotification', () => {
     it('新着物件通知を送信できること', async () => {
-      const user = new User();
-      user.id = 'user-123';
-      user.telegramChatId = 'chat-123';
-      user.telegramUsername = 'testuser';
+      // Userエンティティの作成
+      const user = Object.assign(new User(), {
+        id: 'user-123',
+        telegramChatId: 'chat-123',
+        telegramUsername: 'testuser',
+        isActive: true,
+        registeredAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      const userUrl = new UserUrl();
-      userUrl.id = 'url-123';
-      userUrl.name = '東京の物件';
-      userUrl.prefecture = '東京都';
-      userUrl.url = 'https://example.com/properties';
-      userUrl.user = user;
+      // UserUrlエンティティの作成
+      const userUrl = Object.assign(new UserUrl(), {
+        id: 'url-123',
+        name: '東京の物件',
+        prefecture: '東京都',
+        url: 'https://example.com/properties',
+        userId: user.id,
+        user: user,
+        isActive: true,
+        isMonitoring: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        totalChecks: 0,
+        newListingsCount: 0,
+        errorCount: 0,
+      });
 
       const detectionResult: NewPropertyDetectionResult = {
         hasNewProperty: true,
@@ -96,27 +130,44 @@ describe('NotificationService', () => {
 
   describe('sendUserStatisticsReport', () => {
     it('ユーザー統計レポートを送信できること', async () => {
-      const user = new User();
-      user.id = 'user-123';
-      user.telegramChatId = 'chat-123';
+      const user = Object.assign(new User(), {
+        id: 'user-123',
+        telegramChatId: 'chat-123',
+        telegramUsername: 'testuser',
+        isActive: true,
+        registeredAt: new Date(),
+        updatedAt: new Date(),
+      });
 
       const urls = [
-        {
+        Object.assign(new UserUrl(), {
           id: 'url-1',
           name: '物件1',
+          url: 'https://example.com/1',
+          prefecture: '東京都',
+          userId: user.id,
+          isActive: true,
+          isMonitoring: true,
           totalChecks: 100,
           newListingsCount: 5,
           errorCount: 2,
-          isMonitoring: true,
-        } as UserUrl,
-        {
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+        Object.assign(new UserUrl(), {
           id: 'url-2',
           name: '物件2',
+          url: 'https://example.com/2',
+          prefecture: '神奈川県',
+          userId: user.id,
+          isActive: true,
+          isMonitoring: false,
           totalChecks: 50,
           newListingsCount: 3,
           errorCount: 1,
-          isMonitoring: false,
-        } as UserUrl,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
       ];
 
       mockUserService.getUserUrls.mockResolvedValue(urls);
@@ -173,19 +224,30 @@ describe('NotificationService', () => {
     });
 
     it('成功率が低い場合に警告メッセージを含むこと', async () => {
-      const user = new User();
-      user.id = 'user-123';
-      user.telegramChatId = 'chat-123';
+      const user = Object.assign(new User(), {
+        id: 'user-123',
+        telegramChatId: 'chat-123',
+        telegramUsername: 'testuser',
+        isActive: true,
+        registeredAt: new Date(),
+        updatedAt: new Date(),
+      });
 
       const urls = [
-        {
+        Object.assign(new UserUrl(), {
           id: 'url-1',
           name: '物件1',
+          url: 'https://example.com/1',
+          prefecture: '東京都',
+          userId: user.id,
+          isActive: true,
+          isMonitoring: true,
           totalChecks: 100,
           newListingsCount: 5,
           errorCount: 10, // 高いエラー率
-          isMonitoring: true,
-        } as UserUrl,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
       ];
 
       mockUserService.getUserUrls.mockResolvedValue(urls);
@@ -208,14 +270,30 @@ describe('NotificationService', () => {
     it('escapeMarkdown - マークダウン文字をエスケープすること', async () => {
       // privateメソッドのテストのため、直接アクセスできないが、
       // sendNewPropertyNotificationの結果から間接的に確認
-      const user = new User();
-      user.telegramChatId = 'chat-123';
+      const user = Object.assign(new User(), {
+        id: 'user-123',
+        telegramChatId: 'chat-123',
+        telegramUsername: 'testuser',
+        isActive: true,
+        registeredAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      const userUrl = new UserUrl();
-      userUrl.name = 'Test_Property*';
-      userUrl.prefecture = '東京都[渋谷区]';
-      userUrl.url = 'https://example.com';
-      userUrl.user = user;
+      const userUrl = Object.assign(new UserUrl(), {
+        id: 'url-123',
+        name: 'Test_Property*',
+        prefecture: '東京都[渋谷区]',
+        url: 'https://example.com',
+        userId: user.id,
+        user: user,
+        isActive: true,
+        isMonitoring: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        totalChecks: 0,
+        newListingsCount: 0,
+        errorCount: 0,
+      });
 
       const detectionResult: NewPropertyDetectionResult = {
         hasNewProperty: true,
@@ -251,14 +329,30 @@ describe('NotificationService', () => {
     });
 
     it('getConfidenceText - 信頼度テキストを返すこと', async () => {
-      const user = new User();
-      user.telegramChatId = 'chat-123';
+      const user = Object.assign(new User(), {
+        id: 'user-123',
+        telegramChatId: 'chat-123',
+        telegramUsername: 'testuser',
+        isActive: true,
+        registeredAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      const userUrl = new UserUrl();
-      userUrl.name = 'Test';
-      userUrl.prefecture = '東京都';
-      userUrl.url = 'https://example.com';
-      userUrl.user = user;
+      const userUrl = Object.assign(new UserUrl(), {
+        id: 'url-123',
+        name: 'Test',
+        prefecture: '東京都',
+        url: 'https://example.com',
+        userId: user.id,
+        user: user,
+        isActive: true,
+        isMonitoring: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        totalChecks: 0,
+        newListingsCount: 0,
+        errorCount: 0,
+      });
 
       // very_high
       const detectionResult1: NewPropertyDetectionResult = {
@@ -286,14 +380,30 @@ describe('NotificationService', () => {
 
   describe('error handling', () => {
     it('通知送信エラーをログに記録すること', async () => {
-      const user = new User();
-      user.telegramChatId = 'chat-123';
+      const user = Object.assign(new User(), {
+        id: 'user-123',
+        telegramChatId: 'chat-123',
+        telegramUsername: 'testuser',
+        isActive: true,
+        registeredAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      const userUrl = new UserUrl();
-      userUrl.name = 'Test';
-      userUrl.prefecture = '東京都';
-      userUrl.url = 'https://example.com';
-      userUrl.user = user;
+      const userUrl = Object.assign(new UserUrl(), {
+        id: 'url-123',
+        name: 'Test',
+        prefecture: '東京都',
+        url: 'https://example.com',
+        userId: user.id,
+        user: user,
+        isActive: true,
+        isMonitoring: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        totalChecks: 0,
+        newListingsCount: 0,
+        errorCount: 0,
+      });
 
       const detectionResult: NewPropertyDetectionResult = {
         hasNewProperty: true,
