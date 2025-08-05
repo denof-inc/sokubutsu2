@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
 import { UserService } from '../../services/UserService.js';
 import { User } from '../../entities/User.js';
 import { UserUrl } from '../../entities/UserUrl.js';
@@ -7,23 +7,23 @@ import { AppDataSource } from '../../database/connection.js';
 
 describe('UserService', () => {
   let userService: UserService;
-  let mockUserRepository: Partial<Repository<User>>;
-  let mockUrlRepository: Partial<Repository<UserUrl>>;
+  let mockUserRepository: jest.Mocked<Partial<Repository<User>>>;
+  let mockUrlRepository: jest.Mocked<Partial<Repository<UserUrl>>>;
 
   beforeEach(() => {
     // リポジトリモックの設定
     mockUserRepository = {
-      findOne: jest.fn(),
-      create: jest.fn(),
-      save: jest.fn(),
-      find: jest.fn(),
+      findOne: jest.fn() as any,
+      create: jest.fn() as any,
+      save: jest.fn() as any,
+      find: jest.fn() as any,
     };
 
     mockUrlRepository = {
-      findOne: jest.fn(),
-      find: jest.fn(),
-      create: jest.fn(),
-      save: jest.fn(),
+      findOne: jest.fn() as any,
+      find: jest.fn() as any,
+      create: jest.fn() as any,
+      save: jest.fn() as any,
     };
 
     // AppDataSourceモックの設定
@@ -49,7 +49,7 @@ describe('UserService', () => {
       existingUser.isActive = true;
       existingUser.urls = [];
 
-      (mockUserRepository.findOne as jest.Mock).mockResolvedValue(existingUser);
+      mockUserRepository.findOne!.mockResolvedValue(existingUser);
 
       const result = await userService.registerOrGetUser('chat-123', 'testuser');
 
@@ -69,10 +69,12 @@ describe('UserService', () => {
       newUser.isActive = true;
 
       (mockUserRepository.findOne as jest.Mock).mockResolvedValue(null);
-      (mockUserRepository.save as jest.Mock).mockResolvedValue(newUser);
+      mockUserRepository.create!.mockReturnValue(newUser);
+      mockUserRepository.save!.mockResolvedValue(newUser);
 
       const result = await userService.registerOrGetUser('chat-456', 'newuser');
 
+      expect(mockUserRepository.create).toHaveBeenCalled();
       expect(mockUserRepository.save).toHaveBeenCalled();
       expect(result).toBe(newUser);
     });
@@ -84,10 +86,12 @@ describe('UserService', () => {
       newUser.isActive = true;
 
       (mockUserRepository.findOne as jest.Mock).mockResolvedValue(null);
-      (mockUserRepository.save as jest.Mock).mockResolvedValue(newUser);
+      mockUserRepository.create!.mockReturnValue(newUser);
+      mockUserRepository.save!.mockResolvedValue(newUser);
 
       const result = await userService.registerOrGetUser('chat-789');
 
+      expect(mockUserRepository.create).toHaveBeenCalled();
       expect(mockUserRepository.save).toHaveBeenCalled();
       expect(result).toBe(newUser);
     });
@@ -101,8 +105,8 @@ describe('UserService', () => {
       mockUser.id = 'user-123';
       mockUser.telegramChatId = 'chat-123';
       mockUser.urls = [];
-      mockUser.canAddUrl = jest.fn().mockReturnValue(true);
-      mockUser.canAddUrlInPrefecture = jest.fn().mockReturnValue(true);
+      mockUser.canAddUrl = (() => true) as any;
+      mockUser.canAddUrlInPrefecture = (() => true) as any;
     });
 
     it('URLを正常に登録できること', async () => {
@@ -113,9 +117,9 @@ describe('UserService', () => {
       newUrl.prefecture = '東京都';
 
       (mockUserRepository.findOne as jest.Mock).mockResolvedValue(mockUser);
-      (mockUrlRepository.findOne as jest.Mock).mockResolvedValue(null);
-      (mockUrlRepository.create as jest.Mock).mockReturnValue(newUrl);
-      (mockUrlRepository.save as jest.Mock).mockResolvedValue(newUrl);
+      mockUrlRepository.findOne!.mockResolvedValue(null);
+      mockUrlRepository.create!.mockReturnValue(newUrl);
+      mockUrlRepository.save!.mockResolvedValue(newUrl);
 
       const result = await userService.registerUrl(
         'user-123',
@@ -144,7 +148,7 @@ describe('UserService', () => {
     });
 
     it('URL数制限に達している場合はエラーを返すこと', async () => {
-      mockUser.canAddUrl = jest.fn().mockReturnValue(false);
+      mockUser.canAddUrl = (() => false) as any;
       (mockUserRepository.findOne as jest.Mock).mockResolvedValue(mockUser);
 
       const result = await userService.registerUrl(
@@ -159,7 +163,7 @@ describe('UserService', () => {
     });
 
     it('都道府県制限に違反する場合はエラーを返すこと', async () => {
-      mockUser.canAddUrlInPrefecture = jest.fn().mockReturnValue(false);
+      mockUser.canAddUrlInPrefecture = (() => false) as any;
       (mockUserRepository.findOne as jest.Mock).mockResolvedValue(mockUser);
 
       const result = await userService.registerUrl(
@@ -199,7 +203,7 @@ describe('UserService', () => {
         { id: 'url-2', url: 'https://example2.com' },
       ];
 
-      (mockUrlRepository.find as jest.Mock).mockResolvedValue(urls);
+      mockUrlRepository.find!.mockResolvedValue(urls);
 
       const result = await userService.getUserUrls('user-123');
 
@@ -230,7 +234,7 @@ describe('UserService', () => {
     });
 
     it('URLが見つからない場合はエラーを返すこと', async () => {
-      (mockUrlRepository.findOne as jest.Mock).mockResolvedValue(null);
+      mockUrlRepository.findOne!.mockResolvedValue(null);
 
       const result = await userService.toggleUrlMonitoring('user-123', 'url-123');
 
@@ -265,7 +269,7 @@ describe('UserService', () => {
         { id: 'url-2', isActive: true, isMonitoring: true },
       ];
 
-      (mockUrlRepository.find as jest.Mock).mockResolvedValue(urls);
+      mockUrlRepository.find!.mockResolvedValue(urls);
 
       const result = await userService.getAllActiveMonitoringUrls();
 
@@ -301,7 +305,7 @@ describe('UserService', () => {
         { id: 'user-2', telegramChatId: 'chat-2' },
       ];
 
-      (mockUserRepository.find as jest.Mock).mockResolvedValue(users);
+      mockUserRepository.find!.mockResolvedValue(users);
 
       const result = await userService.getAllUsers();
 

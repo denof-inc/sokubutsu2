@@ -30,28 +30,22 @@ jest.setTimeout(10000);
 // @ts-expect-error - テスト用のグローバル設定
 globalThis.__JEST_MOCK_REGISTRY__ = new Map();
 
-// 共通モックの事前登録
-jest.mock('../storage.js', () => {
-  const mockStorage = {
-    load: jest.fn(),
-    save: jest.fn(),
-    updateStatistics: jest.fn(),
-  };
-  return {
-    SimpleStorage: jest.fn(() => mockStorage),
-  };
-});
+// Storage mock is now in __mocks__ directory
 
-jest.mock('../telegram.js', () => ({
-  TelegramNotifier: jest.fn().mockImplementation(() => ({
+jest.mock('../telegram.js', () => {
+  const createMockNotifier = () => ({
     sendMessage: jest.fn().mockResolvedValue(undefined),
     sendNewListingNotification: jest.fn().mockResolvedValue(undefined),
     sendErrorAlert: jest.fn().mockResolvedValue(undefined),
     sendStatisticsReport: jest.fn().mockResolvedValue(undefined),
     testConnection: jest.fn().mockResolvedValue(true),
     getBotInfo: jest.fn().mockResolvedValue({ username: 'testbot' }),
-  })),
-}));
+  });
+  
+  return {
+    TelegramNotifier: jest.fn().mockImplementation(() => createMockNotifier()),
+  };
+});
 
 jest.mock('../logger.js', () => ({
   vibeLogger: {

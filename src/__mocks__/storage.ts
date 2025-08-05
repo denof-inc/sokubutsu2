@@ -1,23 +1,40 @@
 import { jest } from '@jest/globals';
 
-export const SimpleStorage = jest.fn().mockImplementation(() => ({
-  save: jest.fn(),
-  load: jest.fn(),
-  getHash: jest.fn(),
-  setHash: jest.fn(),
-  incrementTotalChecks: jest.fn(),
-  incrementErrors: jest.fn(),
-  incrementNewListings: jest.fn(),
-  recordExecutionTime: jest.fn(),
-  getStats: jest.fn(() => ({
-    totalChecks: 0,
-    errors: 0,
-    newListings: 0,
-    lastCheck: new Date(),
-    averageExecutionTime: 0,
-    successRate: 100,
-  })),
-  resetStats: jest.fn(),
-  createBackup: jest.fn(() => '/path/to/backup.json'),
-  displayStats: jest.fn(),
-}));
+export class SimpleStorage {
+  load: jest.Mock;
+  save: jest.Mock;
+  updateStatistics: jest.Mock;
+  getHash: jest.Mock;
+  setHash: jest.Mock;
+  incrementChecks: jest.Mock;
+  incrementErrors: jest.Mock;
+  incrementNewListings: jest.Mock;
+  recordExecutionTime: jest.Mock;
+  getSuccessRate: jest.Mock;
+  backup: jest.Mock;
+  resetStatistics: jest.Mock;
+  displayStatistics: jest.Mock;
+  exists: jest.Mock;
+  delete: jest.Mock;
+  list: jest.Mock;
+  
+  constructor() {
+    // Create all mock methods
+    this.load = jest.fn().mockReturnValue(null);
+    this.save = jest.fn();
+    this.updateStatistics = jest.fn();
+    this.getHash = jest.fn();
+    this.setHash = jest.fn();
+    this.incrementChecks = jest.fn();
+    this.incrementErrors = jest.fn();
+    this.incrementNewListings = jest.fn();
+    this.recordExecutionTime = jest.fn();
+    this.getSuccessRate = jest.fn().mockReturnValue(100);
+    this.backup = jest.fn();
+    this.resetStatistics = jest.fn();
+    this.displayStatistics = jest.fn();
+    this.exists = jest.fn().mockReturnValue(false);
+    this.delete = jest.fn();
+    this.list = jest.fn().mockReturnValue([]);
+  }
+}

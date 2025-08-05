@@ -1,3 +1,7 @@
+jest.mock('../../telegram.js');
+jest.mock('../../services/UserService.js');
+jest.mock('../../logger.js');
+
 import { jest } from '@jest/globals';
 import { NotificationService } from '../../services/NotificationService.js';
 import { TelegramNotifier } from '../../telegram.js';
@@ -5,29 +9,21 @@ import { UserService } from '../../services/UserService.js';
 import { UserUrl } from '../../entities/UserUrl.js';
 import { User } from '../../entities/User.js';
 import { NewPropertyDetectionResult } from '../../types.js';
-import { isDefined } from '../../types/test.js';
-import { createMockTelegramNotifier } from '../mocks/NotificationService.mock.js';
+
+// Get mocked constructors
+const MockedTelegramNotifier = TelegramNotifier as jest.MockedClass<typeof TelegramNotifier>;
+const MockedUserService = UserService as jest.MockedClass<typeof UserService>;
 
 describe('NotificationService', () => {
   let notificationService: NotificationService;
   let mockUserService: jest.Mocked<UserService>;
-  let mockTelegramNotifier: jest.Mocked<TelegramNotifier>;
 
   beforeEach(() => {
-    // UserServiceモックの設定
-    mockUserService = {
-      getUserUrls: jest.fn(),
-      getUserById: jest.fn(),
-    } as any;
-
-    // TelegramNotifierモックの設定
-    mockTelegramNotifier = {
-      sendMessage: jest.fn().mockResolvedValue(undefined),
-    } as any;
-
-    (UserService as jest.Mock).mockImplementation(() => mockUserService);
-    (TelegramNotifier as jest.Mock).mockImplementation(() => mockTelegramNotifier);
-
+    jest.clearAllMocks();
+    
+    // Get mocked instances
+    mockUserService = new MockedUserService() as jest.Mocked<UserService>;
+    
     notificationService = new NotificationService('test-bot-token');
   });
 
@@ -76,25 +72,20 @@ describe('NotificationService', () => {
       await notificationService.sendNewPropertyNotification(userUrl, detectionResult);
 
       // TelegramNotifierのインスタンス作成を確認
-      expect(TelegramNotifier).toHaveBeenCalledWith('test-bot-token', 'chat-123');
+      expect(MockedTelegramNotifier).toHaveBeenCalledWith('test-bot-token', 'chat-123');
       
-      // sendMessageが呼ばれたことを確認
-      const notifierInstances = (TelegramNotifier as jest.Mock).mock.results;
-      const lastResult = notifierInstances[notifierInstances.length - 1];
+      // Get the created instance
+      const mockCall = MockedTelegramNotifier as jest.Mock;
+      const createdInstances = mockCall.mock.instances;
+      expect(createdInstances.length).toBeGreaterThan(0);
       
-      if (!isDefined(lastResult) || !isDefined(lastResult.value)) {
-        throw new Error('TelegramNotifier mock instance not found');
-      }
-      
-      const lastNotifier = lastResult.value as ReturnType<typeof createMockTelegramNotifier>;
+      const lastNotifier = createdInstances[createdInstances.length - 1] as jest.Mocked<TelegramNotifier>;
       expect(lastNotifier.sendMessage).toHaveBeenCalled();
       
       // メッセージ内容の確認
-      const mockCalls = (lastNotifier.sendMessage as jest.Mock).mock.calls;
-      if (!isDefined(mockCalls[0])) {
-        throw new Error('sendMessage was not called');
-      }
-      const sentMessage = mockCalls[0][0] as string;
+      const sendMessageCalls = lastNotifier.sendMessage.mock.calls;
+      expect(sendMessageCalls.length).toBeGreaterThan(0);
+      const sentMessage = sendMessageCalls[0]?.[0] ?? '';
       expect(sentMessage).toContain('新着物件発見');
       expect(sentMessage).toContain('東京の物件');
       expect(sentMessage).toContain('2件');
@@ -128,34 +119,29 @@ describe('NotificationService', () => {
         } as UserUrl,
       ];
 
-      (mockUserService.getUserUrls as jest.Mock).mockResolvedValue(urls);
-      (mockUserService.getUserById as jest.Mock).mockResolvedValue(user);
+      mockUserService.getUserUrls.mockResolvedValue(urls);
+      mockUserService.getUserById.mockResolvedValue(user);
 
       await notificationService.sendUserStatisticsReport('user-123');
 
-      expect(mockUserService.getUserUrls as jest.Mock).toHaveBeenCalledWith('user-123');
-      expect(mockUserService.getUserById as jest.Mock).toHaveBeenCalledWith('user-123');
+      expect(mockUserService.getUserUrls).toHaveBeenCalledWith('user-123');
+      expect(mockUserService.getUserById).toHaveBeenCalledWith('user-123');
 
       // TelegramNotifierのインスタンス作成を確認
-      expect(TelegramNotifier).toHaveBeenCalledWith('test-bot-token', 'chat-123');
+      expect(MockedTelegramNotifier).toHaveBeenCalledWith('test-bot-token', 'chat-123');
       
-      // sendMessageが呼ばれたことを確認
-      const notifierInstances = (TelegramNotifier as jest.Mock).mock.results;
-      const lastResult = notifierInstances[notifierInstances.length - 1];
+      // Get the created instance
+      const mockCall = MockedTelegramNotifier as jest.Mock;
+      const createdInstances = mockCall.mock.instances;
+      expect(createdInstances.length).toBeGreaterThan(0);
       
-      if (!isDefined(lastResult) || !isDefined(lastResult.value)) {
-        throw new Error('TelegramNotifier mock instance not found');
-      }
-      
-      const lastNotifier = lastResult.value as ReturnType<typeof createMockTelegramNotifier>;
+      const lastNotifier = createdInstances[createdInstances.length - 1] as jest.Mocked<TelegramNotifier>;
       expect(lastNotifier.sendMessage).toHaveBeenCalled();
       
       // メッセージ内容の確認
-      const mockCalls = (lastNotifier.sendMessage as jest.Mock).mock.calls;
-      if (!isDefined(mockCalls[0])) {
-        throw new Error('sendMessage was not called');
-      }
-      const sentMessage = mockCalls[0][0] as string;
+      const sendMessageCalls = lastNotifier.sendMessage.mock.calls;
+      expect(sendMessageCalls.length).toBeGreaterThan(0);
+      const sentMessage = sendMessageCalls[0]?.[0] ?? '';
       expect(sentMessage).toContain('監視統計レポート');
       expect(sentMessage).toContain('150回'); // 総チェック数
       expect(sentMessage).toContain('8回'); // 新着検知数
@@ -164,26 +150,26 @@ describe('NotificationService', () => {
     });
 
     it('ユーザーが見つからない場合は何もしないこと', async () => {
-      (mockUserService.getUserUrls as jest.Mock).mockResolvedValue([]);
-      (mockUserService.getUserById as jest.Mock).mockResolvedValue(null);
+      mockUserService.getUserUrls.mockResolvedValue([]);
+      mockUserService.getUserById.mockResolvedValue(null);
 
       await notificationService.sendUserStatisticsReport('user-123');
 
       // TelegramNotifierが作成されないことを確認
-      expect(TelegramNotifier).not.toHaveBeenCalled();
+      expect(MockedTelegramNotifier).not.toHaveBeenCalled();
     });
 
     it('URLがない場合は何もしないこと', async () => {
       const user = new User();
       user.id = 'user-123';
 
-      (mockUserService.getUserUrls as jest.Mock).mockResolvedValue([]);
-      (mockUserService.getUserById as jest.Mock).mockResolvedValue(user);
+      mockUserService.getUserUrls.mockResolvedValue([]);
+      mockUserService.getUserById.mockResolvedValue(user);
 
       await notificationService.sendUserStatisticsReport('user-123');
 
       // TelegramNotifierが作成されないことを確認
-      expect(TelegramNotifier).not.toHaveBeenCalled();
+      expect(MockedTelegramNotifier).not.toHaveBeenCalled();
     });
 
     it('成功率が低い場合に警告メッセージを含むこと', async () => {
@@ -202,31 +188,24 @@ describe('NotificationService', () => {
         } as UserUrl,
       ];
 
-      (mockUserService.getUserUrls as jest.Mock).mockResolvedValue(urls);
-      (mockUserService.getUserById as jest.Mock).mockResolvedValue(user);
+      mockUserService.getUserUrls.mockResolvedValue(urls);
+      mockUserService.getUserById.mockResolvedValue(user);
 
       await notificationService.sendUserStatisticsReport('user-123');
 
-      const notifierInstances = (TelegramNotifier as jest.Mock).mock.results;
-      const lastResult = notifierInstances[notifierInstances.length - 1];
-      
-      if (!isDefined(lastResult) || !isDefined(lastResult.value)) {
-        throw new Error('TelegramNotifier mock instance not found');
-      }
-      
-      const lastNotifier = lastResult.value as ReturnType<typeof createMockTelegramNotifier>;
-      const mockCalls = (lastNotifier.sendMessage as jest.Mock).mock.calls;
-      if (!isDefined(mockCalls[0])) {
-        throw new Error('sendMessage was not called');
-      }
-      const sentMessage = mockCalls[0][0] as string;
+      const mockCall = MockedTelegramNotifier as jest.Mock;
+      const createdInstances = mockCall.mock.instances;
+      const lastNotifier = createdInstances[createdInstances.length - 1] as jest.Mocked<TelegramNotifier>;
+      const sendMessageCalls = lastNotifier.sendMessage.mock.calls;
+      expect(sendMessageCalls.length).toBeGreaterThan(0);
+      const sentMessage = sendMessageCalls[0]?.[0] ?? '';
       
       expect(sentMessage).toContain('エラー率が高めです');
     });
   });
 
   describe('private methods', () => {
-    it('escapeMarkdown - マークダウン文字をエスケープすること', () => {
+    it('escapeMarkdown - マークダウン文字をエスケープすること', async () => {
       // privateメソッドのテストのため、直接アクセスできないが、
       // sendNewPropertyNotificationの結果から間接的に確認
       const user = new User();
@@ -255,21 +234,14 @@ describe('NotificationService', () => {
         confidence: 'high',
       };
 
-      void notificationService.sendNewPropertyNotification(userUrl, detectionResult);
+      await notificationService.sendNewPropertyNotification(userUrl, detectionResult);
 
-      const notifierInstances = (TelegramNotifier as jest.Mock).mock.results;
-      const lastResult = notifierInstances[notifierInstances.length - 1];
-      
-      if (!isDefined(lastResult) || !isDefined(lastResult.value)) {
-        throw new Error('TelegramNotifier mock instance not found');
-      }
-      
-      const lastNotifier = lastResult.value as ReturnType<typeof createMockTelegramNotifier>;
-      const mockCalls = (lastNotifier.sendMessage as jest.Mock).mock.calls;
-      if (!isDefined(mockCalls[0])) {
-        throw new Error('sendMessage was not called');
-      }
-      const sentMessage = mockCalls[0][0] as string;
+      const mockCall = MockedTelegramNotifier as jest.Mock;
+      const createdInstances = mockCall.mock.instances;
+      const lastNotifier = createdInstances[createdInstances.length - 1] as jest.Mocked<TelegramNotifier>;
+      const sendMessageCalls = lastNotifier.sendMessage.mock.calls;
+      expect(sendMessageCalls.length).toBeGreaterThan(0);
+      const sentMessage = sendMessageCalls[0]?.[0] ?? '';
       
       // エスケープされた文字が含まれることを確認
       expect(sentMessage).toContain('\\*');
@@ -300,19 +272,12 @@ describe('NotificationService', () => {
 
       await notificationService.sendNewPropertyNotification(userUrl, detectionResult1);
 
-      const notifierInstances = (TelegramNotifier as jest.Mock).mock.results;
-      const lastResult = notifierInstances[notifierInstances.length - 1];
-      
-      if (!isDefined(lastResult) || !isDefined(lastResult.value)) {
-        throw new Error('TelegramNotifier mock instance not found');
-      }
-      
-      const lastNotifier = lastResult.value as ReturnType<typeof createMockTelegramNotifier>;
-      const mockCalls = (lastNotifier.sendMessage as jest.Mock).mock.calls;
-      if (!isDefined(mockCalls[0])) {
-        throw new Error('sendMessage was not called');
-      }
-      const sentMessage = mockCalls[0][0] as string;
+      const mockCall = MockedTelegramNotifier as jest.Mock;
+      const createdInstances = mockCall.mock.instances;
+      const lastNotifier = createdInstances[createdInstances.length - 1] as jest.Mocked<TelegramNotifier>;
+      const sendMessageCalls = lastNotifier.sendMessage.mock.calls;
+      expect(sendMessageCalls.length).toBeGreaterThan(0);
+      const sentMessage = sendMessageCalls[0]?.[0] ?? '';
       
       expect(sentMessage).toContain('非常に高い');
       expect(sentMessage).toContain('⭐⭐⭐');
@@ -339,9 +304,13 @@ describe('NotificationService', () => {
         confidence: 'high',
       };
 
-      // sendMessageがエラーを投げるように設定
-      const error = new Error('Network error');
-      mockTelegramNotifier.sendMessage.mockRejectedValue(error);
+      // Mock the next TelegramNotifier instance to throw error
+      const mockCall = MockedTelegramNotifier as jest.Mock;
+      const mockSendMessage = jest.fn();
+      mockSendMessage.mockRejectedValue(new Error('Network error'));
+      mockCall.mockImplementationOnce(() => ({
+        sendMessage: mockSendMessage,
+      }));
 
       // エラーを投げないことを確認（内部でキャッチされる）
       await expect(
