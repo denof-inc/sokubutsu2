@@ -1,53 +1,28 @@
 import { jest } from '@jest/globals';
 import { NotificationService } from '../../services/NotificationService.js';
 import { TelegramNotifier } from '../../telegram.js';
+import { UserService } from '../../services/UserService.js';
 import { User } from '../../entities/User.js';
 import { UserUrl } from '../../entities/UserUrl.js';
 import type { NewPropertyDetectionResult } from '../../types.js';
 
-// 型安全なモック設定
-const mockTelegramNotifier = {
-  sendMessage: jest.fn<(message: string) => Promise<void>>(),
-  sendNewListingNotification: jest.fn<(properties: any[], count: number) => Promise<void>>(),
-  sendErrorAlert: jest.fn<(error: Error, context: string) => Promise<void>>(),
-  sendStatisticsReport: jest.fn<(stats: any) => Promise<void>>(),
-  testConnection: jest.fn<() => Promise<boolean>>(),
-  getBotInfo: jest.fn<() => Promise<{ username: string }>>(),
-  sendStartupNotice: jest.fn<() => Promise<void>>(),
-  sendShutdownNotice: jest.fn<() => Promise<void>>(),
-};
-
-// UserServiceのモック
-const mockUserService = {
-  getUserUrls: jest.fn<(userId: string) => Promise<UserUrl[]>>(),
-  getUserById: jest.fn<(userId: string) => Promise<User | null>>(),
-};
-
-// TelegramNotifierクラスのモック
-jest.mock('../../telegram.js', () => ({
-  TelegramNotifier: jest.fn().mockImplementation(() => mockTelegramNotifier),
-}));
-
-// UserServiceのモック
-jest.mock('../../services/UserService.js', () => ({
-  UserService: jest.fn().mockImplementation(() => mockUserService),
-}));
-
-// loggerのモック
-jest.mock('../../logger.js', () => ({
-  vibeLogger: {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-    debug: jest.fn(),
-  },
-}));
+// モックの手動設定
+jest.mock('../../telegram.js');
+jest.mock('../../services/UserService.js');
+jest.mock('../../logger.js');
 
 describe('NotificationService', () => {
   let notificationService: NotificationService;
+  let mockTelegramNotifier: any;
+  let mockUserService: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // モックインスタンスの取得
+    mockTelegramNotifier = (TelegramNotifier as any).mock.instances[0];
+    mockUserService = (UserService as any).mock.instances[0];
+
     notificationService = new NotificationService('test-bot-token');
   });
 
@@ -109,8 +84,6 @@ describe('NotificationService', () => {
         confidence: 'high',
       };
 
-      mockTelegramNotifier.sendMessage.mockResolvedValue(undefined);
-
       await notificationService.sendNewPropertyNotification(userUrl, detectionResult);
 
       expect(TelegramNotifier).toHaveBeenCalledWith('test-bot-token', 'test-chat-id');
@@ -171,7 +144,6 @@ describe('NotificationService', () => {
 
       mockUserService.getUserUrls.mockResolvedValue(urls);
       mockUserService.getUserById.mockResolvedValue(user);
-      mockTelegramNotifier.sendMessage.mockResolvedValue(undefined);
 
       await notificationService.sendUserStatisticsReport('test-user-id');
 

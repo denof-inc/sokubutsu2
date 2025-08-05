@@ -2,7 +2,6 @@ import { jest } from '@jest/globals';
 import { UserService } from '../../services/UserService.js';
 import { User } from '../../entities/User.js';
 import { UserUrl } from '../../entities/UserUrl.js';
-import { createMockRepository } from '../../types/test.js';
 import { AppDataSource } from '../../database/connection.js';
 
 // database/connection.jsのモック
@@ -10,8 +9,8 @@ jest.mock('../../database/connection.js');
 
 describe('UserService', () => {
   let userService: UserService;
-  let mockUserRepository: ReturnType<typeof createMockRepository<User>>;
-  let mockUrlRepository: ReturnType<typeof createMockRepository<UserUrl>>;
+  let mockUserRepository: any;
+  let mockUrlRepository: any;
 
   beforeEach(() => {
     // 型安全なモック設定を追加
@@ -42,9 +41,8 @@ describe('UserService', () => {
     };
 
     // AppDataSourceモックの設定
-    const mockedAppDataSource = AppDataSource as jest.Mocked<typeof AppDataSource>;
-    // @ts-expect-error - モックの型が複雑なため一時的に無視
-    mockedAppDataSource.getRepository.mockImplementation(entity => {
+    const mockedAppDataSource = AppDataSource as any;
+    mockedAppDataSource.getRepository = jest.fn().mockImplementation((entity: any) => {
       if (entity === User) return mockUserRepository;
       if (entity === UserUrl) return mockUrlRepository;
       throw new Error('Unknown entity');
