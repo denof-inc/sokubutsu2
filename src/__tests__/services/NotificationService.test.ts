@@ -306,7 +306,7 @@ describe('NotificationService', () => {
 
       // Mock the next TelegramNotifier instance to throw error
       const mockCall = MockedTelegramNotifier as jest.Mock;
-      const mockSendMessage = jest.fn();
+      const mockSendMessage = jest.fn<() => Promise<void>>();
       mockSendMessage.mockRejectedValue(new Error('Network error'));
       mockCall.mockImplementationOnce(() => ({
         sendMessage: mockSendMessage,

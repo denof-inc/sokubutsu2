@@ -36,7 +36,7 @@ describe('PropertyMonitor', () => {
     jest.clearAllMocks();
     
     // Setup default mock behavior for different keys
-    mockStorage.load.mockImplementation((key: string) => {
+    mockStorage.load.mockImplementation((key: string): any => {
       if (key === 'previous_properties') {
         return null; // Default: no previous properties
       } else if (key === 'monitoring_statistics') {
@@ -160,7 +160,7 @@ describe('PropertyMonitor', () => {
       expect(mockStorageInstance.save).toHaveBeenCalledTimes(2); // previous_properties and monitoring_statistics
       const saveCalls = mockStorageInstance.save.mock.calls;
       // Find the monitoring_statistics save call
-      const statsCall = saveCalls.find(call => call[0] === 'monitoring_statistics');
+      const statsCall = saveCalls.find((call: any) => call[0] === 'monitoring_statistics');
       expect(statsCall).toBeDefined();
       if (statsCall) {
         const stats = statsCall[1];
@@ -311,7 +311,7 @@ describe('PropertyMonitor', () => {
 
       // monitoring_statistics save callを確認
       const saveCalls = mockStorageInstance.save.mock.calls;
-      const statsCall = saveCalls.find(call => call[0] === 'monitoring_statistics');
+      const statsCall = saveCalls.find((call: any) => call[0] === 'monitoring_statistics');
       expect(statsCall).toBeDefined();
     });
 
@@ -335,7 +335,7 @@ describe('PropertyMonitor', () => {
 
       // monitoring_statistics save callを確認
       const saveCalls = mockStorageInstance.save.mock.calls;
-      const statsCall = saveCalls.find(call => call[0] === 'monitoring_statistics');
+      const statsCall = saveCalls.find((call: any) => call[0] === 'monitoring_statistics');
       expect(statsCall).toBeDefined();
     });
   });
