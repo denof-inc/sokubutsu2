@@ -17,17 +17,18 @@ const mockTelegramNotifier = {
   sendShutdownNotice: jest.fn<() => Promise<void>>(),
 };
 
-// TelegramNotifierクラスのモック
-jest.mock('../../telegram.js', () => ({
-  TelegramNotifier: jest.fn().mockImplementation(() => mockTelegramNotifier),
-}));
-
 // UserServiceのモック
 const mockUserService = {
   getUserUrls: jest.fn<(userId: string) => Promise<UserUrl[]>>(),
   getUserById: jest.fn<(userId: string) => Promise<User | null>>(),
 };
 
+// TelegramNotifierクラスのモック
+jest.mock('../../telegram.js', () => ({
+  TelegramNotifier: jest.fn().mockImplementation(() => mockTelegramNotifier),
+}));
+
+// UserServiceのモック
 jest.mock('../../services/UserService.js', () => ({
   UserService: jest.fn().mockImplementation(() => mockUserService),
 }));
@@ -114,7 +115,7 @@ describe('NotificationService', () => {
 
       expect(TelegramNotifier).toHaveBeenCalledWith('test-bot-token', 'test-chat-id');
       expect(mockTelegramNotifier.sendMessage).toHaveBeenCalled();
-      
+
       const sentMessage = mockTelegramNotifier.sendMessage.mock.calls[0]?.[0];
       expect(sentMessage).toContain('新着物件発見');
       expect(sentMessage).toContain('テスト物件');
@@ -178,7 +179,7 @@ describe('NotificationService', () => {
       expect(mockUserService.getUserById).toHaveBeenCalledWith('test-user-id');
       expect(TelegramNotifier).toHaveBeenCalledWith('test-bot-token', 'test-chat-id');
       expect(mockTelegramNotifier.sendMessage).toHaveBeenCalled();
-      
+
       const sentMessage = mockTelegramNotifier.sendMessage.mock.calls[0]?.[0];
       expect(sentMessage).toContain('監視統計レポート');
       expect(sentMessage).toContain('150回'); // 総チェック数

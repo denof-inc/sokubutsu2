@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import type { PropertyMonitoringData } from '../types.js';
 
 // Manual mock for SimpleStorage
 const mockStorage = {
@@ -20,16 +21,23 @@ const mockStorage = {
   list: jest.fn().mockReturnValue([]),
 };
 
-jest.mock('../logger.js');
-jest.mock('../storage.js', () => ({
+jest.unstable_mockModule('../logger.js', () => ({
+  vibeLogger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
+
+jest.unstable_mockModule('../storage.js', () => ({
   SimpleStorage: jest.fn().mockImplementation(() => mockStorage),
 }));
 
-import { PropertyMonitor } from '../property-monitor.js';
-import { PropertyMonitoringData } from '../types.js';
+const { PropertyMonitor } = await import('../property-monitor.js');
 
 describe('PropertyMonitor', () => {
-  let propertyMonitor: PropertyMonitor;
+  let propertyMonitor: InstanceType<typeof PropertyMonitor>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -170,7 +178,19 @@ describe('PropertyMonitor', () => {
     it('統計情報を更新すること', () => {
       const currentProperties = [createProperty('物件A', '1000万円', '東京都')];
 
-      mockStorage.load.mockReturnValue([]);
+      mockStorage.load.mockImplementation((...args: unknown[]) => {
+        const key = args[0] as string;
+        if (key === 'previous_properties') {
+          return [];
+        } else if (key === 'monitoring_statistics') {
+          return {
+            totalChecks: 0,
+            newPropertyDetections: 0,
+            lastCheckAt: new Date(),
+          };
+        }
+        return null;
+      });
       mockStorage.save.mockImplementation(() => {});
 
       propertyMonitor.detectNewProperties(currentProperties);
