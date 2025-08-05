@@ -1,10 +1,12 @@
 import { jest } from '@jest/globals';
-import type { Repository } from 'typeorm';
 import { UserService } from '../../services/UserService.js';
 import { User } from '../../entities/User.js';
 import { UserUrl } from '../../entities/UserUrl.js';
-import { AppDataSource } from '../../database/connection.js';
 import { createMockRepository } from '../../types/test.js';
+import { AppDataSource } from '../../database/connection.js';
+
+// database/connection.jsのモック
+jest.mock('../../database/connection.js');
 
 describe('UserService', () => {
   let userService: UserService;
@@ -16,25 +18,37 @@ describe('UserService', () => {
     mockUserRepository = {
       find: jest.fn<() => Promise<User[]>>().mockResolvedValue([]),
       findOne: jest.fn<(options: any) => Promise<User | null>>().mockResolvedValue(null),
-      save: jest.fn<(entity: User | User[]) => Promise<User | User[]>>().mockImplementation((entity) => Promise.resolve(entity)),
+      save: jest
+        .fn<(entity: User | User[]) => Promise<User | User[]>>()
+        .mockImplementation(entity => Promise.resolve(entity)),
       create: jest.fn<(userData: Partial<User>) => User>().mockImplementation(() => new User()),
-      remove: jest.fn<(entity: User | User[]) => Promise<User | User[]>>().mockImplementation((entity) => Promise.resolve(entity)),
+      remove: jest
+        .fn<(entity: User | User[]) => Promise<User | User[]>>()
+        .mockImplementation(entity => Promise.resolve(entity)),
     };
 
     mockUrlRepository = {
       find: jest.fn<() => Promise<UserUrl[]>>().mockResolvedValue([]),
       findOne: jest.fn<(options: any) => Promise<UserUrl | null>>().mockResolvedValue(null),
-      save: jest.fn<(entity: UserUrl | UserUrl[]) => Promise<UserUrl | UserUrl[]>>().mockImplementation((entity) => Promise.resolve(entity)),
-      create: jest.fn<(urlData: Partial<UserUrl>) => UserUrl>().mockImplementation(() => new UserUrl()),
-      remove: jest.fn<(entity: UserUrl | UserUrl[]) => Promise<UserUrl | UserUrl[]>>().mockImplementation((entity) => Promise.resolve(entity)),
+      save: jest
+        .fn<(entity: UserUrl | UserUrl[]) => Promise<UserUrl | UserUrl[]>>()
+        .mockImplementation(entity => Promise.resolve(entity)),
+      create: jest
+        .fn<(urlData: Partial<UserUrl>) => UserUrl>()
+        .mockImplementation(() => new UserUrl()),
+      remove: jest
+        .fn<(entity: UserUrl | UserUrl[]) => Promise<UserUrl | UserUrl[]>>()
+        .mockImplementation(entity => Promise.resolve(entity)),
     };
 
     // AppDataSourceモックの設定
-    const getRepositoryMock = AppDataSource.getRepository as jest.MockedFunction<typeof AppDataSource.getRepository>;
-    getRepositoryMock.mockImplementation((entity: any) => {
-      if (entity === User) return mockUserRepository as any;
-      if (entity === UserUrl) return mockUrlRepository as any;
-      return null as any;
+    const mockedAppDataSource = AppDataSource as jest.Mocked<typeof AppDataSource>;
+    mockedAppDataSource.getRepository.mockImplementation((entity: unknown) => {
+      if (entity === User)
+        return mockUserRepository as ReturnType<typeof AppDataSource.getRepository>;
+      if (entity === UserUrl)
+        return mockUrlRepository as ReturnType<typeof AppDataSource.getRepository>;
+      throw new Error(`Unknown entity: ${String(entity)}`);
     });
 
     userService = new UserService();
@@ -110,7 +124,9 @@ describe('UserService', () => {
       mockUser.telegramChatId = 'chat-123';
       mockUser.urls = [];
       mockUser.canAddUrl = jest.fn<() => boolean>().mockReturnValue(true);
-      mockUser.canAddUrlInPrefecture = jest.fn<(prefecture: string) => boolean>().mockReturnValue(true);
+      mockUser.canAddUrlInPrefecture = jest
+        .fn<(prefecture: string) => boolean>()
+        .mockReturnValue(true);
     });
 
     it('URLを正常に登録できること', async () => {
@@ -167,7 +183,9 @@ describe('UserService', () => {
     });
 
     it('都道府県制限に違反する場合はエラーを返すこと', async () => {
-      mockUser.canAddUrlInPrefecture = jest.fn<(prefecture: string) => boolean>().mockReturnValue(false);
+      mockUser.canAddUrlInPrefecture = jest
+        .fn<(prefecture: string) => boolean>()
+        .mockReturnValue(false);
       mockUserRepository.findOne.mockResolvedValue(mockUser);
 
       const result = await userService.registerUrl(
