@@ -4,6 +4,7 @@
 
 import type { User } from '../entities/User.js';
 import type { UserUrl } from '../entities/UserUrl.js';
+import type { Statistics } from '../types.js';
 
 export interface MockCall<T extends unknown[]> {
   args: T;
@@ -61,29 +62,50 @@ export interface MockUserUrl extends UserUrl {
   updatedAt: Date;
 }
 
-export type MockTelegramNotifier = {
+export interface PropertyData {
+  title: string;
+  price: string;
+  location: string;
+  url: string;
+  detectedAt: string;
+}
+
+export interface MockTelegramNotifier {
   sendMessage: jest.MockedFunction<(message: string) => Promise<void>>;
-  sendNewListingNotification: jest.MockedFunction<(properties: any[], count: number) => Promise<void>>;
+  sendNewListingNotification: jest.MockedFunction<(properties: PropertyData[], count: number) => Promise<void>>;
   sendErrorAlert: jest.MockedFunction<(error: Error, context: string) => Promise<void>>;
-  sendStatisticsReport: jest.MockedFunction<(stats: any) => Promise<void>>;
+  sendStatisticsReport: jest.MockedFunction<(stats: Statistics) => Promise<void>>;
   testConnection: jest.MockedFunction<() => Promise<boolean>>;
   getBotInfo: jest.MockedFunction<() => Promise<{ username: string }>>;
-};
+  sendStartupNotice: jest.MockedFunction<() => Promise<void>>;
+  sendShutdownNotice: jest.MockedFunction<() => Promise<void>>;
+}
+
+export interface MockUserService {
+  getUserUrls: jest.MockedFunction<(userId: string) => Promise<UserUrl[]>>;
+  getUserById: jest.MockedFunction<(userId: string) => Promise<User | null>>;
+}
+
+export interface FindOptions {
+  where?: Record<string, unknown>;
+  relations?: string[];
+  order?: Record<string, 'ASC' | 'DESC'>;
+}
 
 export type MockRepository<T> = {
-  find: jest.MockedFunction<(options?: any) => Promise<T[]>>;
-  findOne: jest.MockedFunction<(options: any) => Promise<T | null>>;
+  find: jest.MockedFunction<(options?: FindOptions) => Promise<T[]>>;
+  findOne: jest.MockedFunction<(options: FindOptions) => Promise<T | null>>;
   save: jest.MockedFunction<(entity: T | T[]) => Promise<T | T[]>>;
-  create: jest.MockedFunction<(entityLike?: any) => T>;
+  create: jest.MockedFunction<(entityLike?: Partial<T>) => T>;
   remove: jest.MockedFunction<(entity: T | T[]) => Promise<T | T[]>>;
 };
 
 export function createMockRepository<T>(): MockRepository<T> {
   return {
-    find: jest.fn() as jest.MockedFunction<(options?: any) => Promise<T[]>>,
-    findOne: jest.fn() as jest.MockedFunction<(options: any) => Promise<T | null>>,
+    find: jest.fn() as jest.MockedFunction<(options?: FindOptions) => Promise<T[]>>,
+    findOne: jest.fn() as jest.MockedFunction<(options: FindOptions) => Promise<T | null>>,
     save: jest.fn() as jest.MockedFunction<(entity: T | T[]) => Promise<T | T[]>>,
-    create: jest.fn() as jest.MockedFunction<(entityLike?: any) => T>,
+    create: jest.fn() as jest.MockedFunction<(entityLike?: Partial<T>) => T>,
     remove: jest.fn() as jest.MockedFunction<(entity: T | T[]) => Promise<T | T[]>>,
   };
 }
