@@ -74,5 +74,14 @@
     "mvp"
   ],
   "author": "Sokubutsu Team",
-  "license": "MIT"
+  "license": "MIT",
+  "lint-staged": {
+    "src/**/*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "src/**/*.{json,css,md}": [
+      "prettier --write"
+    ]
+  }
 }
