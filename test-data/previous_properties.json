@@ -1,0 +1,23 @@
+[
+  {
+    "signature": "物件A:1000万円:東京",
+    "title": "物件A",
+    "price": "1000万円",
+    "location": "東京",
+    "detectedAt": "2025-08-05T06:20:16.381Z"
+  },
+  {
+    "signature": "物件A:1100万円:東京",
+    "title": "物件A",
+    "price": "1100万円",
+    "location": "東京",
+    "detectedAt": "2025-08-05T06:20:16.381Z"
+  },
+  {
+    "signature": "物件A:1000万円:神奈川",
+    "title": "物件A",
+    "price": "1000万円",
+    "location": "神奈川",
+    "detectedAt": "2025-08-05T06:20:16.381Z"
+  }
+]

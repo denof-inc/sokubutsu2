@@ -65,6 +65,16 @@ export interface Statistics {
 }
 
 /**
+ * データベース設定の型定義
+ */
+export interface DatabaseConfig {
+  type: 'sqlite' | 'postgres';
+  database: string;
+  synchronize: boolean;
+  logging: boolean;
+}
+
+/**
  * 設定の型定義
  */
 export interface Config {
@@ -83,6 +93,14 @@ export interface Config {
   };
   storage: {
     dataDir: string;
+  };
+  database?: DatabaseConfig;
+  admin?: {
+    port: number;
+    enabled: boolean;
+  };
+  multiUser?: {
+    enabled: boolean;
   };
 }
 
