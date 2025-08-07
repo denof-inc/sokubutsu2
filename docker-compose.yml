@@ -13,7 +13,8 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
     ports:
-      - '3002:3000'
+      - '3002:3000'  # メインアプリケーション
+      - '3001:3001'  # 管理画面
     healthcheck:
       test: ['CMD', 'node', '-e', "console.log('Health check passed')"]
       interval: 30s

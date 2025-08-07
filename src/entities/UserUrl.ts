@@ -15,19 +15,19 @@ export class UserUrl {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column()
+  @Column('text')
   url!: string;
 
-  @Column()
+  @Column('text')
   name!: string;
 
-  @Column()
+  @Column('text')
   prefecture!: string;
 
-  @Column({ default: true })
+  @Column('boolean', { default: true })
   isActive!: boolean;
 
-  @Column({ default: true })
+  @Column('boolean', { default: true })
   isMonitoring!: boolean; // 一時停止・再開用
 
   @CreateDateColumn()
@@ -36,7 +36,7 @@ export class UserUrl {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @Column()
+  @Column('text')
   userId!: string;
 
   @ManyToOne('User', 'urls')
@@ -44,18 +44,18 @@ export class UserUrl {
   user!: Relation<User>;
 
   // 最後の監視結果
-  @Column({ nullable: true })
+  @Column('text', { nullable: true })
   lastHash?: string;
 
-  @Column({ nullable: true })
+  @Column('datetime', { nullable: true })
   lastCheckedAt?: Date;
 
-  @Column({ default: 0 })
+  @Column('int', { default: 0 })
   newListingsCount!: number;
 
-  @Column({ default: 0 })
+  @Column('int', { default: 0 })
   totalChecks!: number;
 
-  @Column({ default: 0 })
+  @Column('int', { default: 0 })
   errorCount!: number;
 }

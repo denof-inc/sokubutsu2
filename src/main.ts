@@ -51,6 +51,15 @@ async function main(): Promise<void> {
   performanceMonitor.displayMetrics();
   console.log();
 
+  // 管理画面サーバー起動（Admin機能が有効な場合）
+  if (config.admin?.enabled) {
+    const { AdminServer } = await import('./admin/AdminServer.js');
+    const adminServer = new AdminServer();
+    adminServer.start(config.admin.port || 3001);
+    console.log(`
+📊 管理画面が起動しました: http://localhost:${config.admin.port || 3001}`);
+  }
+
   // スケジューラー起動
   const scheduler = new MonitoringScheduler(config.telegram.botToken, config.telegram.chatId);
 
