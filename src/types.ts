@@ -75,6 +75,22 @@ export interface DatabaseConfig {
 }
 
 /**
+ * サーキットブレーカー設定の型定義
+ */
+export interface CircuitBreakerConfigType {
+  /** 連続エラー許容回数 */
+  maxConsecutiveErrors: number;
+  /** エラー率閾値（0-1） */
+  errorRateThreshold: number;
+  /** 監視時間窓（分） */
+  windowSizeMinutes: number;
+  /** 自動復旧を有効にするか */
+  autoRecoveryEnabled: boolean;
+  /** 自動復旧までの待機時間（分） */
+  recoveryTimeMinutes: number;
+}
+
+/**
  * 設定の型定義
  */
 export interface Config {
@@ -102,6 +118,7 @@ export interface Config {
   multiUser?: {
     enabled: boolean;
   };
+  circuitBreaker: CircuitBreakerConfigType;
 }
 
 /**

@@ -44,6 +44,13 @@ export const config: Config = {
   multiUser: {
     enabled: process.env.MULTI_USER_MODE === 'true',
   },
+  circuitBreaker: {
+    maxConsecutiveErrors: parseInt(process.env.ERROR_THRESHOLD_COUNT ?? '5', 10),
+    errorRateThreshold: parseFloat(process.env.ERROR_THRESHOLD_RATE ?? '0.8'),
+    windowSizeMinutes: parseInt(process.env.ERROR_WINDOW_MINUTES ?? '10', 10),
+    autoRecoveryEnabled: process.env.AUTO_RECOVERY_ENABLED !== 'false',
+    recoveryTimeMinutes: parseInt(process.env.AUTO_RECOVERY_MINUTES ?? '30', 10),
+  },
 };
 
 /**
