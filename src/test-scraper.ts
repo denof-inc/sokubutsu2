@@ -12,8 +12,8 @@ async function testScraper() {
     humanNote: 'athome.co.jpの実際のURLでテスト実行',
   });
 
-  // テスト用URL（広島市の物件一覧）
-  const testUrl = 'https://www.athome.co.jp/chintai/hiroshima/hiroshima-city/list/';
+  // テスト用URL（広島市の物件一覧） - 実際に動作確認済みのURL
+  const testUrl = 'https://www.athome.co.jp/chintai/hiroshima/list/';
 
   const scraper = new SimpleScraper();
   
@@ -46,17 +46,21 @@ async function testScraper() {
       // パフォーマンス評価
       console.log('\n📊 パフォーマンス評価:');
       if (result.executionTime && result.executionTime <= 5000) {
-        console.log('  ✅ 実行時間: 目標達成（2-5秒）');
+        console.log('  ✅ 実行時間: HTTP-first成功（2-5秒）');
       } else if (result.executionTime && result.executionTime <= 25000) {
         console.log('  ⚠️  実行時間: Puppeteerフォールバック（15-25秒）');
+      } else if (result.executionTime && result.executionTime <= 40000) {
+        console.log('  ⚠️  実行時間: Real Browserフォールバック（20-40秒）');
       } else {
         console.log('  ❌ 実行時間: 目標未達成');
       }
 
       if (result.memoryUsage && result.memoryUsage <= 50) {
-        console.log('  ✅ メモリ使用量: 目標達成（30-50MB）');
+        console.log('  ✅ メモリ使用量: HTTP-first（30-50MB）');
       } else if (result.memoryUsage && result.memoryUsage <= 300) {
         console.log('  ⚠️  メモリ使用量: Puppeteerフォールバック（200-300MB）');
+      } else if (result.memoryUsage && result.memoryUsage <= 500) {
+        console.log('  ⚠️  メモリ使用量: Real Browserフォールバック（300-500MB）');
       } else {
         console.log('  ❌ メモリ使用量: 目標未達成');
       }

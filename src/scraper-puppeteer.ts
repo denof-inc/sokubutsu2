@@ -3,8 +3,14 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { ScrapingResult, PropertyInfo } from './types.js';
 import { vibeLogger } from './logger.js';
 import * as crypto from 'crypto';
+import { RealBrowserScraper } from './scraper-real-browser.js';
 
-puppeteer.use(StealthPlugin());
+// Stealth Pluginの詳細設定
+const stealth = StealthPlugin();
+// 特定のevasionを無効化（必要に応じて）
+// stealth.enabledEvasions.delete('chrome.runtime');
+
+puppeteer.use(stealth);
 
 /**
  * Puppeteerベースのスクレイパー（フォールバック用）
@@ -80,10 +86,15 @@ export class PuppeteerScraper {
       });
 
       if (title.includes('認証') || bodyText.includes('認証にご協力ください')) {
-        vibeLogger.warn('puppeteer.auth_detected', '認証ページが検出されました（Puppeteer）', {
+        vibeLogger.warn('puppeteer.auth_detected', '認証ページが検出されました。Real Browserにフォールバック', {
           context: { url, title },
-          humanNote: 'Stealth Pluginでも認証ページが表示された',
+          humanNote: 'Puppeteer Stealth失敗。Real Browserへフォールバック',
         });
+        
+        // Real Browserへフォールバック
+        await browser.close();
+        const realBrowserScraper = new RealBrowserScraper();
+        return await realBrowserScraper.scrapeAthome(url);
       }
 
       // 物件要素の取得
