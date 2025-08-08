@@ -5,6 +5,8 @@ import { SimpleStorage } from './storage.js';
 import { PropertyMonitor } from './property-monitor.js';
 import { NewPropertyDetectionResult } from './types.js';
 import { vibeLogger } from './logger.js';
+import { CircuitBreaker, CircuitBreakerConfig, CircuitState } from './circuit-breaker.js';
+import { config } from './config.js';
 
 /**
  * 監視スケジューラー
@@ -31,6 +33,7 @@ export class MonitoringScheduler {
   private readonly telegram: TelegramNotifier;
   private readonly storage = new SimpleStorage();
   private readonly propertyMonitor = new PropertyMonitor();
+  private readonly circuitBreaker: CircuitBreaker;
 
   private cronJob: cron.ScheduledTask | null = null;
   private statsJob: cron.ScheduledTask | null = null;
@@ -40,6 +43,16 @@ export class MonitoringScheduler {
 
   constructor(telegramToken: string, chatId: string) {
     this.telegram = new TelegramNotifier(telegramToken, chatId);
+    
+    // サーキットブレーカーの初期化
+    const cbConfig: CircuitBreakerConfig = {
+      maxConsecutiveErrors: config.circuitBreaker.maxConsecutiveErrors,
+      errorRateThreshold: config.circuitBreaker.errorRateThreshold,
+      windowSizeMs: config.circuitBreaker.windowSizeMinutes * 60 * 1000,
+      recoveryTimeMs: config.circuitBreaker.recoveryTimeMinutes * 60 * 1000,
+      autoRecoveryEnabled: config.circuitBreaker.autoRecoveryEnabled,
+    };
+    this.circuitBreaker = new CircuitBreaker(cbConfig);
   }
 
   /**
@@ -102,6 +115,14 @@ export class MonitoringScheduler {
    * 監視サイクル実行
    */
   private async runMonitoringCycle(urls: string[], telegramEnabled: boolean = true): Promise<void> {
+    // サーキットブレーカーがOPENの場合はスキップ
+    if (this.circuitBreaker.isOpen()) {
+      vibeLogger.warn('monitoring.cycle.skipped', 'サーキットブレーカーが作動中のため監視をスキップ', {
+        context: this.circuitBreaker.getStats(),
+      });
+      return;
+    }
+    
     this.isRunning = true;
     const cycleStartTime = Date.now();
 
@@ -122,12 +143,32 @@ export class MonitoringScheduler {
         await this.monitorUrl(url, telegramEnabled);
         successCount++;
         this.consecutiveErrors = 0; // 成功時はリセット
+        
+        // サーキットブレーカーに成功を記録
+        this.circuitBreaker.recordSuccess();
 
         // サーバー負荷軽減のため2秒待機
         await this.sleep(2000);
       } catch (error) {
         errorCount++;
         this.consecutiveErrors++;
+        
+        // サーキットブレーカーにエラーを記録
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const shouldStop = this.circuitBreaker.recordError(errorMessage);
+        
+        if (shouldStop && telegramEnabled) {
+          // サーキットブレーカーが作動した場合、管理者に通知
+          await this.telegram.sendMessage(
+            `🚨 エラー頻発により監視を一時停止しました\n\n` +
+            `連続エラー: ${this.consecutiveErrors}回\n` +
+            `詳細: ${errorMessage}\n\n` +
+            (config.circuitBreaker.autoRecoveryEnabled 
+              ? `⏱ ${config.circuitBreaker.recoveryTimeMinutes}分後に自動復旧を試みます`
+              : '手動での復旧が必要です')
+          );
+        }
+        
         vibeLogger.error('monitoring.url.error', `URL監視エラー: ${url}`, {
           context: {
             url,
@@ -351,6 +392,28 @@ export class MonitoringScheduler {
         },
       });
     }
+  }
+
+  /**
+   * サーキットブレーカーを手動リセット
+   */
+  resetCircuitBreaker(): void {
+    this.circuitBreaker.reset();
+    this.consecutiveErrors = 0;
+    vibeLogger.info('monitoring.circuit_breaker.reset', 'サーキットブレーカーをリセットしました');
+  }
+
+  /**
+   * サーキットブレーカーの状態を取得
+   */
+  getCircuitBreakerStatus(): {
+    state: CircuitState;
+    stats: ReturnType<CircuitBreaker['getStats']>;
+  } {
+    return {
+      state: this.circuitBreaker.getState(),
+      stats: this.circuitBreaker.getStats(),
+    };
   }
 
   /**
