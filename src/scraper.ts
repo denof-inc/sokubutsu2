@@ -1,8 +1,9 @@
-import axios, { AxiosResponse } from 'axios';
+import axios, { AxiosResponse, AxiosRequestConfig } from 'axios';
 import * as cheerio from 'cheerio';
 import * as crypto from 'crypto';
 import { ScrapingResult, PropertyInfo } from './types.js';
 import { vibeLogger } from './logger.js';
+import { PuppeteerScraper } from './scraper-puppeteer.js';
 
 /**
  * 軽量HTTPスクレイパー（戦略準拠）
@@ -24,6 +25,8 @@ import { vibeLogger } from './logger.js';
 export class SimpleScraper {
   private readonly timeout = 10000; // 10秒タイムアウト
   private readonly maxRetries = 3;
+  private puppeteerScraper: PuppeteerScraper | null = null;
+  private cookieJar: string = ''; // Cookieを保持
 
   private readonly headers = {
     'User-Agent':
@@ -63,20 +66,17 @@ export class SimpleScraper {
       // 認証ページが返された場合のチェック
       const title = $('title').text();
       if (title.includes('認証') || $('body').text().includes('認証にご協力ください')) {
-        vibeLogger.error('scraping.auth_required', '認証ページが検出されました', {
+        vibeLogger.warn('scraping.auth_required', '認証ページが検出されました。Puppeteerにフォールバック', {
           context: { url, title },
-          humanNote: 'アクセス制限を検出。実際のデータ取得に失敗',
+          humanNote: 'HTTP-first戦略失敗。段階的フォールバックを実行',
         });
 
-        // エラーとして扱う
-        return {
-          success: false,
-          hash: '',
-          count: 0,
-          error: '認証ページが表示されました。アクセスがブロックされています。',
-          executionTime: Date.now() - startTime,
-          memoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        };
+        // Puppeteerへフォールバック
+        if (!this.puppeteerScraper) {
+          this.puppeteerScraper = new PuppeteerScraper();
+        }
+        
+        return await this.puppeteerScraper.scrapeAthome(url);
       }
 
       // athome.co.jp専用セレクター（戦略文書で実証済み）
@@ -278,13 +278,30 @@ export class SimpleScraper {
         await this.sleep(delay);
       }
 
-      const response = await axios.get(url, {
-        headers: this.headers,
+      // リクエスト設定
+      const config: AxiosRequestConfig = {
+        headers: {
+          ...this.headers,
+          // リファラーを設定（athome.co.jpのトップページ）
+          'Referer': 'https://www.athome.co.jp/',
+          // Cookieがあれば追加
+          ...(this.cookieJar ? { 'Cookie': this.cookieJar } : {}),
+        },
         timeout: this.timeout,
         maxRedirects: 5,
         validateStatus: status => status < 400,
-        // withCredentialsを削除（クロスオリジンクッキーの問題を回避）
-      });
+      };
+
+      const response = await axios.get(url, config);
+
+      // レスポンスからCookieを保存
+      const setCookieHeader = response.headers['set-cookie'];
+      if (setCookieHeader) {
+        this.cookieJar = setCookieHeader.join('; ');
+        vibeLogger.debug('http.cookie.saved', 'Cookieを保存しました', {
+          context: { cookieCount: setCookieHeader.length },
+        });
+      }
 
       return response;
     } catch (error) {

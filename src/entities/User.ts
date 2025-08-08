@@ -14,13 +14,13 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ unique: true })
+  @Column('text', { unique: true })
   telegramChatId!: string;
 
-  @Column({ nullable: true })
+  @Column('text', { nullable: true })
   telegramUsername?: string;
 
-  @Column({ default: true })
+  @Column('boolean', { default: true })
   isActive!: boolean;
 
   @CreateDateColumn()

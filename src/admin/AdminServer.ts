@@ -26,6 +26,11 @@ export class AdminServer {
   }
 
   private setupRoutes(): void {
+    // ヘルスチェック用エンドポイント
+    this.app.get('/health', (req, res) => {
+      res.json({ status: 'ok' });
+    });
+
     // ダッシュボード
     this.app.get('/', async (req, res) => {
       try {

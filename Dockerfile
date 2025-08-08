@@ -21,6 +21,9 @@ RUN rm -rf src/__tests__ src/__mocks__ src/test-setup.ts
 # TypeScriptビルド
 RUN npx tsc
 
+# adminのviewsディレクトリをコピー（TypeScriptではコンパイルされないため）
+RUN if [ -d src/admin/views ]; then cp -r src/admin/views dist/admin/; fi
+
 # 不要なファイル削除
 RUN rm -rf src/ tsconfig.json node_modules/typescript node_modules/@types
 
@@ -33,7 +36,7 @@ RUN addgroup -g 1001 -S nodejs && \
 USER sokubutsu
 
 # ポート公開
-EXPOSE 3000
+EXPOSE 3000 3001
 
 # ヘルスチェック
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

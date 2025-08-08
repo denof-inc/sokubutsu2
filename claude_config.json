@@ -1,0 +1,35 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["--yes", "@upstash/context7-mcp"],
+      "env": {}
+    },
+    "serena": {
+      "command": "uv",
+      "args": [
+        "tool",
+        "run",
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena-mcp-server",
+        "--port",
+        "32123"
+      ],
+      "cwd": "${workspaceFolder}/serena",
+      "port": 32123,
+      "env": {
+        "SERENA_PROJECT_PATH": "${workspaceFolder}"
+      }
+    },
+    "cipher": {
+      "command": "cipher",
+      "args": ["--mode", "mcp"],
+      "env": {
+        "CIPHER_WORKSPACE": "${workspaceFolder}/.cipher",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
+        "CIPHER_EMBEDDER": "local"
+      }
+    }
+  }
+}

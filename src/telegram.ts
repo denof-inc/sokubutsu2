@@ -26,7 +26,12 @@ export class TelegramNotifier {
   private readonly maxRetries = 3;
 
   constructor(botToken: string, chatId: string) {
-    this.bot = new Telegraf(botToken);
+    this.bot = new Telegraf(botToken, {
+      telegram: {
+        webhookReply: false,
+      },
+      handlerTimeout: 90000,
+    });
     this.chatId = chatId;
   }
 
