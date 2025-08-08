@@ -49,7 +49,10 @@ export class SimpleScraper {
   };
 
   /**
-   * athome.co.jpのスクレイピング（HTTP-first戦略）
+   * athome.co.jpのスクレイピング（段階的フォールバック戦略）
+   * 1. HTTP-first (axios + cheerio)
+   * 2. Puppeteer + Stealth Plugin
+   * 3. Puppeteer Real Browser
    */
   async scrapeAthome(url: string): Promise<ScrapingResult> {
     const startTime = Date.now();
@@ -57,7 +60,7 @@ export class SimpleScraper {
     try {
       vibeLogger.info('scraping.start', `スクレイピング開始: ${url}`, {
         context: { url, method: 'HTTP-first', timeout: this.timeout },
-        humanNote: 'HTTP-first戦略による軽量スクレイピング',
+        humanNote: '段階的フォールバック戦略: HTTP-first → Puppeteer Stealth → Real Browser',
       });
 
       const response = await this.fetchWithRetry(url);
