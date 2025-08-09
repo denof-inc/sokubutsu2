@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/unbound-method */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { jest } from '@jest/globals';
 import { MonitoringScheduler } from '../scheduler.js';
 import { TelegramNotifier } from '../telegram.js';

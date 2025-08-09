@@ -1,24 +1,55 @@
-/* eslint-disable @typescript-eslint/unbound-method */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
+import { jest } from '@jest/globals';
+import { UrlStatistics } from '../types.js';
 
-// SKIP: node-telegram-bot-apiモジュールのモック問題のため一時的にスキップ
-describe.skip('TelegramNotifier - URL別レポート機能', () => {
-  // let notifier: TelegramNotifier;
-  // let mockBot: any;
+// Telegrafのモック関数を作成
+const mockSendMessage = jest.fn<() => Promise<any>>();
+const mockGetMe = jest.fn<() => Promise<any>>();
+
+const mockTelegraf = jest.fn(() => ({
+  telegram: {
+    sendMessage: mockSendMessage,
+    getMe: mockGetMe,
+  },
+}));
+
+// Telegrafのモック
+jest.unstable_mockModule('telegraf', () => ({
+  Telegraf: mockTelegraf,
+}));
+
+// vibeLoggerのモック
+jest.unstable_mockModule('../logger.js', () => ({
+  vibeLogger: {
+    error: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
+
+// モックの後でインポート
+const { TelegramNotifier } = await import('../telegram.js');
+const { vibeLogger } = await import('../logger.js');
+
+describe('TelegramNotifier - URL別レポート機能', () => {
+  let notifier: TelegramNotifier;
   
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Telegram Botのモック
-    mockBot = {
-      sendMessage: jest.fn(() => Promise.resolve({ message_id: 123 })) as any,
-      getMe: jest.fn(() => Promise.resolve({ id: 1, is_bot: true, username: 'test_bot' })) as any
-    };
-    
-    // node-telegram-bot-apiモジュールのモック
-    const TelegramBot = require('node-telegram-bot-api');
-    TelegramBot.mockImplementation(() => mockBot);
+    // デフォルトのモック設定
+    mockSendMessage.mockResolvedValue({
+      message_id: 123,
+      date: Date.now(),
+      chat: { id: 'test-chat-id', type: 'private' },
+      text: 'Test message'
+    });
+    mockGetMe.mockResolvedValue({ 
+      id: 1, 
+      is_bot: true, 
+      first_name: 'Test Bot',
+      username: 'test_bot' 
+    });
     
     notifier = new TelegramNotifier('test-token', 'test-chat-id');
   });
@@ -39,9 +70,9 @@ describe.skip('TelegramNotifier - URL別レポート機能', () => {
     it('URL別サマリーレポートを送信できる', async () => {
       await notifier.sendUrlSummaryReport(baseUrlStats);
       
-      expect(mockBot.sendMessage).toHaveBeenCalledWith(
+      expect(mockSendMessage).toHaveBeenCalledWith(
         'test-chat-id',
-        expect.stringContaining('📊 URLサマリーレポート'),
+        expect.stringContaining('📊 **URLサマリーレポート**'),
         expect.objectContaining({ parse_mode: 'Markdown' })
       );
     });
@@ -49,14 +80,14 @@ describe.skip('TelegramNotifier - URL別レポート機能', () => {
     it('新着なしの場合のレポート形式が正しい', async () => {
       await notifier.sendUrlSummaryReport(baseUrlStats);
       
-      const sentMessage = mockBot.sendMessage.mock.calls[0][1];
+      const sentMessage = mockSendMessage.mock.calls[0][1];
       
       // 必要な情報が含まれていることを確認
       expect(sentMessage).toContain('tokyo');
       expect(sentMessage).toContain('総チェック数: 12回');
       expect(sentMessage).toContain('成功率: 83.33%');
       expect(sentMessage).toContain('平均実行時間: 3.50秒');
-      expect(sentMessage).toContain('新着物件: なし');
+      expect(sentMessage).toContain('**新着物件**: なし');
     });
 
     it('新着ありの場合のレポート形式が正しい', async () => {
@@ -69,10 +100,10 @@ describe.skip('TelegramNotifier - URL別レポート機能', () => {
       
       await notifier.sendUrlSummaryReport(statsWithNew);
       
-      const sentMessage = mockBot.sendMessage.mock.calls[0][1];
+      const sentMessage = mockSendMessage.mock.calls[0][1];
       
       // 新着情報が含まれていることを確認
-      expect(sentMessage).toContain('🆕 新着物件: 3件');
+      expect(sentMessage).toContain('🆕 **新着物件**: 3件');
       expect(sentMessage).toContain('最終検知:');
     });
 
@@ -84,14 +115,14 @@ describe.skip('TelegramNotifier - URL別レポート機能', () => {
       ];
       
       for (const testCase of testCases) {
-        mockBot.sendMessage.mockClear();
+        mockSendMessage.mockClear();
         
         await notifier.sendUrlSummaryReport({
           ...baseUrlStats,
           url: testCase.url
         });
         
-        const sentMessage = mockBot.sendMessage.mock.calls[0][1];
+        const sentMessage = mockSendMessage.mock.calls[0][1];
         expect(sentMessage).toContain(testCase.expected);
       }
     });
@@ -107,16 +138,16 @@ describe.skip('TelegramNotifier - URL別レポート機能', () => {
       
       await notifier.sendUrlSummaryReport(highErrorStats);
       
-      const sentMessage = mockBot.sendMessage.mock.calls[0][1];
+      const sentMessage = mockSendMessage.mock.calls[0][1];
       expect(sentMessage).toContain('⚠️');
     });
 
     it('送信エラーが発生した場合ログに記録する', async () => {
-      mockBot.sendMessage.mockRejectedValueOnce(new Error('Network error'));
+      mockSendMessage.mockRejectedValueOnce(new Error('Network error'));
       
-      await expect(
-        notifier.sendUrlSummaryReport(baseUrlStats)
-      ).rejects.toThrow('Network error');
+      // sendUrlSummaryReportはエラーを内部で処理してログに記録するため、
+      // エラーを投げずに正常終了する
+      await notifier.sendUrlSummaryReport(baseUrlStats);
       
       expect(vibeLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('url_summary_report'),
@@ -135,11 +166,11 @@ describe.skip('TelegramNotifier - URL別レポート機能', () => {
         });
       }
       
-      expect(mockBot.sendMessage).toHaveBeenCalledTimes(3);
+      expect(mockSendMessage).toHaveBeenCalledTimes(3);
       
       // 各メッセージが異なるURLの情報を含むことを確認
       urls.forEach((city, index) => {
-        const sentMessage = mockBot.sendMessage.mock.calls[index][1];
+        const sentMessage = (mockSendMessage.mock.calls[index] as any)[1];
         expect(sentMessage).toContain(city);
       });
     });
@@ -161,7 +192,7 @@ describe.skip('TelegramNotifier - URL別レポート機能', () => {
       
       await notifier.sendUrlSummaryReport(urlStats);
       
-      const sentMessage = mockBot.sendMessage.mock.calls[0][1];
+      const sentMessage = mockSendMessage.mock.calls[0][1];
       
       // RFP要件: URLごとのサマリーレポート
       expect(sentMessage).toContain('URLサマリーレポート');
