@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Statistics } from './types.js';
+import { Statistics, UrlStatistics } from './types.js';
 import { config } from './config.js';
 import { vibeLogger } from './logger.js';
 
@@ -27,6 +27,7 @@ export class SimpleStorage {
   private readonly dataDir: string;
   private readonly hashFile: string;
   private readonly statsFile: string;
+  private readonly urlStatsFile: string;
 
   private hashData: Record<string, string> = {};
   private stats: Statistics = {
@@ -37,11 +38,13 @@ export class SimpleStorage {
     averageExecutionTime: 0,
     successRate: 100,
   };
+  private urlStats: Record<string, Omit<UrlStatistics, 'url'>> = {};
 
   constructor() {
     this.dataDir = config.storage.dataDir;
     this.hashFile = path.join(this.dataDir, 'hashes.json');
     this.statsFile = path.join(this.dataDir, 'statistics.json');
+    this.urlStatsFile = path.join(this.dataDir, 'url-statistics.json');
 
     this.ensureDataDirectory();
     this.loadData();
@@ -86,6 +89,15 @@ export class SimpleStorage {
           context: { stats: this.stats },
         });
       }
+      
+      // URL別統計データの読み込み
+      if (fs.existsSync(this.urlStatsFile)) {
+        const urlStatsContent = fs.readFileSync(this.urlStatsFile, 'utf8');
+        this.urlStats = JSON.parse(urlStatsContent) as Record<string, Omit<UrlStatistics, 'url'>>;
+        vibeLogger.debug('storage.url_stats_loaded', 'URL別統計データ読み込み完了', {
+          context: { urlCount: Object.keys(this.urlStats).length },
+        });
+      }
     } catch (error) {
       vibeLogger.error('storage.load_error', 'データ読み込みエラー', {
         context: {
@@ -114,11 +126,15 @@ export class SimpleStorage {
 
       // 統計データの保存
       fs.writeFileSync(this.statsFile, JSON.stringify(this.stats, null, 2));
+      
+      // URL別統計データの保存
+      fs.writeFileSync(this.urlStatsFile, JSON.stringify(this.urlStats, null, 2));
 
       vibeLogger.debug('storage.save_complete', 'データ保存完了', {
         context: {
           hashFile: this.hashFile,
           statsFile: this.statsFile,
+          urlStatsFile: this.urlStatsFile,
         },
       });
     } catch (error) {
@@ -311,5 +327,102 @@ export class SimpleStorage {
     console.log(`  - 平均実行時間: ${this.stats.averageExecutionTime.toFixed(2)}秒`);
     console.log(`  - 最終チェック: ${this.stats.lastCheck.toLocaleString('ja-JP')}`);
     console.log(`  - 監視URL数: ${Object.keys(this.hashData).length}件`);
+  }
+
+  /**
+   * URL別のチェック数を増やす
+   */
+  incrementUrlCheck(url: string): void {
+    if (!this.urlStats[url]) {
+      this.urlStats[url] = {
+        totalChecks: 0,
+        successCount: 0,
+        errorCount: 0,
+        successRate: 0,
+        averageExecutionTime: 0,
+        hasNewProperty: false,
+        newPropertyCount: 0,
+        lastNewProperty: null,
+      };
+    }
+    this.urlStats[url].totalChecks++;
+    this.saveData();
+  }
+
+  /**
+   * URL別の成功数を増やす
+   */
+  incrementUrlSuccess(url: string): void {
+    if (this.urlStats[url]) {
+      this.urlStats[url].successCount++;
+      this.updateUrlSuccessRate(url);
+      this.saveData();
+    }
+  }
+
+  /**
+   * URL別のエラー数を増やす
+   */
+  incrementUrlError(url: string): void {
+    if (this.urlStats[url]) {
+      this.urlStats[url].errorCount++;
+      this.updateUrlSuccessRate(url);
+      this.saveData();
+    }
+  }
+
+  /**
+   * URL別の実行時間を記録
+   */
+  recordUrlExecutionTime(url: string, executionTime: number): void {
+    if (this.urlStats[url]) {
+      const stats = this.urlStats[url];
+      const totalTime = stats.averageExecutionTime * (stats.successCount - 1) + executionTime;
+      stats.averageExecutionTime = totalTime / stats.successCount;
+      this.saveData();
+    }
+  }
+
+  /**
+   * URL別の新着物件を記録
+   */
+  recordUrlNewProperty(url: string, count: number): void {
+    if (this.urlStats[url]) {
+      this.urlStats[url].hasNewProperty = true;
+      this.urlStats[url].newPropertyCount = count;
+      this.urlStats[url].lastNewProperty = new Date();
+      this.saveData();
+    }
+  }
+
+  /**
+   * URL別の成功率を更新
+   */
+  private updateUrlSuccessRate(url: string): void {
+    const stats = this.urlStats[url];
+    if (stats && stats.totalChecks > 0) {
+      stats.successRate = Math.round((stats.successCount / stats.totalChecks) * 100 * 100) / 100;
+    }
+  }
+
+  /**
+   * URL別の統計情報を取得
+   */
+  getUrlStats(url: string): UrlStatistics {
+    const stats = this.urlStats[url] || {
+      totalChecks: 0,
+      successCount: 0,
+      errorCount: 0,
+      successRate: 0,
+      averageExecutionTime: 0,
+      hasNewProperty: false,
+      newPropertyCount: 0,
+      lastNewProperty: null,
+    };
+    
+    return {
+      url,
+      ...stats,
+    };
   }
 }
