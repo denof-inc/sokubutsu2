@@ -34,12 +34,14 @@ export class MonitoringScheduler {
   private readonly storage = new SimpleStorage();
   private readonly propertyMonitor = new PropertyMonitor();
   private readonly circuitBreaker: CircuitBreaker;
+  private readonly urlErrorCounts: Map<string, number> = new Map();
 
   private cronJob: cron.ScheduledTask | null = null;
   private statsJob: cron.ScheduledTask | null = null;
   private isRunning = false;
   private consecutiveErrors = 0;
   private readonly maxConsecutiveErrors = 5;
+  private readonly maxUrlConsecutiveErrors = 3;
 
   constructor(telegramToken: string, chatId: string) {
     this.telegram = new TelegramNotifier(telegramToken, chatId);
@@ -98,7 +100,7 @@ export class MonitoringScheduler {
 
     // 1時間ごとに統計レポート送信
     this.statsJob = cron.schedule('0 * * * *', () => {
-      void this.sendStatisticsReport(telegramEnabled);
+      void this.sendStatisticsReport(telegramEnabled, urls);
     });
 
     // 初回実行
@@ -221,20 +223,35 @@ export class MonitoringScheduler {
     });
 
     this.storage.incrementTotalChecks();
+    this.storage.incrementUrlCheck(url);
 
     const result = await this.scraper.scrapeAthome(url);
 
     if (!result.success) {
       this.storage.incrementErrors();
-      if (telegramEnabled) {
-        await this.telegram.sendErrorAlert(url, result.error || '不明なエラー');
+      this.storage.incrementUrlError(url);
+      
+      // URL別のエラーカウントを更新
+      const currentErrorCount = (this.urlErrorCounts.get(url) || 0) + 1;
+      this.urlErrorCounts.set(url, currentErrorCount);
+      
+      // 3回連続エラー（15分間）の場合のみ警告通知
+      if (telegramEnabled && currentErrorCount >= this.maxUrlConsecutiveErrors) {
+        await this.telegram.sendErrorAlert(url, `15分間継続エラー: ${result.error || '不明なエラー'}`);
+        // 通知後はカウンターをリセット
+        this.urlErrorCounts.set(url, 0);
       }
       return;
     }
+    
+    // 成功時はURLのエラーカウンターをリセット
+    this.urlErrorCounts.set(url, 0);
+    this.storage.incrementUrlSuccess(url);
 
     // 実行時間を記録
     if (result.executionTime) {
       this.storage.recordExecutionTime(result.executionTime);
+      this.storage.recordUrlExecutionTime(url, result.executionTime);
     }
 
     // 新着物件検知ロジックを使用
@@ -261,6 +278,7 @@ export class MonitoringScheduler {
         aiTodo: '検知パターンを分析し、通知タイミングを最適化',
       });
       this.storage.incrementNewListings();
+      this.storage.recordUrlNewProperty(url, detectionResult.newPropertyCount);
 
       // 新着物件通知を送信
       if (telegramEnabled) {
@@ -365,16 +383,56 @@ export class MonitoringScheduler {
   }
 
   /**
+   * URLごとの統計情報を取得
+   */
+  private async getUrlStatistics(url: string): Promise<import('./types.js').UrlStatistics> {
+    return this.storage.getUrlStats(url);
+  }
+
+  /**
+   * URLごとのサマリーレポートを送信
+   */
+  private async sendUrlSummaryReports(urls: string[], telegramEnabled: boolean = true): Promise<void> {
+    if (!telegramEnabled) {
+      return;
+    }
+    
+    for (const url of urls) {
+      try {
+        const urlStats = await this.getUrlStatistics(url);
+        await this.telegram.sendUrlSummaryReport(urlStats);
+        
+        vibeLogger.info('monitoring.url_report_sent', 'URL別レポート送信完了', {
+          context: { url, stats: urlStats },
+        });
+      } catch (error) {
+        vibeLogger.error('monitoring.url_report_error', 'URL別レポート送信エラー', {
+          context: {
+            url,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        });
+      }
+    }
+  }
+
+  /**
    * 統計レポート送信
    */
-  private async sendStatisticsReport(telegramEnabled: boolean = true): Promise<void> {
+  private async sendStatisticsReport(telegramEnabled: boolean = true, urls: string[] = []): Promise<void> {
     try {
+      // 全体統計レポート
       const stats = this.storage.getStats();
       if (telegramEnabled) {
         await this.telegram.sendStatisticsReport(stats);
         vibeLogger.info('monitoring.stats_report_sent', '統計レポート送信完了', {
           context: { stats },
         });
+        
+        // URLごとのサマリーレポート
+        if (urls.length > 0) {
+          await this.sendUrlSummaryReports(urls, telegramEnabled);
+        }
       } else {
         this.displayStatisticsToConsole();
       }
