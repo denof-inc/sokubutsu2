@@ -149,7 +149,8 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       // エラーを投げずに正常終了する
       await notifier.sendUrlSummaryReport(baseUrlStats);
       
-      expect(vibeLogger.error).toHaveBeenCalledWith(
+      const logError = vibeLogger.error as jest.Mock;
+      expect(logError).toHaveBeenCalledWith(
         expect.stringContaining('url_summary_report'),
         expect.any(String),
         expect.any(Object)

@@ -112,7 +112,8 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
 
     it('各URLの統計情報を個別に取得できる', async () => {
       // URLごとの統計情報取得メソッドの存在確認
-      const urlStats = await (scheduler as any).getUrlStatistics(testUrls[0]);
+      const getUrlStatistics = (scheduler as any).getUrlStatistics;
+      const urlStats = await getUrlStatistics.call(scheduler, testUrls[0]);
       
       expect(urlStats).toHaveProperty('url');
       expect(urlStats).toHaveProperty('totalChecks');
@@ -124,14 +125,17 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
 
     it('新着がない場合でもURLごとのレポートを送信する', async () => {
       // URLごとのレポート送信をシミュレート
-      await (scheduler as any).sendUrlSummaryReports(testUrls, true);
+      const sendUrlSummaryReports = (scheduler as any).sendUrlSummaryReports;
+      await sendUrlSummaryReports.call(scheduler, testUrls, true);
       
       // 各URLに対してレポートが送信されたことを確認
-      expect(mockTelegram.sendUrlSummaryReport).toHaveBeenCalledTimes(testUrls.length);
+      const sendUrlSummaryReport = mockTelegram.sendUrlSummaryReport;
+      expect(sendUrlSummaryReport).toHaveBeenCalledTimes(testUrls.length);
       
       // 各URLのレポートが正しい形式で送信されたことを確認
       testUrls.forEach((url, index) => {
-        expect(mockTelegram.sendUrlSummaryReport).toHaveBeenNthCalledWith(
+        const sendUrlSummaryReportMock = mockTelegram.sendUrlSummaryReport;
+        expect(sendUrlSummaryReportMock).toHaveBeenNthCalledWith(
           index + 1,
           expect.objectContaining({
             url,
@@ -158,10 +162,12 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
         averageExecutionTime: 3.2
       })) as any;
       
-      await (scheduler as any).sendUrlSummaryReports(testUrls, true);
+      const sendUrlSummaryReports = (scheduler as any).sendUrlSummaryReports;
+      await sendUrlSummaryReports.call(scheduler, testUrls, true);
       
       // 新着情報を含むレポートが送信されたことを確認
-      expect(mockTelegram.sendUrlSummaryReport).toHaveBeenCalledWith(
+      const sendUrlSummaryReport = mockTelegram.sendUrlSummaryReport;
+      expect(sendUrlSummaryReport).toHaveBeenCalledWith(
         expect.objectContaining({
           hasNewProperty: true,
           newPropertyCount: 2,
@@ -195,7 +201,8 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
       await (scheduler as any).sendUrlSummaryReports(testUrls, false);
       
       // Telegramメソッドが呼ばれていないことを確認
-      expect(mockTelegram.sendUrlSummaryReport).not.toHaveBeenCalled();
+      const sendUrlSummaryReportCheck = mockTelegram.sendUrlSummaryReport;
+      expect(sendUrlSummaryReportCheck).not.toHaveBeenCalled();
     });
   });
 
@@ -228,7 +235,8 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
       await (scheduler as any).sendNewPropertyNotification(detectionResult, testUrls[0]);
       
       // 新着物件通知が送信されたことを確認
-      expect(mockTelegram.sendMessage).toHaveBeenCalledWith(
+      const sendMessageCheck = mockTelegram.sendMessage;
+      expect(sendMessageCheck).toHaveBeenCalledWith(
         expect.stringContaining('新着物件発見')
       );
     });
@@ -249,7 +257,8 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
       await (scheduler as any).monitorUrl(testUrls[0], true);
       
       // 新着なしの場合は通知が送信されないことを確認
-      expect(mockTelegram.sendMessage).not.toHaveBeenCalled();
+      const sendMessageCheck2 = mockTelegram.sendMessage;
+      expect(sendMessageCheck2).not.toHaveBeenCalled();
     });
 
     it('エラー発生時は通知を送信しない（単発エラー）', async () => {
@@ -359,10 +368,12 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
         properties: []
       })) as any;
       
-      await (scheduler as any).monitorUrl(testUrls[0], true);
+      const monitorUrl2 = (scheduler as any).monitorUrl;
+      await monitorUrl2.call(scheduler, testUrls[0], true);
       
       // まだ1回なので警告は送信されない
-      expect(mockTelegram.sendErrorAlert).not.toHaveBeenCalled();
+      const sendErrorAlert2 = mockTelegram.sendErrorAlert;
+      expect(sendErrorAlert2).not.toHaveBeenCalled();
     });
   });
 });
