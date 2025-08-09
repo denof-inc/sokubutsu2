@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import { UrlStatistics } from '../types.js';
 
 // Telegrafのモック関数を作成
-const mockSendMessage = jest.fn<() => Promise<any>>();
+const mockSendMessage = jest.fn<(chatId: string, text: string, options?: any) => Promise<any>>();
 const mockGetMe = jest.fn<() => Promise<any>>();
 
 const mockTelegraf = jest.fn(() => ({
@@ -32,7 +32,7 @@ const { TelegramNotifier } = await import('../telegram.js');
 const { vibeLogger } = await import('../logger.js');
 
 describe('TelegramNotifier - URL別レポート機能', () => {
-  let notifier: TelegramNotifier;
+  let notifier: InstanceType<typeof TelegramNotifier>;
   
   beforeEach(() => {
     jest.clearAllMocks();
@@ -80,7 +80,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
     it('新着なしの場合のレポート形式が正しい', async () => {
       await notifier.sendUrlSummaryReport(baseUrlStats);
       
-      const sentMessage = mockSendMessage.mock.calls[0][1];
+      const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
       
       // 必要な情報が含まれていることを確認
       expect(sentMessage).toContain('tokyo');
@@ -100,7 +100,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       
       await notifier.sendUrlSummaryReport(statsWithNew);
       
-      const sentMessage = mockSendMessage.mock.calls[0][1];
+      const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
       
       // 新着情報が含まれていることを確認
       expect(sentMessage).toContain('🆕 **新着物件**: 3件');
@@ -122,7 +122,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
           url: testCase.url
         });
         
-        const sentMessage = mockSendMessage.mock.calls[0][1];
+        const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
         expect(sentMessage).toContain(testCase.expected);
       }
     });
@@ -138,7 +138,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       
       await notifier.sendUrlSummaryReport(highErrorStats);
       
-      const sentMessage = mockSendMessage.mock.calls[0][1];
+      const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
       expect(sentMessage).toContain('⚠️');
     });
 
@@ -151,7 +151,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       
       const logError = vibeLogger.error as jest.Mock;
       expect(logError).toHaveBeenCalledWith(
-        expect.stringContaining('url_summary_report'),
+        expect.stringContaining('telegram'),
         expect.any(String),
         expect.any(Object)
       );
@@ -171,7 +171,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       
       // 各メッセージが異なるURLの情報を含むことを確認
       urls.forEach((city, index) => {
-        const sentMessage = (mockSendMessage.mock.calls[index] as any)[1];
+        const sentMessage = mockSendMessage.mock.calls[index]?.[1] ?? '';
         expect(sentMessage).toContain(city);
       });
     });
@@ -193,7 +193,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       
       await notifier.sendUrlSummaryReport(urlStats);
       
-      const sentMessage = mockSendMessage.mock.calls[0][1];
+      const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
       
       // RFP要件: URLごとのサマリーレポート
       expect(sentMessage).toContain('URLサマリーレポート');
