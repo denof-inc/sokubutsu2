@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { jest } from '@jest/globals';
 import { MonitoringScheduler } from '../scheduler.js';
 import { TelegramNotifier } from '../telegram.js';
 import { SimpleStorage } from '../storage.js';
 import { SimpleScraper } from '../scraper.js';
 import { PropertyMonitor } from '../property-monitor.js';
-import type { ScrapingResult, UrlStatistics, Statistics } from '../types.js';
 
 // Mock依存関係
 jest.mock('../telegram.js');
@@ -35,16 +36,16 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
     
     // Telegramモックのセットアップ
     mockTelegram = new TelegramNotifier('test-token', 'test-chat-id') as jest.Mocked<TelegramNotifier>;
-    mockTelegram.testConnection = jest.fn<Promise<boolean>, []>().mockResolvedValue(true);
-    mockTelegram.sendStartupNotice = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
-    mockTelegram.sendMessage = jest.fn<Promise<void>, [string, number?]>().mockResolvedValue(undefined);
-    mockTelegram.sendUrlSummaryReport = jest.fn<Promise<void>, [UrlStatistics]>().mockResolvedValue(undefined);
-    mockTelegram.sendStatisticsReport = jest.fn<Promise<void>, [Statistics]>().mockResolvedValue(undefined);
-    mockTelegram.sendErrorAlert = jest.fn<Promise<void>, [string, string]>().mockResolvedValue(undefined);
+    mockTelegram.testConnection = jest.fn(() => Promise.resolve(true)) as any;
+    mockTelegram.sendStartupNotice = jest.fn(() => Promise.resolve(undefined)) as any;
+    mockTelegram.sendMessage = jest.fn(() => Promise.resolve(undefined)) as any;
+    mockTelegram.sendUrlSummaryReport = jest.fn(() => Promise.resolve(undefined)) as any;
+    mockTelegram.sendStatisticsReport = jest.fn(() => Promise.resolve(undefined)) as any;
+    mockTelegram.sendErrorAlert = jest.fn(() => Promise.resolve(undefined)) as any;
     
     // Storageモックのセットアップ
     mockStorage = new SimpleStorage() as jest.Mocked<SimpleStorage>;
-    mockStorage.getUrlStats = jest.fn().mockImplementation((url: string) => ({
+    mockStorage.getUrlStats = jest.fn((url: string) => ({
       url,
       totalChecks: 12,
       successCount: 10,
@@ -54,47 +55,47 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
       averageExecutionTime: 3.5,
       hasNewProperty: false,
       newPropertyCount: 0
-    }));
-    mockStorage.getStats = jest.fn().mockReturnValue({
+    })) as any;
+    mockStorage.getStats = jest.fn(() => ({
       totalChecks: 36,
       errors: 6,
       newListings: 2,
       lastCheck: new Date().toISOString(),
       averageExecutionTime: 3.5,
       successRate: 83.33
-    });
-    mockStorage.incrementTotalChecks = jest.fn();
-    mockStorage.incrementUrlCheck = jest.fn();
-    mockStorage.incrementErrors = jest.fn();
-    mockStorage.incrementUrlError = jest.fn();
-    mockStorage.incrementUrlSuccess = jest.fn();
-    mockStorage.recordExecutionTime = jest.fn();
-    mockStorage.recordUrlExecutionTime = jest.fn();
-    mockStorage.recordUrlNewProperty = jest.fn();
-    mockStorage.incrementNewListings = jest.fn();
-    mockStorage.getHash = jest.fn().mockReturnValue('existing-hash');
-    mockStorage.setHash = jest.fn();
+    })) as any;
+    mockStorage.incrementTotalChecks = jest.fn() as any;
+    mockStorage.incrementUrlCheck = jest.fn() as any;
+    mockStorage.incrementErrors = jest.fn() as any;
+    mockStorage.incrementUrlError = jest.fn() as any;
+    mockStorage.incrementUrlSuccess = jest.fn() as any;
+    mockStorage.recordExecutionTime = jest.fn() as any;
+    mockStorage.recordUrlExecutionTime = jest.fn() as any;
+    mockStorage.recordUrlNewProperty = jest.fn() as any;
+    mockStorage.incrementNewListings = jest.fn() as any;
+    mockStorage.getHash = jest.fn(() => 'existing-hash') as any;
+    mockStorage.setHash = jest.fn() as any;
     
     // Scraperモックのセットアップ
     mockScraper = new SimpleScraper() as jest.Mocked<SimpleScraper>;
-    mockScraper.scrapeAthome = jest.fn<Promise<ScrapingResult>, [string]>().mockResolvedValue({
+    mockScraper.scrapeAthome = jest.fn(() => Promise.resolve({
       success: true,
       count: 30,
       hash: 'test-hash',
       properties: [],
       executionTime: 3500
-    });
+    })) as any;
     
     // PropertyMonitorモックのセットアップ
     const mockPropertyMonitor = new PropertyMonitor() as jest.Mocked<PropertyMonitor>;
-    mockPropertyMonitor.detectNewProperties = jest.fn().mockReturnValue({
+    mockPropertyMonitor.detectNewProperties = jest.fn(() => ({
       hasNewProperty: false,
       newPropertyCount: 0,
       totalMonitored: 3,
       confidence: 'high',
       newProperties: [],
       detectedAt: new Date()
-    });
+    })) as any;
     
     scheduler = new MonitoringScheduler('test-token', 'test-chat-id');
     
@@ -106,7 +107,7 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
   });
 
   describe('URLごとのサマリーレポート', () => {
-    it('1時間ごとにURLごとのサマリーレポートを送信する', async () => {
+    it('1時間ごとにURLごとのサマリーレポートを送信する', () => {
       // 現在のメソッドが存在することを確認（まだ実装されていないので失敗するはず）
       expect(typeof (scheduler as any).sendUrlSummaryReports).toBe('function');
     });
@@ -147,7 +148,7 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
 
     it('新着がある場合はその情報も含めてレポートする', async () => {
       // 新着物件がある状態をモック
-      mockStorage.getUrlStats = jest.fn().mockImplementation((url: string) => ({
+      mockStorage.getUrlStats = jest.fn((url: string) => ({
         url,
         totalChecks: 12,
         successCount: 11,
@@ -157,7 +158,7 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
         hasNewProperty: true,
         newPropertyCount: 2,
         averageExecutionTime: 3.2
-      }));
+      })) as any;
       
       await (scheduler as any).sendUrlSummaryReports(testUrls, true);
       
@@ -173,9 +174,14 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
 
     it('URLごとのレポート送信時にエラーが発生してもクラッシュしない', async () => {
       // エラーをシミュレート
-      mockTelegram.sendUrlSummaryReport = jest.fn()
-        .mockRejectedValueOnce(new Error('Network error'))
-        .mockResolvedValue(undefined);
+      let callCount = 0;
+      mockTelegram.sendUrlSummaryReport = jest.fn(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.reject(new Error('Network error'));
+        }
+        return Promise.resolve(undefined);
+      }) as any;
       
       // エラーが発生してもメソッドが完了することを確認
       await expect(
@@ -232,14 +238,14 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
     it('新着物件がない場合は通知を送信しない', async () => {
       // PropertyMonitorのモック設定
       const mockPropertyMonitor = (scheduler as any).propertyMonitor;
-      mockPropertyMonitor.detectNewProperties = jest.fn().mockReturnValue({
+      mockPropertyMonitor.detectNewProperties = jest.fn(() => ({
         hasNewProperty: false,
         newPropertyCount: 0,
         totalMonitored: 3,
         confidence: 'high',
         newProperties: [],
         detectedAt: new Date()
-      });
+      })) as any;
       
       // 監視URLをチェック
       await (scheduler as any).monitorUrl(testUrls[0], true);
@@ -253,13 +259,13 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
       (scheduler as any).urlErrorCounts = new Map();
       
       // スクレイピングエラーをシミュレート
-      mockScraper.scrapeAthome = jest.fn<Promise<ScrapingResult>, [string]>().mockResolvedValue({
+      mockScraper.scrapeAthome = jest.fn(() => Promise.resolve({
         success: false,
         error: 'Network error',
         count: 0,
         hash: '',
         properties: []
-      });
+      })) as any;
       
       await (scheduler as any).monitorUrl(testUrls[0], true);
       
@@ -270,13 +276,13 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
 
     it('3回連続エラー（15分間）の場合は警告通知を送信する', async () => {
       // エラーをシミュレート
-      mockScraper.scrapeAthome = jest.fn<Promise<ScrapingResult>, [string]>().mockResolvedValue({
+      mockScraper.scrapeAthome = jest.fn(() => Promise.resolve({
         success: false,
         error: 'Persistent error',
         count: 0,
         hash: '',
         properties: []
-      });
+      })) as any;
       
       // URL別のエラーカウンターを初期化
       (scheduler as any).urlErrorCounts = new Map();
@@ -298,13 +304,13 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
       (scheduler as any).urlErrorCounts = new Map();
       
       // URL1でエラー2回
-      mockScraper.scrapeAthome = jest.fn<Promise<ScrapingResult>, [string]>().mockResolvedValue({
+      mockScraper.scrapeAthome = jest.fn(() => Promise.resolve({
         success: false,
         error: 'Error',
         count: 0,
         hash: '',
         properties: []
-      });
+      })) as any;
       
       await (scheduler as any).monitorUrl(testUrls[0], true);
       await (scheduler as any).monitorUrl(testUrls[0], true);
@@ -321,25 +327,25 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
       (scheduler as any).urlErrorCounts = new Map();
       
       // エラー2回
-      mockScraper.scrapeAthome = jest.fn<Promise<ScrapingResult>, [string]>().mockResolvedValue({
+      mockScraper.scrapeAthome = jest.fn(() => Promise.resolve({
         success: false,
         error: 'Error',
         count: 0,
         hash: '',
         properties: []
-      });
+      })) as any;
       
       await (scheduler as any).monitorUrl(testUrls[0], true);
       await (scheduler as any).monitorUrl(testUrls[0], true);
       
       // 成功
-      mockScraper.scrapeAthome = jest.fn<Promise<ScrapingResult>, [string]>().mockResolvedValue({
+      mockScraper.scrapeAthome = jest.fn(() => Promise.resolve({
         success: true,
         count: 30,
         hash: 'success-hash',
         properties: [],
         executionTime: 3000
-      });
+      })) as any;
       
       await (scheduler as any).monitorUrl(testUrls[0], true);
       
@@ -347,13 +353,13 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
       expect((scheduler as any).urlErrorCounts.get(testUrls[0])).toBe(0);
       
       // 再度エラー（リセット後なので1回目としてカウント）
-      mockScraper.scrapeAthome = jest.fn<Promise<ScrapingResult>, [string]>().mockResolvedValue({
+      mockScraper.scrapeAthome = jest.fn(() => Promise.resolve({
         success: false,
         error: 'Error',
         count: 0,
         hash: '',
         properties: []
-      });
+      })) as any;
       
       await (scheduler as any).monitorUrl(testUrls[0], true);
       
