@@ -6,15 +6,20 @@
 
 ソクブツMVPは、athome.co.jpの新着物件を監視し、Telegramで即座に通知する軽量なサービスです。
 
-### 戦略準拠の特徴
+### 主な特徴
 
+- ✅ **ESMモジュールシステム**: 完全ESM対応で最新のJavaScript標準に準拠
 - ✅ **HTTP-first戦略**: 軽量・高速処理（2-5秒）
-- ✅ **最小限依存関係**: 12パッケージのみ
+- ✅ **TypeScript**: 型安全性を保証した堅牢な実装
 - ✅ **Docker対応**: 自宅サーバー最適化
-- ✅ **完全テスト環境**: Lint/Jest/CI/CD完備
-- ✅ **今日中稼働**: コピペで即座起動
+- ✅ **完全テスト環境**: Jest + ESM環境でのテスト実装
+- ✅ **CI/CD完備**: GitHub Actions による自動テスト・品質チェック
 
 ## 🚀 クイックスタート（5分で起動）
+
+### 必要要件
+- Node.js 18.0.0以上（ESMサポートのため）
+- npm 8.0.0以上
 
 ### 1. プロジェクトセットアップ
 ```bash
@@ -100,22 +105,34 @@ npm run docker:stop        # Docker Compose停止
 
 ## 🏗️ アーキテクチャ
 
+### モジュールシステム
+- **完全ESM対応**: すべてのモジュールはESM形式で記述
+- **拡張子付きインポート**: `.js`拡張子を明示的に指定
+- **TypeScript設定**: `"module": "ES2022"` で最新仕様に対応
+
+### ディレクトリ構造
 ```
 src/
 ├── main.ts              # メインエントリーポイント
 ├── config.ts            # 設定管理
 ├── types.ts             # 型定義
-├── logger.ts            # ログ管理
+├── logger.ts            # ログ管理（vibelogger使用）
 ├── performance.ts       # パフォーマンス監視
-├── scraper.ts           # スクレイピング（HTTP-first）
-├── telegram.ts          # Telegram通知
-├── storage.ts           # データ保存（JSON）
+├── scraper.ts           # スクレイピング（HTTP-first戦略）
+├── telegram.ts          # Telegram通知（Telegraf使用）
+├── storage.ts           # データ保存（JSON/SQLite）
 ├── scheduler.ts         # 監視スケジューラー
-├── manual-test.ts       # 手動テスト
-├── test-setup.ts        # テスト設定
-└── __tests__/           # テストファイル
-    ├── scraper.test.ts
-    └── storage.test.ts
+├── property-monitor.ts  # 新着物件検知ロジック
+├── circuit-breaker.ts   # サーキットブレーカーパターン
+├── entities/            # TypeORM エンティティ
+│   ├── User.ts         # ユーザーエンティティ
+│   └── UserUrl.ts      # URL管理エンティティ
+├── __tests__/           # テストファイル（Jest + ESM）
+│   ├── setup.ts        # テスト共通設定
+│   └── *.test.ts       # 各種テストファイル
+└── __mocks__/           # モックファイル
+    ├── vibelogger.js   # ESM形式のモック
+    └── *.ts            # TypeScriptモック
 ```
 
 ## 🐳 Docker運用
@@ -233,10 +250,11 @@ npm run start:dev
 ```
 
 ### コード品質基準
-- ESLint: エラー0件必須
-- テストカバレッジ: 70%以上
-- TypeScript: strict mode
-- 全テスト成功必須
+- **ESLint**: エラー0件必須（警告は段階的に改善）
+- **テストカバレッジ**: 80%以上
+- **TypeScript**: strict mode 有効
+- **全テスト成功必須**: CI/CDで自動チェック
+- **ESMモジュール**: CommonJSの混在禁止
 
 ### Pull Request
 1. 機能ブランチ作成

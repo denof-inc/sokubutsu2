@@ -182,3 +182,27 @@ export interface MonitoringStatistics {
   /** 最終新着検知時刻 */
   lastNewPropertyAt?: Date;
 }
+
+/**
+ * URL別統計情報の型定義
+ */
+export interface UrlStatistics {
+  /** 監視対象URL */
+  url: string;
+  /** 総チェック数 */
+  totalChecks: number;
+  /** 成功回数 */
+  successCount: number;
+  /** エラー回数 */
+  errorCount: number;
+  /** 成功率（%） */
+  successRate: number;
+  /** 平均実行時間（秒） */
+  averageExecutionTime: number;
+  /** 新着物件があるか */
+  hasNewProperty: boolean;
+  /** 新着物件数 */
+  newPropertyCount: number;
+  /** 最終新着検知時刻 */
+  lastNewProperty: Date | null;
+}

@@ -1,0 +1,42 @@
+{
+  "https://www.athome.co.jp/chintai/tokyo/list/": {
+    "totalChecks": 32,
+    "successCount": 6,
+    "errorCount": 26,
+    "successRate": 18.75,
+    "averageExecutionTime": 3333.3333333333335,
+    "hasNewProperty": false,
+    "newPropertyCount": 0,
+    "lastNewProperty": null
+  },
+  "https://www.athome.co.jp/chintai/osaka/list/": {
+    "totalChecks": 2,
+    "successCount": 0,
+    "errorCount": 2,
+    "successRate": 0,
+    "averageExecutionTime": 0,
+    "hasNewProperty": false,
+    "newPropertyCount": 0,
+    "lastNewProperty": null
+  },
+  "https://example.com/1": {
+    "totalChecks": 7,
+    "successCount": 0,
+    "errorCount": 7,
+    "successRate": 0,
+    "averageExecutionTime": 0,
+    "hasNewProperty": false,
+    "newPropertyCount": 0,
+    "lastNewProperty": null
+  },
+  "https://example.com/2": {
+    "totalChecks": 7,
+    "successCount": 0,
+    "errorCount": 3,
+    "successRate": 0,
+    "averageExecutionTime": 0,
+    "hasNewProperty": false,
+    "newPropertyCount": 0,
+    "lastNewProperty": null
+  }
+}

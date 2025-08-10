@@ -1,5 +1,5 @@
 import { Telegraf } from 'telegraf';
-import { NotificationData, Statistics } from './types.js';
+import { NotificationData, Statistics, UrlStatistics } from './types.js';
 import { vibeLogger } from './logger.js';
 
 /**
@@ -152,6 +152,55 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
     `;
 
     await this.sendMessage(message);
+  }
+
+  /**
+   * URL別サマリーレポート送信
+   */
+  async sendUrlSummaryReport(stats: UrlStatistics): Promise<void> {
+    try {
+      // URLから都道府県名を抽出
+      const match = stats.url.match(/\/(chintai|buy_other)\/([^/]+)\//);
+      const prefecture = match ? match[2] : 'unknown';
+      
+      let message = `📊 **URLサマリーレポート**\n\n`;
+      message += `📍 **エリア**: ${prefecture}\n`;
+      message += `🔗 **URL**: ${stats.url}\n\n`;
+      
+      message += `📈 **統計情報**\n`;
+      message += `• 総チェック数: ${stats.totalChecks}回\n`;
+      message += `• 成功率: ${stats.successRate}%\n`;
+      message += `• 平均実行時間: ${stats.averageExecutionTime.toFixed(2)}秒\n\n`;
+      
+      if (stats.hasNewProperty) {
+        message += `🆕 **新着物件**: ${stats.newPropertyCount}件\n`;
+        if (stats.lastNewProperty) {
+          const lastNew = stats.lastNewProperty instanceof Date ? stats.lastNewProperty : new Date(stats.lastNewProperty);
+          message += `• 最終検知: ${lastNew.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}\n`;
+        }
+      } else {
+        message += `📊 **新着物件**: なし\n`;
+      }
+      
+      // エラー率が高い場合は警告
+      if (stats.successRate < 70) {
+        message += `\n⚠️ **注意**: エラー率が高くなっています（成功率: ${stats.successRate}%）\n`;
+      }
+      
+      await this.sendMessage(message);
+      
+      vibeLogger.info('telegram.url_summary_report_sent', 'URL別サマリーレポート送信成功', {
+        context: { url: stats.url, prefecture },
+      });
+    } catch (error) {
+      vibeLogger.error('telegram.url_summary_report_error', 'URL別サマリーレポート送信失敗', {
+        context: {
+          url: stats.url,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+      throw error;
+    }
   }
 
   /**

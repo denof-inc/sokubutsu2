@@ -75,7 +75,7 @@ describe('SimpleScraper', () => {
       expect(result.error).toContain('Network Error');
     }, 20000); // タイムアウトを20秒に増加
 
-    it.skip('リトライ機能が動作すること', async () => {
+    it('リトライ機能が動作すること', async () => {
       const mockSuccessResponse: AxiosResponse = {
         data: '<html><body><div class="property">物件1</div></body></html>',
         status: 200,
@@ -93,7 +93,7 @@ describe('SimpleScraper', () => {
       expect(result.success).toBe(true);
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mockedAxios.get).toHaveBeenCalledTimes(3);
-    });
+    }, 20000); // タイムアウトを20秒に設定
   });
 
   describe('validateResult', () => {
