@@ -1,8 +1,8 @@
 {
-  "totalChecks": 59,
-  "errors": 51,
+  "totalChecks": 73,
+  "errors": 61,
   "newListings": 0,
-  "lastCheck": "2025-08-09T01:09:46.827Z",
+  "lastCheck": "2025-08-09T23:35:22.615Z",
   "averageExecutionTime": 0.7931817401046686,
-  "successRate": 13.56
+  "successRate": 16.44
 }

@@ -18,5 +18,25 @@
     "hasNewProperty": false,
     "newPropertyCount": 0,
     "lastNewProperty": null
+  },
+  "https://example.com/1": {
+    "totalChecks": 7,
+    "successCount": 0,
+    "errorCount": 7,
+    "successRate": 0,
+    "averageExecutionTime": 0,
+    "hasNewProperty": false,
+    "newPropertyCount": 0,
+    "lastNewProperty": null
+  },
+  "https://example.com/2": {
+    "totalChecks": 7,
+    "successCount": 0,
+    "errorCount": 3,
+    "successRate": 0,
+    "averageExecutionTime": 0,
+    "hasNewProperty": false,
+    "newPropertyCount": 0,
+    "lastNewProperty": null
   }
 }
