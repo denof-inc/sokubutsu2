@@ -165,7 +165,7 @@ export class SimpleScraper {
       const bodyText = $('body').text();
       const countMatches = bodyText.match(/(\d+)件/g);
       if (countMatches && countMatches.length > 0) {
-        vibeLogger.info('scraping.page_info', 'ページ内の件数情報', {
+        vibeLogger.debug('scraping.page_info', 'ページ内の件数情報', {
           context: {
             foundCounts: countMatches,
             detectedCount: count,
@@ -217,10 +217,9 @@ export class SimpleScraper {
         }
       });
 
-      vibeLogger.info('scraping.success', `スクレイピング成功: ${count}件検出`, {
+      vibeLogger.info('scraping.success', 'スクレイピング完了', {
         context: {
           url,
-          count,
           executionTime,
           selector: usedSelector,
           hash,
@@ -228,7 +227,6 @@ export class SimpleScraper {
           propertiesFound: propertyInfoList.length,
         },
         humanNote: 'パフォーマンス目標: 2-5秒、メモリ30-50MB',
-        aiTodo: '実行時間とメモリ使用量を分析し、最適化案を提案',
       });
 
       return {

@@ -175,10 +175,9 @@ export class RealBrowserScraper {
       const hash = crypto.createHash('md5').update(contentText).digest('hex');
       const executionTime = Date.now() - startTime;
 
-      vibeLogger.info('real-browser.success', `Real Browserスクレイピング成功: ${count}件検出`, {
+      vibeLogger.info('real-browser.success', 'Real Browserスクレイピング完了', {
         context: {
           url,
-          count,
           executionTime,
           selector: usedSelector,
           hash,

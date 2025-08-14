@@ -72,7 +72,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       
       expect(mockSendMessage).toHaveBeenCalledWith(
         'test-chat-id',
-        expect.stringContaining('📊 **URLサマリーレポート**'),
+        expect.stringContaining('📊 *1時間サマリー*'),
         expect.objectContaining({ parse_mode: 'Markdown' })
       );
     });
@@ -84,10 +84,9 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       
       // 必要な情報が含まれていることを確認
       expect(sentMessage).toContain('tokyo');
-      expect(sentMessage).toContain('総チェック数: 12回');
-      expect(sentMessage).toContain('成功率: 83.33%');
-      expect(sentMessage).toContain('平均実行時間: 3.50秒');
-      expect(sentMessage).toContain('**新着物件**: なし');
+      expect(sentMessage).toContain('*チェック回数*: 12回');
+      expect(sentMessage).toContain('*成功率*: 83.3%');
+      expect(sentMessage).toContain('*新着*: なし');
     });
 
     it('新着ありの場合のレポート形式が正しい', async () => {
@@ -103,8 +102,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
       
       // 新着情報が含まれていることを確認
-      expect(sentMessage).toContain('🆕 **新着物件**: 3件');
-      expect(sentMessage).toContain('最終検知:');
+      expect(sentMessage).toContain('🆕 *新着*: 3件');
     });
 
     it('URLから都道府県名を抽出して表示する', async () => {
@@ -139,7 +137,9 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       await notifier.sendUrlSummaryReport(highErrorStats);
       
       const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
-      expect(sentMessage).toContain('⚠️');
+      // 新フォーマットではエラー率の警告は削除されたため、この確認は不要
+      // 代わりに基本的な情報が含まれることを確認
+      expect(sentMessage).toContain('*成功率*: 30.0%');
     });
 
     it('送信エラーが発生した場合ログに記録する', async () => {
@@ -196,15 +196,15 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
       
       // RFP要件: URLごとのサマリーレポート
-      expect(sentMessage).toContain('URLサマリーレポート');
+      expect(sentMessage).toContain('1時間サマリー');
       expect(sentMessage).toContain(urlStats.url);
       
       // 統計情報の表示
-      expect(sentMessage).toMatch(/総チェック数.*12回/);
-      expect(sentMessage).toMatch(/成功率.*91\.67%/);
+      expect(sentMessage).toMatch(/チェック回数.*12回/);
+      expect(sentMessage).toMatch(/成功率.*91\.7%/);
       
       // 新着情報の表示
-      expect(sentMessage).toMatch(/新着物件.*2件/);
+      expect(sentMessage).toMatch(/新着.*2件/);
     });
   });
 });

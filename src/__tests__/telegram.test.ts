@@ -77,13 +77,11 @@ describe('TelegramNotifier', () => {
       expect(mockSendMessage).toHaveBeenCalled();
       const calls = mockSendMessage.mock.calls as unknown as Array<[string, string, any]>;
       expect(calls[0]?.[0]).toBe('test-chat-id');
-      expect(calls[0]?.[1]).toContain('新着物件検知！');
+      expect(calls[0]?.[1]).toContain('新着物件あり');
 
       const sentMessage = calls[0]?.[1] ?? '';
-      expect(sentMessage).toContain('+5件増加');
-      expect(sentMessage).toContain('15件');
-      expect(sentMessage).toContain('10件');
-      expect(sentMessage).toContain('3.5秒');
+      expect(sentMessage).toContain('+5件');
+      expect(sentMessage).toContain('https://example.com');
     });
 
     it('物件数減少時も正しく通知すること', async () => {
@@ -113,11 +111,12 @@ describe('TelegramNotifier', () => {
       expect(mockSendMessage).toHaveBeenCalled();
       const calls = mockSendMessage.mock.calls as unknown as Array<[string, string, any]>;
       expect(calls[0]?.[0]).toBe('test-chat-id');
-      expect(calls[0]?.[1]).toContain('監視エラー発生');
+      expect(calls[0]?.[1]).toContain('エラーアラート');
 
       const sentMessage = calls[0]?.[1] ?? '';
-      expect(sentMessage).toContain('example.com/error');
+      expect(sentMessage).toContain('https://example.com/error');
       expect(sentMessage).toContain(error);
+      expect(sentMessage).toContain('3回連続でエラー');
     });
   });
 
