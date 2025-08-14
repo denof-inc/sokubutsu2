@@ -1,6 +1,20 @@
 # 軽量Node.jsイメージを使用
 FROM node:24-alpine
 
+# Puppeteer/Chromiumの依存関係をインストール
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
+# Puppeteerに実行可能なChromiumのパスを設定
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 # 作業ディレクトリ設定
 WORKDIR /app
 

@@ -1,6 +1,8 @@
 import { Telegraf } from 'telegraf';
 import { NotificationData, Statistics, UrlStatistics } from './types.js';
 import { vibeLogger } from './logger.js';
+import https from 'https';
+import http from 'http';
 
 /**
  * Telegram通知サービス
@@ -88,21 +90,20 @@ export class TelegramNotifier {
    */
   async sendNewListingNotification(data: NotificationData): Promise<void> {
     const changeCount = data.currentCount - data.previousCount;
-    const changeIcon = changeCount > 0 ? '📈' : '📉';
-    const changeText = changeCount > 0 ? `+${changeCount}件増加` : `${Math.abs(changeCount)}件減少`;
+    const changeIcon = changeCount > 0 ? '🆕' : '📉';
+    const changeText = changeCount > 0 ? `+${changeCount}件` : `${Math.abs(changeCount)}件減少`;
 
+    // URLから地域情報を抽出
+    const match = data.url.match(/\/(chintai|buy_other)\/([^/]+)\//); 
+    const area = match ? match[2] : 'unknown';
+    
     const message = `
-🏠 *新着物件検知！*
+🆕 *新着物件あり*
 
-${changeIcon} *変化*: ${changeText}
-📊 *現在の物件数*: ${data.currentCount}件
-📋 *前回の物件数*: ${data.previousCount}件
+📍 *エリア*: ${area}
+🔢 *新着件数*: ${changeText}
+🔗 *URL*: ${data.url}
 ⏰ *検知時刻*: ${data.detectedAt.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
-⚡ *処理時間*: ${data.executionTime.toFixed(1)}秒
-
-🔗 *物件を確認*: [こちらをクリック](${data.url})
-
-${changeCount > 0 ? '🎉 *新しい物件が追加されました！今すぐチェックして理想の物件をゲットしましょう！*' : '📝 *物件情報が更新されました。最新の情報をご確認ください。*'}
     `;
 
     await this.sendMessage(message);
@@ -112,15 +113,19 @@ ${changeCount > 0 ? '🎉 *新しい物件が追加されました！今すぐ�
    * エラー通知
    */
   async sendErrorAlert(url: string, error: string): Promise<void> {
+    // URLから地域情報を抽出
+    const match = url.match(/\/(chintai|buy_other)\/([^/]+)\//); 
+    const area = match ? match[2] : 'unknown';
+    
     const message = `
-❌ *監視エラー発生*
+⚠️ *エラーアラート*
 
-🌐 *URL*: ${this.formatUrl(url)}
-🚨 *エラー内容*: \`${error}\`
+📍 *エリア*: ${area}
+❌ *エラー*: ${error}
 ⏰ *発生時刻*: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+🔗 *URL*: ${url}
 
-🔧 *自動復旧を試行中...*
-継続的にエラーが発生する場合は、設定をご確認ください。
+3回連続でエラーが発生しています。設定を確認してください。
     `;
 
     await this.sendMessage(message);
@@ -163,29 +168,22 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
       const match = stats.url.match(/\/(chintai|buy_other)\/([^/]+)\//);
       const prefecture = match ? match[2] : 'unknown';
       
-      let message = `📊 **URLサマリーレポート**\n\n`;
-      message += `📍 **エリア**: ${prefecture}\n`;
-      message += `🔗 **URL**: ${stats.url}\n\n`;
+      const now = new Date();
+      const currentTime = now.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
       
-      message += `📈 **統計情報**\n`;
-      message += `• 総チェック数: ${stats.totalChecks}回\n`;
-      message += `• 成功率: ${stats.successRate}%\n`;
-      message += `• 平均実行時間: ${stats.averageExecutionTime.toFixed(2)}秒\n\n`;
+      let message = `📊 *1時間サマリー*\n\n`;
+      message += `📍 *エリア*: ${prefecture}\n`;
+      message += `⏰ *時刻*: ${currentTime}\n`;
+      message += `🔢 *チェック回数*: ${stats.totalChecks}回\n`;
+      message += `✅ *成功率*: ${stats.successRate.toFixed(1)}%\n`;
       
       if (stats.hasNewProperty) {
-        message += `🆕 **新着物件**: ${stats.newPropertyCount}件\n`;
-        if (stats.lastNewProperty) {
-          const lastNew = stats.lastNewProperty instanceof Date ? stats.lastNewProperty : new Date(stats.lastNewProperty);
-          message += `• 最終検知: ${lastNew.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}\n`;
-        }
+        message += `🆕 *新着*: ${stats.newPropertyCount}件\n`;
       } else {
-        message += `📊 **新着物件**: なし\n`;
+        message += `📝 *新着*: なし\n`;
       }
       
-      // エラー率が高い場合は警告
-      if (stats.successRate < 70) {
-        message += `\n⚠️ **注意**: エラー率が高くなっています（成功率: ${stats.successRate}%）\n`;
-      }
+      message += `\n🔗 ${stats.url}`;
       
       await this.sendMessage(message);
       

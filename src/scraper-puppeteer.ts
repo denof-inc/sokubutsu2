@@ -163,10 +163,9 @@ export class PuppeteerScraper {
       const hash = crypto.createHash('md5').update(contentText).digest('hex');
       const executionTime = Date.now() - startTime;
 
-      vibeLogger.info('puppeteer.success', `Puppeteerスクレイピング成功: ${count}件検出`, {
+      vibeLogger.info('puppeteer.success', 'Puppeteerスクレイピング完了', {
         context: {
           url,
-          count,
           executionTime,
           selector: usedSelector,
           hash,
