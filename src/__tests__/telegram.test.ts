@@ -181,10 +181,11 @@ describe('TelegramNotifier', () => {
       expect(mockSendMessage).toHaveBeenCalledTimes(3);
     });
 
-    it('最大リトライ回数を超えたらエラーを投げること', async () => {
+    it('最大リトライ回数を超えてもエラーを投げずに終了すること', async () => {
       mockSendMessage.mockRejectedValue(new Error('Permanent error'));
 
-      await expect(notifier.sendStartupNotice()).rejects.toThrow('Permanent error');
+      // エラーを投げずに正常終了することを確認
+      await expect(notifier.sendStartupNotice()).resolves.toBeUndefined();
       expect(mockSendMessage).toHaveBeenCalledTimes(4); // 初回 + 3回リトライ
     });
   });
