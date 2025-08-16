@@ -35,6 +35,7 @@ export class MonitoringScheduler {
   private readonly propertyMonitor = new PropertyMonitor();
   private readonly circuitBreaker: CircuitBreaker;
   private readonly urlErrorCounts: Map<string, number> = new Map();
+  private monitoringUrls: string[] = [];
 
   private cronJob: cron.ScheduledTask | null = null;
   private statsJob: cron.ScheduledTask | null = null;
@@ -62,6 +63,7 @@ export class MonitoringScheduler {
    * 監視開始
    */
   async start(urls: string[], telegramEnabled: boolean = true): Promise<void> {
+    this.monitoringUrls = urls;
     vibeLogger.info('monitoring.start', `監視開始: ${urls.length}件のURL`, {
       context: { urlCount: urls.length, urls, telegramEnabled },
       humanNote: 'システムの監視プロセスを開始',
@@ -507,6 +509,102 @@ export class MonitoringScheduler {
   }
 
   /**
+   * Telegramインスタンスを取得
+   */
+  getTelegram(): TelegramNotifier {
+    return this.telegram;
+  }
+
+  /**
+   * 現在のステータスを取得
+   */
+  async getStatus(): Promise<{
+    isRunning: boolean;
+    urlCount: number;
+    lastCheck: Date | null;
+    totalChecks: number;
+    successRate: number;
+  }> {
+    const stats = await this.storage.getStatistics();
+    const urls = this.monitoringUrls;
+    
+    return {
+      isRunning: this.isRunning,
+      urlCount: urls.length,
+      lastCheck: stats.lastCheck,
+      totalChecks: stats.totalChecks,
+      successRate: stats.successRate,
+    };
+  }
+
+  /**
+   * 手動チェック実行
+   */
+  async runManualCheck(): Promise<{
+    urlCount: number;
+    successCount: number;
+    errorCount: number;
+    newPropertyCount: number;
+    executionTime: number;
+  }> {
+    const startTime = Date.now();
+    const urls = this.monitoringUrls;
+    
+    vibeLogger.info('monitoring.manual_check_start', '手動チェック開始', {
+      context: { urlCount: urls.length },
+    });
+
+    let successCount = 0;
+    let errorCount = 0;
+    let newPropertyCount = 0;
+
+    for (const url of urls) {
+      try {
+        const result = await this.scraper.scrapeAthome(url);
+        if (result.success) {
+          successCount++;
+          
+          // 新着物件チェック
+          const detectionResult = this.propertyMonitor.detectNewProperties(result.properties || []);
+          if (detectionResult.hasNewProperty) {
+            newPropertyCount += detectionResult.newPropertyCount;
+          }
+        } else {
+          errorCount++;
+        }
+      } catch (error) {
+        errorCount++;
+        vibeLogger.error('monitoring.manual_check_error', '手動チェックエラー', {
+          context: {
+            url,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        });
+      }
+    }
+
+    const executionTime = Date.now() - startTime;
+    
+    vibeLogger.info('monitoring.manual_check_complete', '手動チェック完了', {
+      context: {
+        urlCount: urls.length,
+        successCount,
+        errorCount,
+        newPropertyCount,
+        executionTime,
+      },
+    });
+
+    return {
+      urlCount: urls.length,
+      successCount,
+      errorCount,
+      newPropertyCount,
+      executionTime,
+    };
+  }
+
+  /**
    * 監視停止
    */
   stop(): void {
@@ -552,29 +650,6 @@ export class MonitoringScheduler {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  /**
-   * 手動実行（テスト用）
-   */
-  async runManualCheck(urls: string[], telegramEnabled: boolean = true): Promise<void> {
-    vibeLogger.info('monitoring.manual_check_start', '手動チェック開始', {
-      context: { urls },
-    });
-    await this.runMonitoringCycle(urls, telegramEnabled);
-    vibeLogger.info('monitoring.manual_check_complete', '手動チェック完了', {
-      humanNote: '手動チェックが正常に完了',
-    });
-  }
-
-  /**
-   * スケジューラー状態取得
-   */
-  getStatus(): { isRunning: boolean; consecutiveErrors: number; hasJobs: boolean } {
-    return {
-      isRunning: this.isRunning,
-      consecutiveErrors: this.consecutiveErrors,
-      hasJobs: this.cronJob !== null && this.statsJob !== null,
-    };
-  }
 
   /**
    * 統計情報をコンソールに表示

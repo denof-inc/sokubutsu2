@@ -65,8 +65,14 @@ async function main(): Promise<void> {
 
   try {
     await scheduler.start(config.monitoring.urls, config.telegram.enabled);
+    
+    // Telegramコマンドハンドラーを設定
+    const telegram = scheduler.getTelegram();
+    telegram.setupCommandHandlers(scheduler);
+    await telegram.launchBot();
 
     console.log('✅ 監視を開始しました。5分間隔で実行されます。');
+    console.log('🤖 Telegram Botコマンドが利用可能です。');
     console.log('📊 統計レポートは1時間ごとに送信されます。');
     console.log('🛑 停止するには Ctrl+C を押してください。');
     console.log();
@@ -122,6 +128,10 @@ function setupGracefulShutdown(scheduler: MonitoringScheduler): void {
 
     // 最終パフォーマンス指標表示
     performanceMonitor.displayMetrics();
+
+    // Telegram Botを停止
+    const telegram = scheduler.getTelegram();
+    telegram.stopBot();
 
     // スケジューラー停止
     scheduler.stop();
