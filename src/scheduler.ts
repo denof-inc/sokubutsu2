@@ -42,6 +42,7 @@ export class MonitoringScheduler {
   private consecutiveErrors = 0;
   private readonly maxConsecutiveErrors = 5;
   private readonly maxUrlConsecutiveErrors = 3;
+  private readonly urlCheckHistory: Map<string, Array<{time: string; status: 'なし' | 'あり' | 'エラー'}>> = new Map();
 
   constructor(telegramToken: string, chatId: string) {
     this.telegram = new TelegramNotifier(telegramToken, chatId);
@@ -224,12 +225,23 @@ export class MonitoringScheduler {
 
     this.storage.incrementTotalChecks();
     this.storage.incrementUrlCheck(url);
+    
+    // 現在時刻を取得（履歴記録用）
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('ja-JP', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      timeZone: 'Asia/Tokyo'
+    });
 
     const result = await this.scraper.scrapeAthome(url);
 
     if (!result.success) {
       this.storage.incrementErrors();
       this.storage.incrementUrlError(url);
+      
+      // 履歴に記録
+      this.addUrlCheckHistory(url, { time: timeStr, status: 'エラー' });
       
       // URL別のエラーカウントを更新
       const currentErrorCount = (this.urlErrorCounts.get(url) || 0) + 1;
@@ -267,6 +279,7 @@ export class MonitoringScheduler {
       this.storage.setHash(url, result.hash);
     } else if (detectionResult.hasNewProperty) {
       // 新着検知！
+      this.addUrlCheckHistory(url, { time: timeStr, status: 'あり' });
       vibeLogger.info('monitoring.new_listing_detected', `🎉 新着検知: ${url}`, {
         context: {
           url,
@@ -287,9 +300,26 @@ export class MonitoringScheduler {
       this.storage.setHash(url, result.hash);
     } else {
       // 変化なし
+      this.addUrlCheckHistory(url, { time: timeStr, status: 'なし' });
       vibeLogger.debug('monitoring.no_change', `変化なし: ${url}`, {
         context: { url, count: result.count, hash: result.hash },
       });
+    }
+  }
+
+  /**
+   * URL チェック履歴を追加
+   */
+  private addUrlCheckHistory(url: string, entry: { time: string; status: 'なし' | 'あり' | 'エラー' }): void {
+    if (!this.urlCheckHistory.has(url)) {
+      this.urlCheckHistory.set(url, []);
+    }
+    const history = this.urlCheckHistory.get(url)!;
+    history.push(entry);
+    
+    // 1時間分（12エントリー = 5分×12）を超えたら古いものを削除
+    if (history.length > 12) {
+      history.shift();
     }
   }
 
@@ -400,6 +430,8 @@ export class MonitoringScheduler {
     for (const url of urls) {
       try {
         const urlStats = await this.getUrlStatistics(url);
+        // 履歴を追加
+        urlStats.hourlyHistory = this.urlCheckHistory.get(url) || [];
         await this.telegram.sendUrlSummaryReport(urlStats);
         
         vibeLogger.info('monitoring.url_report_sent', 'URL別レポート送信完了', {

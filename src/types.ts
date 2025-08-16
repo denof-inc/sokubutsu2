@@ -205,4 +205,9 @@ export interface UrlStatistics {
   newPropertyCount: number;
   /** 最終新着検知時刻 */
   lastNewProperty: Date | null;
+  /** 1時間の履歴（オプション） */
+  hourlyHistory?: {
+    time: string;
+    status: 'なし' | 'あり' | 'エラー';
+  }[];
 }

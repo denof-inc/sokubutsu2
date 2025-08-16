@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { NotificationData, Statistics } from '../types.js';
+import { NotificationData, Statistics, UrlStatistics } from '../types.js';
 
 // モック関数を作成
 const mockGetMe = jest.fn<() => Promise<any>>();
@@ -80,7 +80,7 @@ describe('TelegramNotifier', () => {
       expect(calls[0]?.[1]).toContain('新着物件あり');
 
       const sentMessage = calls[0]?.[1] ?? '';
-      expect(sentMessage).toContain('+5件');
+      expect(sentMessage).not.toContain('+5件'); // 件数は削除されたので含まれない
       expect(sentMessage).toContain('https://example.com');
     });
 
@@ -97,7 +97,7 @@ describe('TelegramNotifier', () => {
 
       const calls = mockSendMessage.mock.calls as unknown as Array<[string, string, any]>;
       const sentMessage = calls[0]?.[1] ?? '';
-      expect(sentMessage).toContain('2件減少');
+      expect(sentMessage).not.toContain('2件減少'); // 件数は削除されたので含まれない
     });
   });
 
@@ -111,12 +111,49 @@ describe('TelegramNotifier', () => {
       expect(mockSendMessage).toHaveBeenCalled();
       const calls = mockSendMessage.mock.calls as unknown as Array<[string, string, any]>;
       expect(calls[0]?.[0]).toBe('test-chat-id');
-      expect(calls[0]?.[1]).toContain('エラーアラート');
+      expect(calls[0]?.[1]).toContain('監視エラーのお知らせ');
 
       const sentMessage = calls[0]?.[1] ?? '';
-      expect(sentMessage).toContain('https://example.com/error');
-      expect(sentMessage).toContain(error);
-      expect(sentMessage).toContain('3回連続でエラー');
+      expect(sentMessage).toContain('エリア物件'); // 監視名が含まれる
+      expect(sentMessage).toContain('3回連続（15分間）'); // エラー数の表示
+      expect(sentMessage).toContain('サイトの応答が遅くなっています'); // ユーザーフレンドリーなエラーメッセージ
+    });
+  });
+
+  describe('sendUrlSummaryReport', () => {
+    it('1時間サマリーレポートを正しく送信すること', async () => {
+      const stats: UrlStatistics = {
+        url: 'https://www.athome.co.jp/chintai/tokyo/list/',
+        totalChecks: 12,
+        successCount: 10,
+        errorCount: 2,
+        successRate: 83.3,
+        averageExecutionTime: 3.5,
+        hasNewProperty: false,
+        newPropertyCount: 0,
+        lastNewProperty: null,
+        hourlyHistory: [
+          { time: '10:00', status: 'なし' },
+          { time: '10:05', status: 'なし' },
+          { time: '10:10', status: 'あり' },
+          { time: '10:15', status: 'エラー' },
+          { time: '10:20', status: 'なし' },
+        ]
+      };
+
+      await notifier.sendUrlSummaryReport(stats);
+
+      expect(mockSendMessage).toHaveBeenCalled();
+      const calls = mockSendMessage.mock.calls as unknown as Array<[string, string, any]>;
+      const sentMessage = calls[0]?.[1] ?? '';
+      
+      expect(sentMessage).toContain('1時間サマリー');
+      expect(sentMessage).toContain('tokyo');
+      expect(sentMessage).toContain('5分ごとの結果');
+      expect(sentMessage).toContain('10:00 ✅ なし');
+      expect(sentMessage).toContain('10:10 🆕 あり');
+      expect(sentMessage).toContain('10:15 ❌ エラー');
+      expect(sentMessage).toContain('成功率: 83.3%');
     });
   });
 
@@ -181,10 +218,11 @@ describe('TelegramNotifier', () => {
       expect(mockSendMessage).toHaveBeenCalledTimes(3);
     });
 
-    it('最大リトライ回数を超えたらエラーを投げること', async () => {
+    it('最大リトライ回数を超えてもエラーを投げずに終了すること', async () => {
       mockSendMessage.mockRejectedValue(new Error('Permanent error'));
 
-      await expect(notifier.sendStartupNotice()).rejects.toThrow('Permanent error');
+      // エラーを投げずに正常終了することを確認
+      await expect(notifier.sendStartupNotice()).resolves.toBeUndefined();
       expect(mockSendMessage).toHaveBeenCalledTimes(4); // 初回 + 3回リトライ
     });
   });

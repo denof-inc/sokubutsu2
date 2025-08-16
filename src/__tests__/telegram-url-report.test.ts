@@ -84,9 +84,9 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       
       // 必要な情報が含まれていることを確認
       expect(sentMessage).toContain('tokyo');
-      expect(sentMessage).toContain('*チェック回数*: 12回');
-      expect(sentMessage).toContain('*成功率*: 83.3%');
-      expect(sentMessage).toContain('*新着*: なし');
+      expect(sentMessage).toContain('チェック回数: 12回');
+      expect(sentMessage).toContain('成功率: 83.3%');
+      expect(sentMessage).not.toContain('新着総数'); // 新着なしの場合は新着総数は表示されない
     });
 
     it('新着ありの場合のレポート形式が正しい', async () => {
@@ -102,7 +102,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
       
       // 新着情報が含まれていることを確認
-      expect(sentMessage).toContain('🆕 *新着*: 3件');
+      expect(sentMessage).toContain('新着総数: 3件');
     });
 
     it('URLから都道府県名を抽出して表示する', async () => {
@@ -139,7 +139,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
       // 新フォーマットではエラー率の警告は削除されたため、この確認は不要
       // 代わりに基本的な情報が含まれることを確認
-      expect(sentMessage).toContain('*成功率*: 30.0%');
+      expect(sentMessage).toContain('成功率: 30.0%');
     });
 
     it('送信エラーが発生した場合ログに記録する', async () => {

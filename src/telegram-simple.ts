@@ -100,7 +100,14 @@ export class TelegramNotifierSimple {
         return this.sendMessage(message, retryCount + 1);
       }
 
-      throw error;
+      // リトライ上限に達してもエラーをthrowしない（監視を止めないため）
+      vibeLogger.error('telegram.message_failed_final', 'Telegram通知送信が最終的に失敗', {
+        context: {
+          chatId: this.chatId,
+          totalRetries: retryCount,
+          finalError: error instanceof Error ? error.message : String(error),
+        },
+      });
     }
   }
 

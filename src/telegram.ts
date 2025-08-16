@@ -101,7 +101,6 @@ export class TelegramNotifier {
 🆕 *新着物件あり*
 
 📍 *エリア*: ${area}
-🔢 *新着件数*: ${changeText}
 🔗 *URL*: ${data.url}
 ⏰ *検知時刻*: ${data.detectedAt.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
     `;
@@ -117,15 +116,26 @@ export class TelegramNotifier {
     const match = url.match(/\/(chintai|buy_other)\/([^/]+)\//); 
     const area = match ? match[2] : 'unknown';
     
+    // 一般ユーザー向けのエラーメッセージに変換
+    let userFriendlyError = 'サイトへの接続に問題が発生しています';
+    if (error.includes('timeout') || error.includes('Timeout')) {
+      userFriendlyError = 'サイトの応答が遅くなっています';
+    } else if (error.includes('認証') || error.includes('auth')) {
+      userFriendlyError = 'サイトが一時的にアクセス制限をしています';
+    } else if (error.includes('network') || error.includes('Network')) {
+      userFriendlyError = 'ネットワーク接続に問題があります';
+    }
+    
     const message = `
-⚠️ *エラーアラート*
+⚠️ *監視エラーのお知らせ*
 
-📍 *エリア*: ${area}
-❌ *エラー*: ${error}
-⏰ *発生時刻*: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
-🔗 *URL*: ${url}
+📍 *監視名*: ${area}エリア物件
+⏰ *時間*: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+🔢 *エラー数*: 3回連続（15分間）
+❌ *エラー内容*: ${userFriendlyError}
 
-3回連続でエラーが発生しています。設定を確認してください。
+しばらく時間をおいて自動的に再試行します。
+継続的にエラーが発生する場合は、サポートまでご連絡ください。
     `;
 
     await this.sendMessage(message);
@@ -173,14 +183,29 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
       
       let message = `📊 *1時間サマリー*\n\n`;
       message += `📍 *エリア*: ${prefecture}\n`;
-      message += `⏰ *時刻*: ${currentTime}\n`;
-      message += `🔢 *チェック回数*: ${stats.totalChecks}回\n`;
-      message += `✅ *成功率*: ${stats.successRate.toFixed(1)}%\n`;
+      message += `⏰ *時刻*: ${currentTime}\n\n`;
+      
+      // 5分ごとの履歴を表示
+      if (stats.hourlyHistory && stats.hourlyHistory.length > 0) {
+        message += `📝 *5分ごとの結果*:\n`;
+        for (const entry of stats.hourlyHistory) {
+          let icon = '✅';
+          if (entry.status === 'あり') {
+            icon = '🆕';
+          } else if (entry.status === 'エラー') {
+            icon = '❌';
+          }
+          message += `• ${entry.time} ${icon} ${entry.status}\n`;
+        }
+        message += `\n`;
+      }
+      
+      message += `📊 *統計*:\n`;
+      message += `• チェック回数: ${stats.totalChecks}回\n`;
+      message += `• 成功率: ${stats.successRate.toFixed(1)}%\n`;
       
       if (stats.hasNewProperty) {
-        message += `🆕 *新着*: ${stats.newPropertyCount}件\n`;
-      } else {
-        message += `📝 *新着*: なし\n`;
+        message += `• 新着総数: ${stats.newPropertyCount}件\n`;
       }
       
       message += `\n🔗 ${stats.url}`;
@@ -197,7 +222,7 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
           error: error instanceof Error ? error.message : String(error),
         },
       });
-      throw error;
+      // エラーをthrowせずに監視を継続
     }
   }
 
@@ -258,7 +283,14 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
         return this.sendMessage(message, retryCount + 1);
       }
 
-      throw error;
+      // リトライ上限に達してもエラーをthrowしない（監視を止めないため）
+      vibeLogger.error('telegram.message_failed_final', 'Telegram通知送信が最終的に失敗', {
+        context: {
+          chatId: this.chatId,
+          totalRetries: retryCount,
+          finalError: error instanceof Error ? error.message : String(error),
+        },
+      });
     }
   }
 
