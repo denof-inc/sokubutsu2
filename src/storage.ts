@@ -316,6 +316,13 @@ export class SimpleStorage {
   }
 
   /**
+   * 統計情報の取得（非同期版）
+   */
+  async getStatistics(): Promise<Statistics> {
+    return this.stats;
+  }
+
+  /**
    * 統計情報を表示
    */
   displayStats(): void {

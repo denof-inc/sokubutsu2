@@ -323,4 +323,135 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
       id: me.id,
     };
   }
+
+  /**
+   * コマンドハンドラーの設定
+   */
+  setupCommandHandlers(scheduler: any): void {
+    // /status - 現在の監視状況
+    this.bot.command('status', async (ctx) => {
+      try {
+        const status = await scheduler.getStatus();
+        let message = `📊 *監視状況*\n\n`;
+        message += `⏱ *稼働状態*: ${status.isRunning ? '✅ 稼働中' : '⏸ 停止中'}\n`;
+        message += `📍 *監視URL数*: ${status.urlCount}件\n`;
+        message += `⏰ *最終チェック*: ${status.lastCheck ? new Date(status.lastCheck).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : 'なし'}\n`;
+        message += `🔄 *総チェック数*: ${status.totalChecks}回\n`;
+        message += `✅ *成功率*: ${status.successRate.toFixed(1)}%\n`;
+        
+        await ctx.reply(message, { parse_mode: 'Markdown' });
+      } catch (error) {
+        await ctx.reply('❌ ステータス取得中にエラーが発生しました');
+        vibeLogger.error('telegram.command.status_error', 'statusコマンドエラー', {
+          context: { error: error instanceof Error ? error.message : String(error) },
+        });
+      }
+    });
+
+    // /stats - 統計情報表示
+    this.bot.command('stats', async (ctx) => {
+      try {
+        const stats = await scheduler.getStatistics();
+        let message = `📈 *統計情報*\n\n`;
+        message += `📊 *パフォーマンス*\n`;
+        message += `  • 総チェック数: ${stats.totalChecks}回\n`;
+        message += `  • 成功率: ${stats.successRate}%\n`;
+        message += `  • 平均実行時間: ${stats.averageExecutionTime.toFixed(2)}秒\n\n`;
+        message += `🏠 *検知実績*\n`;
+        message += `  • 新着検知数: ${stats.newListings}回\n`;
+        message += `  • エラー数: ${stats.errors}回\n\n`;
+        message += `⏰ *最終チェック*: ${stats.lastCheck.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
+        
+        await ctx.reply(message, { parse_mode: 'Markdown' });
+      } catch (error) {
+        await ctx.reply('❌ 統計情報取得中にエラーが発生しました');
+        vibeLogger.error('telegram.command.stats_error', 'statsコマンドエラー', {
+          context: { error: error instanceof Error ? error.message : String(error) },
+        });
+      }
+    });
+
+    // /check - 手動チェック実行
+    this.bot.command('check', async (ctx) => {
+      try {
+        await ctx.reply('🔍 手動チェックを開始します...');
+        const result = await scheduler.runManualCheck();
+        
+        let message = `✅ *手動チェック完了*\n\n`;
+        message += `📊 *結果*\n`;
+        message += `  • チェックしたURL: ${result.urlCount}件\n`;
+        message += `  • 成功: ${result.successCount}件\n`;
+        message += `  • エラー: ${result.errorCount}件\n`;
+        message += `  • 新着検知: ${result.newPropertyCount > 0 ? `🆕 ${result.newPropertyCount}件` : 'なし'}\n`;
+        message += `  • 実行時間: ${(result.executionTime / 1000).toFixed(1)}秒`;
+        
+        await ctx.reply(message, { parse_mode: 'Markdown' });
+      } catch (error) {
+        await ctx.reply('❌ 手動チェック中にエラーが発生しました');
+        vibeLogger.error('telegram.command.check_error', 'checkコマンドエラー', {
+          context: { error: error instanceof Error ? error.message : String(error) },
+        });
+      }
+    });
+
+    // /help - コマンド一覧
+    this.bot.command('help', async (ctx) => {
+      const message = `
+📚 *利用可能なコマンド*
+
+/status - 現在の監視状況を表示
+/stats - 詳細な統計情報を表示
+/check - 手動でチェックを実行
+/help - このヘルプメッセージを表示
+
+🔔 *自動通知について*
+• 新着物件検知時: 即座に通知
+• 1時間ごと: サマリーレポート
+• エラー時: 3回連続エラーで警告
+
+📧 *サポート*
+問題が発生した場合は管理者にお問い合わせください
+      `;
+      
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+    });
+
+    // /start - ウェルカムメッセージ
+    this.bot.command('start', async (ctx) => {
+      const message = `
+👋 *ソクブツMVPへようこそ！*
+
+このBotは不動産サイトの新着物件を監視し、
+リアルタイムで通知します。
+
+利用可能なコマンドを見るには /help を入力してください。
+
+監視は自動的に5分間隔で実行されています。
+      `;
+      
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+    });
+  }
+
+  /**
+   * Botを起動
+   */
+  async launchBot(): Promise<void> {
+    try {
+      await this.bot.launch();
+      vibeLogger.info('telegram.bot_launched', 'Telegram Bot起動完了');
+    } catch (error) {
+      vibeLogger.error('telegram.bot_launch_error', 'Telegram Bot起動エラー', {
+        context: { error: error instanceof Error ? error.message : String(error) },
+      });
+    }
+  }
+
+  /**
+   * Botを停止
+   */
+  stopBot(): void {
+    this.bot.stop();
+    vibeLogger.info('telegram.bot_stopped', 'Telegram Bot停止');
+  }
 }
