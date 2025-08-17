@@ -236,4 +236,103 @@ export class UserService {
 
     return { success: true, message: 'URLを削除しました' };
   }
+
+  /**
+   * URL統計更新（監視システム用）
+   */
+  async updateUrlStatistics(
+    urlId: string,
+    updates: {
+      totalChecks?: number;
+      errorCount?: number;
+      newListingsCount?: number;
+      lastHash?: string;
+      lastCheckedAt?: Date;
+    }
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const userUrl = await this.urlRepository.findOne({
+        where: { id: urlId, isActive: true },
+      });
+
+      if (!userUrl) {
+        return { success: false, message: 'URLが見つかりません' };
+      }
+
+      // 統計情報を更新
+      if (updates.totalChecks !== undefined) {
+        userUrl.totalChecks = updates.totalChecks;
+      }
+      if (updates.errorCount !== undefined) {
+        userUrl.errorCount = updates.errorCount;
+      }
+      if (updates.newListingsCount !== undefined) {
+        userUrl.newListingsCount = updates.newListingsCount;
+      }
+      if (updates.lastHash !== undefined) {
+        userUrl.lastHash = updates.lastHash;
+      }
+      if (updates.lastCheckedAt !== undefined) {
+        userUrl.lastCheckedAt = updates.lastCheckedAt;
+      }
+
+      await this.urlRepository.save(userUrl);
+
+      return { success: true, message: 'URL統計を更新しました' };
+    } catch (error) {
+      vibeLogger.error('user.url_stats_update_failed', 'URL統計更新失敗', {
+        context: {
+          urlId,
+          updates,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+      return { success: false, message: 'URL統計の更新に失敗しました' };
+    }
+  }
+
+  /**
+   * URL統計インクリメント（監視システム用）
+   */
+  async incrementUrlStatistics(
+    urlId: string,
+    type: 'totalChecks' | 'errorCount' | 'newListingsCount'
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const userUrl = await this.urlRepository.findOne({
+        where: { id: urlId, isActive: true },
+      });
+
+      if (!userUrl) {
+        return { success: false, message: 'URLが見つかりません' };
+      }
+
+      // 指定されたカウンターをインクリメント
+      switch (type) {
+        case 'totalChecks':
+          userUrl.totalChecks += 1;
+          break;
+        case 'errorCount':
+          userUrl.errorCount += 1;
+          break;
+        case 'newListingsCount':
+          userUrl.newListingsCount += 1;
+          break;
+      }
+
+      userUrl.lastCheckedAt = new Date();
+      await this.urlRepository.save(userUrl);
+
+      return { success: true, message: `${type}をインクリメントしました` };
+    } catch (error) {
+      vibeLogger.error('user.url_stats_increment_failed', 'URL統計インクリメント失敗', {
+        context: {
+          urlId,
+          type,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+      return { success: false, message: 'URL統計のインクリメントに失敗しました' };
+    }
+  }
 }

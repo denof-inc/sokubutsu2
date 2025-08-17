@@ -7,6 +7,7 @@ import { NewPropertyDetectionResult } from './types.js';
 import { vibeLogger } from './logger.js';
 import { CircuitBreaker, CircuitBreakerConfig, CircuitState } from './circuit-breaker.js';
 import { config } from './config.js';
+import { UserService } from './services/UserService.js';
 
 /**
  * 監視スケジューラー
@@ -695,5 +696,487 @@ export class MonitoringScheduler {
     console.log(`  • エラー回数: ${stats.errors}回`);
     console.log(`  • エラー率: ${(100 - stats.successRate).toFixed(1)}%`);
     console.log('===================\n');
+  }
+}
+
+/**
+ * マルチユーザー対応監視スケジューラー
+ * 
+ * @設計ドキュメント
+ * - README.md: 監視フロー全体像
+ * - docs/スケジューリング設計.md: cron式と実行タイミング
+ * 
+ * @関連クラス
+ * - SimpleScraper: 実際のスクレイピング処理を実行（Puppeteer-first戦略）
+ * - UserService: ユーザー・URL管理
+ * - TelegramNotifier: ユーザー別通知送信
+ * - Logger: 監視サイクルのログ出力
+ * 
+ * @主要機能
+ * - 全ユーザーのアクティブURL監視
+ * - ユーザー別新着物件通知
+ * - URL別統計管理
+ * - Telegram友達認証制御
+ */
+/**
+ * マルチユーザー対応監視スケジューラー
+ * 
+ * @設計ドキュメント
+ * - README.md: 監視フロー全体像
+ * - docs/スケジューリング設計.md: cron式と実行タイミング
+ * 
+ * @関連クラス
+ * - SimpleScraper: 実際のスクレイピング処理を実行（Puppeteer-first戦略）
+ * - UserService: ユーザー・URL管理
+ * - TelegramNotifier: ユーザー別通知送信
+ * - Logger: 監視サイクルのログ出力
+ * 
+ * @主要機能
+ * - 全ユーザーのアクティブURL監視
+ * - ユーザー別新着物件通知
+ * - URL別統計管理
+ * - Telegram友達認証制御
+ */
+export class MultiUserMonitoringScheduler {
+  private readonly scraper = new SimpleScraper();
+  private readonly userService: UserService;
+  private readonly propertyMonitor = new PropertyMonitor();
+  private readonly circuitBreaker: CircuitBreaker;
+  private readonly telegramServices: Map<string, TelegramNotifier> = new Map();
+  
+  private cronJob: cron.ScheduledTask | null = null;
+  private statsJob: cron.ScheduledTask | null = null;
+  private isRunning = false;
+  private consecutiveErrors = 0;
+  private readonly maxConsecutiveErrors = 5;
+  private readonly urlErrorCounts: Map<string, number> = new Map();
+
+  constructor(defaultBotToken: string) {
+    this.userService = new UserService();
+    
+    // サーキットブレーカーの初期化
+    const cbConfig: CircuitBreakerConfig = {
+      maxConsecutiveErrors: config.circuitBreaker.maxConsecutiveErrors,
+      errorRateThreshold: config.circuitBreaker.errorRateThreshold,
+      windowSizeMs: config.circuitBreaker.windowSizeMinutes * 60 * 1000,
+      recoveryTimeMs: config.circuitBreaker.recoveryTimeMinutes * 60 * 1000,
+      autoRecoveryEnabled: config.circuitBreaker.autoRecoveryEnabled,
+    };
+    this.circuitBreaker = new CircuitBreaker(cbConfig);
+  }
+
+  /**
+   * マルチユーザー監視開始
+   */
+  async start(): Promise<void> {
+    vibeLogger.info('multiuser.monitoring.start', 'マルチユーザー監視開始', {
+      context: { mode: 'multiuser' },
+      humanNote: 'マルチユーザーモードでシステムを開始',
+    });
+
+    // データベース接続確認
+    await this.initializeDatabase();
+
+    // 監視間隔は設定から取得（デフォルト5分）
+    this.cronJob = cron.schedule(config.monitoring.interval || '*/5 * * * *', () => {
+      if (this.isRunning) {
+        vibeLogger.warn('multiuser.monitoring.skip', '前回の監視がまだ実行中です。スキップします。', {
+          context: { isRunning: this.isRunning },
+          aiTodo: '監視サイクルが遅延している可能性を分析',
+        });
+        return;
+      }
+
+      void this.runMonitoringCycle();
+    });
+
+    // 統計レポート送信（毎時0分・固定）
+    this.statsJob = cron.schedule('0 * * * *', () => {
+      void this.sendAllUsersStatisticsReport();
+    });
+
+    // 初回実行
+    vibeLogger.info('multiuser.monitoring.initial_check', '初回チェックを実行します...', {});
+    await this.runMonitoringCycle();
+    vibeLogger.info('multiuser.monitoring.initial_check_complete', '初回チェック完了', {
+      humanNote: 'マルチユーザーシステムが正常に稼働開始',
+    });
+  }
+
+  /**
+   * データベース初期化確認
+   */
+  private async initializeDatabase(): Promise<void> {
+    try {
+      // UserServiceを通じてデータベース接続をテスト
+      await this.userService.getAllUsers();
+      vibeLogger.info('multiuser.db.connected', 'データベース接続確認完了', {
+        humanNote: 'データベースが正常に接続されました',
+      });
+    } catch (error) {
+      vibeLogger.error('multiuser.db.connection_failed', 'データベース接続失敗', {
+        context: { error: error instanceof Error ? error.message : String(error) },
+        aiTodo: 'データベース設定を確認し、接続問題を解決',
+      });
+      throw new Error('データベース接続に失敗しました');
+    }
+  }
+
+  /**
+   * マルチユーザー監視サイクル実行
+   */
+  private async runMonitoringCycle(): Promise<void> {
+    // サーキットブレーカーがOPENの場合はスキップ
+    if (this.circuitBreaker.isOpen()) {
+      vibeLogger.warn('multiuser.monitoring.cycle.skipped', 'サーキットブレーカーが作動中のため監視をスキップ', {
+        context: this.circuitBreaker.getStats(),
+      });
+      return;
+    }
+    
+    this.isRunning = true;
+    const cycleStartTime = Date.now();
+
+    const cycleId = `multiuser-cycle-${Date.now()}`;
+    vibeLogger.info('multiuser.monitoring.cycle.start', 'マルチユーザー監視サイクル開始', {
+      context: {
+        cycleId,
+        timestamp: new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }),
+      },
+    });
+
+    try {
+      // 全ユーザーのアクティブ監視URLを取得
+      const activeUrls = await this.userService.getAllActiveMonitoringUrls();
+      
+      vibeLogger.info('multiuser.monitoring.urls_loaded', '監視対象URL読み込み完了', {
+        context: { activeUrlCount: activeUrls.length },
+      });
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const userUrl of activeUrls) {
+        try {
+          await this.monitorUserUrl(userUrl);
+          successCount++;
+          this.consecutiveErrors = 0; // 成功時はリセット
+          
+          // サーキットブレーカーに成功を記録
+          this.circuitBreaker.recordSuccess();
+
+          // サーバー負荷軽減のため2秒待機
+          await this.sleep(2000);
+        } catch (error) {
+          errorCount++;
+          this.consecutiveErrors++;
+          
+          // サーキットブレーカーにエラーを記録
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const shouldStop = this.circuitBreaker.recordError(errorMessage);
+          
+          if (shouldStop) {
+            // サーキットブレーカーが作動した場合、管理者に通知
+            const telegram = await this.getTelegramService(userUrl.user.telegramChatId);
+            if (telegram) {
+              await telegram.sendMessage(
+                `🚨 エラー頻発により監視を一時停止しました\\n\\n` +
+                `連続エラー: ${this.consecutiveErrors}回\\n` +
+                `詳細: ${errorMessage}\\n\\n` +
+                (config.circuitBreaker.autoRecoveryEnabled 
+                  ? `⏱ ${config.circuitBreaker.recoveryTimeMinutes}分後に自動復旧を試みます`
+                  : '手動での復旧が必要です')
+              );
+            }
+          }
+          
+          vibeLogger.error('multiuser.monitoring.url.error', `ユーザーURL監視エラー`, {
+            context: {
+              urlId: userUrl.id,
+              userId: userUrl.userId,
+              url: userUrl.url,
+              error: error instanceof Error ? error.message : String(error),
+              consecutiveErrors: this.consecutiveErrors,
+            },
+            aiTodo: 'エラーパターンを分析し、対策を提案',
+          });
+        }
+      }
+
+      const cycleTime = Date.now() - cycleStartTime;
+      vibeLogger.info('multiuser.monitoring.cycle.complete', 'マルチユーザー監視サイクル完了', {
+        context: {
+          cycleId,
+          cycleTime,
+          successCount,
+          errorCount,
+          totalUrls: activeUrls.length,
+          successRate: activeUrls.length > 0 ? Math.round((successCount / activeUrls.length) * 100) : 0,
+        },
+        humanNote: 'マルチユーザー監視サイクルのパフォーマンスを確認',
+      });
+
+    } catch (error) {
+      vibeLogger.error('multiuser.monitoring.cycle.error', '監視サイクル実行エラー', {
+        context: {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+    } finally {
+      this.isRunning = false;
+    }
+  }
+
+  /**
+   * ユーザーURL監視
+   */
+  private async monitorUserUrl(userUrl: import('./entities/UserUrl.js').UserUrl): Promise<void> {
+    vibeLogger.info('multiuser.monitoring.user_url.check', `ユーザーURL監視開始`, {
+      context: { 
+        urlId: userUrl.id,
+        userId: userUrl.userId,
+        url: userUrl.url,
+        name: userUrl.name,
+      },
+    });
+
+    const result = await this.scraper.scrapeAthome(userUrl.url);
+
+    if (!result.success) {
+      // エラー統計を更新
+      await this.updateUrlError(userUrl);
+      
+      // URL別のエラーカウントを更新
+      const urlKey = `${userUrl.userId}-${userUrl.id}`;
+      const currentErrorCount = (this.urlErrorCounts.get(urlKey) || 0) + 1;
+      this.urlErrorCounts.set(urlKey, currentErrorCount);
+      
+      // 3回連続エラー（15分間）の場合のみ警告通知
+      if (currentErrorCount >= 3) {
+        const telegram = await this.getTelegramService(userUrl.user.telegramChatId);
+        if (telegram) {
+          const reason = result.failureReason ? `（理由: ${result.failureReason}）` : '';
+          await telegram.sendErrorAlert(userUrl.url, `15分間継続エラー${reason}: ${result.error || '不明なエラー'}`);
+        }
+        // 通知後はカウンターをリセット
+        this.urlErrorCounts.set(urlKey, 0);
+      }
+      return;
+    }
+    
+    // 成功時はURLのエラーカウンターをリセット
+    const urlKey = `${userUrl.userId}-${userUrl.id}`;
+    this.urlErrorCounts.set(urlKey, 0);
+    
+    // URL統計を更新
+    await this.updateUrlSuccess(userUrl, result);
+
+    // 新着物件検知ロジック
+    const detectionResult = this.propertyMonitor.detectNewProperties(result.properties || []);
+
+    // ハッシュ値の管理（RFP 2.1.1準拠: コンテンツ変更検知）
+    const previousHash = userUrl.lastHash;
+    if (!previousHash) {
+      // 初回チェック
+      vibeLogger.info('multiuser.monitoring.initial_url_check', `初回チェック完了`, {
+        context: { 
+          urlId: userUrl.id,
+          userId: userUrl.userId,
+          url: userUrl.url,
+          count: result.count,
+          hash: result.hash,
+        },
+      });
+      await this.updateUrlHash(userUrl, result.hash);
+    } else if (previousHash !== result.hash) {
+      // ハッシュ変化検知！（新着あり）
+      vibeLogger.info('multiuser.monitoring.change_detected', `🎉 変化検知`, {
+        context: {
+          urlId: userUrl.id,
+          userId: userUrl.userId,
+          url: userUrl.url,
+          previousHash,
+          newHash: result.hash,
+          count: result.count,
+        },
+        humanNote: 'ユーザーURLでコンテンツの変更を検知しました！',
+      });
+      
+      // 新着カウントを更新
+      await this.updateUrlNewProperty(userUrl);
+
+      // ユーザー個別通知を送信
+      const telegram = await this.getTelegramService(userUrl.user.telegramChatId);
+      if (telegram) {
+        const message = `🆕 新着があります！\\n\\n📍 監視名: ${userUrl.name}\\nURL: ${userUrl.url}\\n検知時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
+        await telegram.sendMessage(message);
+      }
+      
+      // ハッシュを更新
+      await this.updateUrlHash(userUrl, result.hash);
+    } else {
+      // 変化なし
+      vibeLogger.debug('multiuser.monitoring.no_change', `変化なし`, {
+        context: { 
+          urlId: userUrl.id,
+          userId: userUrl.userId,
+          url: userUrl.url,
+          count: result.count,
+          hash: result.hash,
+        },
+      });
+      // 変化がなくても念のためハッシュを保存（整合性のため）
+      await this.updateUrlHash(userUrl, result.hash);
+    }
+  }
+
+  /**
+   * Telegramサービス取得（ユーザー別）
+   */
+  private async getTelegramService(chatId: string): Promise<TelegramNotifier | null> {
+    if (this.telegramServices.has(chatId)) {
+      return this.telegramServices.get(chatId)!;
+    }
+
+    // Telegram友達チェック（認証）
+    if (!(await this.checkTelegramFriendship(chatId))) {
+      vibeLogger.warn('multiuser.auth.not_friend', 'Telegram友達でないユーザーからのアクセス', {
+        context: { chatId },
+        humanNote: '認証されていないユーザーのアクセスを拒否',
+      });
+      return null;
+    }
+
+    // 新しいTelegramサービスを作成
+    const telegram = new TelegramNotifier(config.telegram.botToken, chatId);
+    this.telegramServices.set(chatId, telegram);
+    return telegram;
+  }
+
+  /**
+   * Telegram友達関係チェック（認証）
+   */
+  private async checkTelegramFriendship(chatId: string): Promise<boolean> {
+    try {
+      // TODO: 実際のTelegram友達チェック実装
+      // 現在は全てのユーザーを許可（開発用）
+      return true;
+    } catch (error) {
+      vibeLogger.error('multiuser.auth.check_failed', 'Telegram友達チェック失敗', {
+        context: { chatId, error: error instanceof Error ? error.message : String(error) },
+      });
+      return false;
+    }
+  }
+
+  /**
+   * URL統計更新（エラー）
+   */
+  private async updateUrlError(userUrl: import('./entities/UserUrl.js').UserUrl): Promise<void> {
+    await this.userService.incrementUrlStatistics(userUrl.id, 'totalChecks');
+    await this.userService.incrementUrlStatistics(userUrl.id, 'errorCount');
+  }
+
+  /**
+   * URL統計更新（成功）
+   */
+  private async updateUrlSuccess(userUrl: import('./entities/UserUrl.js').UserUrl, result: any): Promise<void> {
+    await this.userService.incrementUrlStatistics(userUrl.id, 'totalChecks');
+  }
+
+  /**
+   * URLハッシュ更新
+   */
+  private async updateUrlHash(userUrl: import('./entities/UserUrl.js').UserUrl, hash: string): Promise<void> {
+    await this.userService.updateUrlStatistics(userUrl.id, {
+      lastHash: hash,
+      lastCheckedAt: new Date(),
+    });
+  }
+
+  /**
+   * URL新着カウント更新
+   */
+  private async updateUrlNewProperty(userUrl: import('./entities/UserUrl.js').UserUrl): Promise<void> {
+    await this.userService.incrementUrlStatistics(userUrl.id, 'newListingsCount');
+  }
+
+  /**
+   * 全ユーザー統計レポート送信
+   */
+  private async sendAllUsersStatisticsReport(): Promise<void> {
+    try {
+      const users = await this.userService.getAllUsers();
+      
+      for (const user of users) {
+        if (!user.isActive) continue;
+        
+        const telegram = await this.getTelegramService(user.telegramChatId);
+        if (!telegram) continue;
+
+        // ユーザーのURL統計を取得してレポート送信
+        for (const url of user.urls.filter((u: any) => u.isActive)) {
+          const urlStats = {
+            url: url.url,
+            totalChecks: url.totalChecks,
+            successCount: url.totalChecks - url.errorCount,
+            errorCount: url.errorCount,
+            successRate: url.totalChecks > 0 ? Math.round(((url.totalChecks - url.errorCount) / url.totalChecks) * 100) : 0,
+            averageExecutionTime: 0, // 簡易実装
+            hasNewProperty: url.newListingsCount > 0,
+            newPropertyCount: url.newListingsCount,
+            lastNewProperty: url.lastCheckedAt || null,
+            hourlyHistory: [], // 簡易実装（必要に応じて拡張）
+          };
+          
+          await telegram.sendUrlSummaryReport(urlStats);
+        }
+      }
+      
+      vibeLogger.info('multiuser.stats_report.sent', '全ユーザー統計レポート送信完了', {
+        context: { userCount: users.length },
+      });
+    } catch (error) {
+      vibeLogger.error('multiuser.stats_report.error', '統計レポート送信エラー', {
+        context: { error: error instanceof Error ? error.message : String(error) },
+      });
+    }
+  }
+
+  /**
+   * 監視停止
+   */
+  stop(): void {
+    vibeLogger.info('multiuser.monitoring.stopping', 'マルチユーザー監視停止中...', {
+      humanNote: 'システムを正常に停止しています',
+    });
+
+    if (this.cronJob) {
+      this.cronJob.stop();
+      this.cronJob = null;
+    }
+
+    if (this.statsJob) {
+      this.statsJob.stop();
+      this.statsJob = null;
+    }
+
+    vibeLogger.info('multiuser.monitoring.stopped', 'マルチユーザー監視停止完了', {
+      humanNote: 'システムが正常に停止しました',
+    });
+  }
+
+  /**
+   * 指定時間待機
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * ユーザーサービス取得（外部アクセス用）
+   */
+  getUserService(): UserService {
+    return this.userService;
   }
 }
