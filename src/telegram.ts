@@ -3,6 +3,7 @@ import { NotificationData, Statistics, UrlStatistics } from './types.js';
 import { vibeLogger } from './logger.js';
 import https from 'https';
 import http from 'http';
+import dns from 'dns';
 
 /**
  * Telegram通知サービス
@@ -28,9 +29,26 @@ export class TelegramNotifier {
   private readonly maxRetries = 3;
 
   constructor(botToken: string, chatId: string) {
+    // Node-fetch v2 経由の接続で IPv6 経路がタイムアウトする環境があるため、IPv4 を優先する lookup を明示
+    const ipv4Lookup = (
+      hostname: string,
+      options: any,
+      callback: any
+    ) => {
+      const cb = typeof options === 'function' ? options : callback;
+      const baseOpts = typeof options === 'object' && options !== null ? options : {};
+      // all フラグなど既存オプションを維持しつつ IPv4 を強制
+      const finalOpts = { ...baseOpts, family: 4 };
+      return (dns.lookup as any)(hostname, finalOpts, cb);
+    };
+
+    const httpsAgent = new https.Agent({ keepAlive: true, lookup: ipv4Lookup as any });
+
     this.bot = new Telegraf(botToken, {
       telegram: {
         webhookReply: false,
+        // node-fetch v2 互換: HTTPS 用の Agent を指定（IPv4 優先 lookup）
+        agent: httpsAgent as any,
       },
       handlerTimeout: 90000,
     });

@@ -24,10 +24,14 @@ export interface ScrapingResult {
   properties?: PropertyInfo[];
   /** エラーメッセージ（失敗時） */
   error?: string;
+  /** 失敗理由（失敗時） */
+  failureReason?: 'auth' | 'network' | 'parse' | 'other';
   /** 実行時間（ミリ秒） */
   executionTime?: number;
   /** 使用メモリ（MB） */
   memoryUsage?: number;
+  /** Cookie情報（Puppeteerの場合） */
+  cookies?: Array<{ name: string; value: string; domain: string; path: string; expires?: number }>;
 }
 
 /**
@@ -119,6 +123,13 @@ export interface Config {
     enabled: boolean;
   };
   circuitBreaker: CircuitBreakerConfigType;
+  auth?: {
+    resolveEnabled: boolean;
+    cookiePersistEnabled: boolean;
+    resolveTimeoutMs: number;
+    refererStrategy: 'direct' | 'google';
+    cooldownMinutes?: number;
+  };
 }
 
 /**

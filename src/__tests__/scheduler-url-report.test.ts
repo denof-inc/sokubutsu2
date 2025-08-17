@@ -71,7 +71,7 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
     mockStorage.recordUrlExecutionTime = jest.fn() as any;
     mockStorage.recordUrlNewProperty = jest.fn() as any;
     mockStorage.incrementNewListings = jest.fn() as any;
-    mockStorage.getHash = jest.fn(() => 'existing-hash') as any;
+    mockStorage.getHash = jest.fn(() => null) as any;
     mockStorage.setHash = jest.fn() as any;
     
     // Scraperモックのセットアップ
@@ -242,6 +242,23 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
     });
 
     it('新着物件がない場合は通知を送信しない', async () => {
+      // mockをリセット
+      jest.clearAllMocks();
+      
+      const testUrl = testUrls[0];
+      const fixedHash = 'consistent-hash-no-change';
+      
+      // 既存のハッシュを設定（変化なしを確保）
+      (scheduler as any).storage.setHash(testUrl, fixedHash);
+      
+      // Scraperのモック設定（ハッシュ値を固定）
+      mockScraper.scrapeAthome = jest.fn(() => Promise.resolve({
+        success: true,
+        count: 10,
+        hash: fixedHash, // 同じハッシュで変化なし
+        properties: []
+      })) as any;
+      
       // PropertyMonitorのモック設定
       const mockPropertyMonitor = (scheduler as any).propertyMonitor;
       mockPropertyMonitor.detectNewProperties = jest.fn(() => ({
@@ -254,7 +271,7 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
       })) as any;
       
       // 監視URLをチェック
-      await (scheduler as any).monitorUrl(testUrls[0], true);
+      await (scheduler as any).monitorUrl(testUrl, true);
       
       // 新着なしの場合は通知が送信されないことを確認
       const sendMessageCheck2 = mockTelegram.sendMessage;

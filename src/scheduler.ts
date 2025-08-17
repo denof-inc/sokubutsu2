@@ -44,6 +44,7 @@ export class MonitoringScheduler {
   private readonly maxConsecutiveErrors = 5;
   private readonly maxUrlConsecutiveErrors = 3;
   private readonly urlCheckHistory: Map<string, Array<{time: string; status: 'なし' | 'あり' | 'エラー'}>> = new Map();
+  private readonly urlCooldownUntil: Map<string, number> = new Map();
 
   constructor(telegramToken: string, chatId: string) {
     this.telegram = new TelegramNotifier(telegramToken, chatId);
@@ -88,8 +89,8 @@ export class MonitoringScheduler {
       });
     }
 
-    // 5分間隔で監視（毎時0,5,10,15...分に実行）
-    this.cronJob = cron.schedule('*/5 * * * *', () => {
+    // 監視間隔は設定から取得（デフォルト5分）
+    this.cronJob = cron.schedule(config.monitoring.interval || '*/5 * * * *', () => {
       if (this.isRunning) {
         vibeLogger.warn('monitoring.skip', '前回の監視がまだ実行中です。スキップします。', {
           context: { isRunning: this.isRunning },
@@ -101,7 +102,7 @@ export class MonitoringScheduler {
       void this.runMonitoringCycle(urls, telegramEnabled);
     });
 
-    // 1時間ごとに統計レポート送信
+    // 統計レポート送信（毎時0分・固定）
     this.statsJob = cron.schedule('0 * * * *', () => {
       void this.sendStatisticsReport(telegramEnabled, urls);
     });
@@ -221,6 +222,13 @@ export class MonitoringScheduler {
    * URL監視
    */
   private async monitorUrl(url: string, telegramEnabled: boolean = true): Promise<void> {
+    // 認証クールダウン中ならスキップ（過剰叩きによる悪化防止）
+    const nowEpoch = Date.now();
+    const cd = this.urlCooldownUntil.get(url) || 0;
+    if (nowEpoch < cd) {
+      vibeLogger.warn('monitoring.url.cooldown', '認証クールダウン中のためスキップ', { context: { url, until: new Date(cd).toISOString() } });
+      return;
+    }
     vibeLogger.info('monitoring.url.check', `チェック開始: ${url}`, {
       context: { url },
     });
@@ -241,7 +249,12 @@ export class MonitoringScheduler {
     if (!result.success) {
       this.storage.incrementErrors();
       this.storage.incrementUrlError(url);
-      
+      if (result.failureReason) this.storage.incrementFailureReason(result.failureReason);
+      // 認証系の失敗時は一定時間のクールダウンを設定
+      if (result.failureReason === 'auth') {
+        const mins = config.auth?.cooldownMinutes ?? 15;
+        this.urlCooldownUntil.set(url, Date.now() + mins * 60 * 1000);
+      }
       // 履歴に記録
       this.addUrlCheckHistory(url, { time: timeStr, status: 'エラー' });
       
@@ -251,7 +264,8 @@ export class MonitoringScheduler {
       
       // 3回連続エラー（15分間）の場合のみ警告通知
       if (telegramEnabled && currentErrorCount >= this.maxUrlConsecutiveErrors) {
-        await this.telegram.sendErrorAlert(url, `15分間継続エラー: ${result.error || '不明なエラー'}`);
+        const reason = result.failureReason ? `（理由: ${result.failureReason}）` : '';
+        await this.telegram.sendErrorAlert(url, `15分間継続エラー${reason}: ${result.error || '不明なエラー'}`);
         // 通知後はカウンターをリセット
         this.urlErrorCounts.set(url, 0);
       }
@@ -271,7 +285,7 @@ export class MonitoringScheduler {
     // 新着物件検知ロジックを使用
     const detectionResult = this.propertyMonitor.detectNewProperties(result.properties || []);
 
-    // ハッシュ値の管理（互換性のため維持）
+    // ハッシュ値の管理（RFP 2.1.1準拠: コンテンツ変更検知）
     const previousHash = this.storage.getHash(url);
     if (!previousHash) {
       // 初回チェック
@@ -279,26 +293,27 @@ export class MonitoringScheduler {
         context: { url, count: result.count, hash: result.hash },
       });
       this.storage.setHash(url, result.hash);
-    } else if (detectionResult.hasNewProperty) {
-      // 新着検知！
+    } else if (previousHash !== result.hash) {
+      // ハッシュ変化検知！（新着あり）
       this.addUrlCheckHistory(url, { time: timeStr, status: 'あり' });
-      vibeLogger.info('monitoring.new_listing_detected', `🎉 新着検知: ${url}`, {
+      vibeLogger.info('monitoring.change_detected', `🎉 変化検知: ${url}`, {
         context: {
           url,
-          newPropertyCount: detectionResult.newPropertyCount,
-          totalMonitored: detectionResult.totalMonitored,
-          confidence: detectionResult.confidence,
+          previousHash,
+          newHash: result.hash,
+          count: result.count,
         },
-        humanNote: '新着物件を検知しました！',
-        aiTodo: '検知パターンを分析し、通知タイミングを最適化',
+        humanNote: 'コンテンツの変更を検知しました！',
       });
       this.storage.incrementNewListings();
-      this.storage.recordUrlNewProperty(url, detectionResult.newPropertyCount);
+      this.storage.recordUrlNewProperty(url, 1);
 
-      // 新着物件通知を送信
+      // 新着通知を送信
       if (telegramEnabled) {
-        await this.sendNewPropertyNotification(detectionResult, url);
+        const message = `🆕 新着があります！\n\nURL: ${url}\n検知時刻: ${now.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
+        await this.telegram.sendMessage(message);
       }
+      // ハッシュを更新
       this.storage.setHash(url, result.hash);
     } else {
       // 変化なし
@@ -306,6 +321,8 @@ export class MonitoringScheduler {
       vibeLogger.debug('monitoring.no_change', `変化なし: ${url}`, {
         context: { url, count: result.count, hash: result.hash },
       });
+      // 変化がなくても念のためハッシュを保存（整合性のため）
+      this.storage.setHash(url, result.hash);
     }
   }
 

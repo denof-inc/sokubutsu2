@@ -9,11 +9,20 @@ RUN apk add --no-cache \
     freetype-dev \
     harfbuzz \
     ca-certificates \
-    ttf-freefont
+    ttf-freefont \
+    curl \
+    openssl \
+    xvfb \
+    xvfb-run \
+    dbus
+
+# 証明書を更新
+RUN update-ca-certificates
 
 # Puppeteerに実行可能なChromiumのパスを設定
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    DISPLAY=:99
 
 # 作業ディレクトリ設定
 WORKDIR /app
@@ -47,6 +56,10 @@ RUN mkdir -p data logs
 # 非rootユーザー作成・切り替え
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S sokubutsu -u 1001 -G nodejs
+
+# ディレクトリの所有権を変更
+RUN chown -R sokubutsu:nodejs /app
+
 USER sokubutsu
 
 # ポート公開

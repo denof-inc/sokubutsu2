@@ -28,6 +28,7 @@ export class SimpleStorage {
   private readonly hashFile: string;
   private readonly statsFile: string;
   private readonly urlStatsFile: string;
+  private readonly failureStatsFile: string;
 
   private hashData: Record<string, string> = {};
   private stats: Statistics = {
@@ -39,12 +40,14 @@ export class SimpleStorage {
     successRate: 100,
   };
   private urlStats: Record<string, Omit<UrlStatistics, 'url'>> = {};
+  private failureStats: Record<string, number> = {};
 
   constructor() {
     this.dataDir = config.storage.dataDir;
     this.hashFile = path.join(this.dataDir, 'hashes.json');
     this.statsFile = path.join(this.dataDir, 'statistics.json');
     this.urlStatsFile = path.join(this.dataDir, 'url-statistics.json');
+    this.failureStatsFile = path.join(this.dataDir, 'failure-stats.json');
 
     this.ensureDataDirectory();
     this.loadData();
@@ -98,6 +101,12 @@ export class SimpleStorage {
           context: { urlCount: Object.keys(this.urlStats).length },
         });
       }
+
+      // 失敗理由別統計の読み込み
+      if (fs.existsSync(this.failureStatsFile)) {
+        const failureContent = fs.readFileSync(this.failureStatsFile, 'utf8');
+        this.failureStats = JSON.parse(failureContent) as Record<string, number>;
+      }
     } catch (error) {
       vibeLogger.error('storage.load_error', 'データ読み込みエラー', {
         context: {
@@ -129,6 +138,9 @@ export class SimpleStorage {
       
       // URL別統計データの保存
       fs.writeFileSync(this.urlStatsFile, JSON.stringify(this.urlStats, null, 2));
+
+      // 失敗理由別統計の保存
+      fs.writeFileSync(this.failureStatsFile, JSON.stringify(this.failureStats, null, 2));
 
       vibeLogger.debug('storage.save_complete', 'データ保存完了', {
         context: {
@@ -334,6 +346,11 @@ export class SimpleStorage {
     console.log(`  - 平均実行時間: ${this.stats.averageExecutionTime.toFixed(2)}秒`);
     console.log(`  - 最終チェック: ${this.stats.lastCheck.toLocaleString('ja-JP')}`);
     console.log(`  - 監視URL数: ${Object.keys(this.hashData).length}件`);
+    const fsKeys = Object.keys(this.failureStats);
+    if (fsKeys.length > 0) {
+      console.log('  - 失敗理由別:');
+      for (const k of fsKeys) console.log(`    • ${k}: ${this.failureStats[k]}件`);
+    }
   }
 
   /**
@@ -376,6 +393,13 @@ export class SimpleStorage {
       this.updateUrlSuccessRate(url);
       this.saveData();
     }
+  }
+
+  /** 失敗理由別のカウントを増やす */
+  incrementFailureReason(reason: string): void {
+    const key = reason || 'other';
+    this.failureStats[key] = (this.failureStats[key] || 0) + 1;
+    this.saveData();
   }
 
   /**

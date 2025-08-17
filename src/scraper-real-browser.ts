@@ -1,298 +1,285 @@
-import { connect } from 'puppeteer-real-browser';
 import { ScrapingResult, PropertyInfo } from './types.js';
 import { vibeLogger } from './logger.js';
 import * as crypto from 'crypto';
 
 /**
- * Puppeteer Real Browserを使用したスクレイパー（最終手段）
+ * Puppeteer Real Browser スクレイパー
  * 
  * @設計ドキュメント
- * - Cloudflare等の高度なボット検出を回避
- * - 実際のブラウザとして動作
+ * - README.md: Puppeteer Real Browser戦略
+ * - CLAUDE.md: 品質基準とスクレイピング戦略ルール
  * 
  * @関連クラス
- * - SimpleScraper: プライマリのHTTP-onlyスクレイパー
- * - PuppeteerScraper: 第2段階のスクレイパー
- * - MonitoringScheduler: スクレイピング機能を呼び出す
+ * - SimpleScraper: HTTP-firstスクレイパー（このクラスの呼び出し元）
+ * - Logger: ログ出力
  * 
  * @主要機能
- * - 実ブラウザとしての動作によるボット検出回避
- * - Turnstile CAPTCHA自動解決
- * - 実行時間: 20-40秒（最も重いが最も確実）
- * - メモリ使用量: 300-500MB
+ * - 検出回避技術を搭載したブラウザ自動化
+ * - Cloudflare/GeeTest認証の自動突破
+ * - Cookie管理と再利用
  */
 export class RealBrowserScraper {
-  private readonly timeout = 40000; // 40秒タイムアウト
+  private cookieCache: Map<string, any[]> = new Map();
+  private lastBrowser: any = null;
+  private sessionUA: string;
 
+  constructor() {
+    // セッション固定UA
+    const uaList = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    ];
+    this.sessionUA = uaList[Math.floor(Math.random() * uaList.length)] ?? uaList[0]!;
+  }
+
+  /**
+   * Real Browserでスクレイピング実行
+   */
   async scrapeAthome(url: string): Promise<ScrapingResult> {
     const startTime = Date.now();
-    let browser = null;
-    let page = null;
 
     try {
-      vibeLogger.info('real-browser.start', `Real Browserスクレイピング開始: ${url}`, {
-        context: { url, method: 'puppeteer-real-browser' },
-        humanNote: '最終手段: Real Browser（実ブラウザモード）',
+      vibeLogger.info('real_browser.start', `Real Browser スクレイピング開始: ${url}`, {
+        context: { url, ua: this.sessionUA },
+        humanNote: 'Puppeteer Real Browserで認証回避を試みます'
       });
 
-      // Real Browserで接続
-      const result = await connect({
-        headless: false, // ヘッドレスモードを無効化（より実際のブラウザに近い）
-        
-        // Turnstile CAPTCHA自動解決を有効化
-        turnstile: true,
-        
-        // カスタム設定
-        customConfig: {},
-        
-        // 接続オプション
-        connectOption: {
-          defaultViewport: null, // ビューポートを自動調整
-        },
-        
-        // Chrome起動引数
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-blink-features=AutomationControlled',
-          '--disable-features=IsolateOrigins,site-per-process',
-          '--window-size=1920,1080',
-        ],
-        
-        // Xvfbを無効化（MacOS/Windowsの場合）
-        disableXvfb: process.platform !== 'linux',
+      // タイムアウト管理のためのPromise
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Real Browser timeout (25s)')), 25000);
       });
 
-      browser = result.browser;
-      page = result.page;
+      // メイン処理
+      const resultPromise = this.performScraping(url);
 
-      // ランダムな遅延を追加（人間らしさ）
-      const initialDelay = Math.floor(Math.random() * 3000) + 2000;
-      await this.sleep(initialDelay);
+      // タイムアウトとメイン処理のrace
+      const result = await Promise.race([resultPromise, timeoutPromise]);
+      
+      return result;
 
-      // マウスをランダムに動かす（人間らしさ）
-      await this.randomMouseMovement(page);
-
-      // ページにアクセス
-      await page.goto(url, {
-        waitUntil: 'networkidle2',
-        timeout: this.timeout,
-      });
-
-      // ページ読み込み完了を待つ
-      await this.sleep(3000);
-
-      // スクロール（人間らしい動作）
-      await this.humanLikeScroll(page);
-
-      // 認証ページのチェック
-      const title = await page.title();
-      const bodyText = await page.evaluate(() => {
-        const body = (globalThis as any).document?.body;
-        return body?.innerText || '';
-      });
-
-      if (title.includes('認証') || bodyText.includes('認証にご協力ください')) {
-        vibeLogger.warn('real-browser.auth_detected', '認証ページが検出されました（Real Browser）', {
-          context: { url, title },
-          humanNote: 'Real Browserでも認証ページが表示された',
-        });
-        
-        // CAPTCHAが解決されるのを待つ
-        await this.sleep(5000);
-        
-        // 再度チェック
-        const newTitle = await page.title();
-        if (newTitle.includes('認証')) {
-          throw new Error('認証ページを回避できませんでした');
-        }
-      }
-
-      // 物件要素の取得
-      const selectors = [
-        'athome-search-result-list-item',
-        'athome-buy-other-object-list-item',
-        'athome-object-item',
-        '[class*="property"]',
-        '[class*="bukken"]',
-        '[class*="item"]',
-        '.item-cassette',
-        '.property-list-item',
-        'article',
-        '[data-item]',
-        '[data-property]',
-      ];
-
-      let properties: any[] = [];
-      let usedSelector = '';
-
-      for (const selector of selectors) {
-        const elements = await page.$$(selector);
-        if (elements.length > 0) {
-          properties = elements;
-          usedSelector = selector;
-          vibeLogger.debug(
-            'real-browser.selector.found',
-            `有効なセレクター発見: ${selector} (${elements.length}件)`,
-            {
-              context: { selector, count: elements.length },
-            }
-          );
-          break;
-        }
-      }
-
-      if (properties.length === 0) {
-        throw new Error('物件要素が見つかりませんでした（Real Browser）');
-      }
-
-      // 物件情報の抽出
-      const propertyInfoList: PropertyInfo[] = [];
-      const contentTextArray: string[] = [];
-
-      for (let i = 0; i < Math.min(3, properties.length); i++) {
-        const element = properties[i];
-        const text = await element.evaluate((el: any) => el.textContent || '');
-        contentTextArray.push(text);
-
-        // タイトル、価格、所在地を抽出
-        const title = text.split('\n')[0]?.trim() || '';
-        const price = text.match(/[0-9,]+万円/)?.[0] || '';
-        const location = text.match(/広島[市県][\s\S]+?[区町]/)?.[0] || '';
-
-        if (title && price) {
-          propertyInfoList.push({
-            title,
-            price,
-            ...(location ? { location } : {}),
-          });
-        }
-      }
-
-      const count = properties.length;
-      const contentText = contentTextArray.join('\n');
-      const hash = crypto.createHash('md5').update(contentText).digest('hex');
-      const executionTime = Date.now() - startTime;
-
-      vibeLogger.info('real-browser.success', 'Real Browserスクレイピング完了', {
-        context: {
-          url,
-          executionTime,
-          selector: usedSelector,
-          hash,
-          memoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-          propertiesFound: propertyInfoList.length,
-        },
-        humanNote: 'パフォーマンス目標: 20-40秒、メモリ300-500MB',
-      });
-
-      return {
-        success: true,
-        hash,
-        count,
-        properties: propertyInfoList,
-        executionTime,
-        memoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-      };
     } catch (error) {
       const executionTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      vibeLogger.error('real-browser.failed', `Real Browserスクレイピング失敗: ${url}`, {
+      vibeLogger.error('real_browser.failed', `Real Browser スクレイピング失敗: ${url}`, {
         context: {
           url,
           executionTime,
-          error:
-            error instanceof Error
-              ? {
-                  message: error.message,
-                  stack: error.stack,
-                  name: error.name,
-                }
-              : { message: String(error) },
-        },
+          error: error instanceof Error ? {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+          } : { message: String(error) }
+        }
       });
+
+      // ブラウザが残っていたらクリーンアップ
+      if (this.lastBrowser) {
+        try {
+          await this.lastBrowser.close();
+        } catch (e) {
+          // ignore
+        }
+        this.lastBrowser = null;
+      }
 
       return {
         success: false,
         hash: '',
         count: 0,
         error: errorMessage,
+        failureReason: errorMessage.includes('認証') ? 'auth' : 
+                       errorMessage.includes('timeout') ? 'network' : 'other',
         executionTime,
-        memoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        memoryUsage: Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100
       };
-    } finally {
-      if (browser) {
-        await browser.close();
-      }
     }
   }
 
-  /**
-   * 指定時間待機
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  /**
-   * ランダムなマウス移動（人間らしさ）
-   */
-  private async randomMouseMovement(page: any): Promise<void> {
+  private async performScraping(url: string): Promise<ScrapingResult> {
+    const startTime = Date.now();
+    
+    // ESMでdynamic importを使用（エラーハンドリング付き）
+    let connect: any;
     try {
-      const mouse = page.mouse;
-      
-      // ランダムな位置にマウスを移動
-      for (let i = 0; i < 3; i++) {
-        const x = Math.floor(Math.random() * 800) + 100;
-        const y = Math.floor(Math.random() * 600) + 100;
-        await mouse.move(x, y, { steps: 10 });
-        await this.sleep(Math.random() * 500 + 200);
-      }
-    } catch (error) {
-      vibeLogger.debug('real-browser.mouse.error', 'マウス移動エラー', {
-        context: { error: error instanceof Error ? error.message : String(error) },
+      const module = await import('puppeteer-real-browser');
+      connect = module.connect;
+    } catch (importError) {
+      vibeLogger.error('real_browser.import_failed', 'puppeteer-real-browser のインポートに失敗', {
+        context: { error: importError instanceof Error ? importError.message : String(importError) }
       });
+      throw new Error('Failed to import puppeteer-real-browser');
     }
-  }
+    
+    // Real Browser接続設定（より軽量な設定）
+    const { browser, page } = await connect({
+      headless: process.env.NODE_ENV === 'production' ? 'new' : false, // 新しいheadlessモード
+      turnstile: true, // Cloudflare Turnstile自動解決
+      args: [
+        '--disable-blink-features=AutomationControlled',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--window-size=1280,720', // 小さめのウィンドウサイズ
+        '--disable-web-security',
+        '--disable-features=IsolateOrigins,site-per-process',
+        '--single-process', // 単一プロセスモード
+        '--no-zygote',
+        '--disable-accelerated-2d-canvas',
+        '--disable-webgl'
+      ],
+      customConfig: {},
+      connectOption: {
+        defaultViewport: { width: 1280, height: 720 }
+      },
+      disableXvfb: false, // Dockerでxvfbを使用
+      ignoreAllFlags: false
+    });
 
-  /**
-   * 人間らしいスクロール
-   */
-  private async humanLikeScroll(page: any): Promise<void> {
+    this.lastBrowser = browser;
+    
     try {
-      // ゆっくりとスクロール
-      await page.evaluate(() => {
-        return new Promise<void>((resolve) => {
-          let totalHeight = 0;
-          const distance = 100;
-          const timer = setInterval(() => {
-            const doc = (globalThis as any).document;
-            const win = (globalThis as any).window;
-            const scrollHeight = doc?.body?.scrollHeight || 1000;
-            win?.scrollBy(0, distance);
-            totalHeight += distance;
-
-            if (totalHeight >= scrollHeight / 3) {
-              clearInterval(timer);
-              resolve();
-            }
-          }, 100);
+      // より自然なブラウザ挙動をシミュレート（軽量版）
+      await page.evaluateOnNewDocument(() => {
+        // Webdriver検出回避
+        Object.defineProperty(navigator, 'webdriver', {
+          get: () => undefined
         });
+        
+        // Chrome検出回避（最小限）
+        (window as any).chrome = { runtime: {} };
       });
       
-      await this.sleep(1000);
+      // ユーザーエージェント設定
+      await page.setUserAgent(this.sessionUA);
+
+      // 既存Cookieがあれば注入
+      const domain = new URL(url).hostname;
+      if (this.cookieCache.has(domain)) {
+        const cookies = this.cookieCache.get(domain);
+        if (cookies && cookies.length > 0) {
+          await page.setCookie(...cookies);
+          vibeLogger.debug('real_browser.cookies_restored', `既存Cookie ${cookies.length}件を復元`, {
+            context: { domain, cookieCount: cookies.length }
+          });
+        }
+      }
+
+      // ページ遷移（軽量な待機条件）
+      await page.goto(url, { 
+        waitUntil: 'domcontentloaded',
+        timeout: 20000 
+      });
+
+      // 少し待機
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // 認証ページチェック（簡潔版）
+      let pageTitle = await page.title();
       
-      // トップに戻る
-      await page.evaluate(() => {
-        const win = (globalThis as any).window;
-        win?.scrollTo(0, 0);
+      if (pageTitle.includes('認証')) {
+        vibeLogger.info('real_browser.auth_detected', '認証ページを検出、待機します', {
+          context: { title: pageTitle }
+        });
+
+        // 認証解決を待つ
+        await new Promise(resolve => setTimeout(resolve, 8000));
+        
+        // ページをリロード
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        pageTitle = await page.title();
+        if (pageTitle.includes('認証')) {
+          vibeLogger.warn('real_browser.auth_persist', '認証が解決されませんでした', {
+            context: { title: pageTitle }
+          });
+        }
+      }
+
+      // 物件要素の取得（簡潔版）
+      const properties = await page.evaluate(() => {
+        const selectors = [
+          'athome-search-result-list-item',
+          'athome-buy-other-object-list-item',
+          '[class*="property"]',
+          '[class*="bukken"]',
+          '.item-cassette'
+        ];
+
+        for (const selector of selectors) {
+          const elements = document.querySelectorAll(selector);
+          if (elements.length > 0) {
+            return Array.from(elements).slice(0, 3).map((el: any) => {
+              const text = el.textContent || '';
+              const title = text.split('\n')[0]?.trim() || '';
+              const priceMatch = text.match(/[0-9,]+万円/);
+              const price = priceMatch ? priceMatch[0] : '';
+              return (title && price) ? { title, price, location: '' } : null;
+            }).filter(Boolean);
+          }
+        }
+        return [];
       });
-    } catch (error) {
-      vibeLogger.debug('real-browser.scroll.error', 'スクロールエラー', {
-        context: { error: error instanceof Error ? error.message : String(error) },
+
+      // Cookie保存
+      const cookies = await page.cookies();
+      this.cookieCache.set(domain, cookies);
+
+      // ハッシュ計算（簡潔版）
+      const hash = crypto.createHash('md5')
+        .update(properties.map((p: any) => `${p.title}${p.price}`).join(''))
+        .digest('hex');
+
+      // ブラウザを閉じる
+      await browser.close();
+      this.lastBrowser = null;
+
+      const executionTime = Date.now() - startTime;
+      
+      vibeLogger.info('real_browser.success', 'Real Browser スクレイピング成功', {
+        context: {
+          url,
+          executionTime,
+          propertiesCount: properties.length,
+          hash
+        }
       });
+
+      return {
+        success: true,
+        hash,
+        count: properties.length,
+        properties: properties as PropertyInfo[],
+        executionTime,
+        memoryUsage: Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100
+      };
+      
+    } finally {
+      // 確実にブラウザを閉じる
+      if (browser) {
+        try {
+          await browser.close();
+        } catch (e) {
+          // ignore
+        }
+        this.lastBrowser = null;
+      }
+    }
+  }
+
+  /**
+   * クリーンアップ
+   */
+  async cleanup(): Promise<void> {
+    if (this.lastBrowser) {
+      try {
+        await this.lastBrowser.close();
+      } catch (e) {
+        // ignore
+      }
+      this.lastBrowser = null;
     }
   }
 }

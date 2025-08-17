@@ -51,6 +51,14 @@ export const config: Config = {
     autoRecoveryEnabled: process.env.AUTO_RECOVERY_ENABLED !== 'false',
     recoveryTimeMinutes: parseInt(process.env.AUTO_RECOVERY_MINUTES ?? '30', 10),
   },
+  auth: {
+    resolveEnabled: process.env.AUTH_RESOLVE_ENABLED !== 'false',
+    cookiePersistEnabled: process.env.COOKIE_PERSIST_ENABLED !== 'false',
+    resolveTimeoutMs: parseInt(process.env.AUTH_RESOLVE_TIMEOUT ?? '7000', 10),
+    refererStrategy:
+      (process.env.REFERER_STRATEGY as 'direct' | 'google') === 'google' ? 'google' : 'direct',
+    cooldownMinutes: parseInt(process.env.AUTH_COOLDOWN_MINUTES ?? '15', 10),
+  },
 };
 
 /**

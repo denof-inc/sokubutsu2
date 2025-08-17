@@ -7,6 +7,7 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+      - NODE_OPTIONS=--dns-result-order=ipv4first
     env_file:
       - .env
     volumes:
@@ -14,10 +15,7 @@ services:
       - ./logs:/app/logs
     ports:
       - '3002:3000'  # メインアプリケーション
-      - '3001:3001'  # 管理画面
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
+      # - '3001:3001'  # 管理画面（ホストで競合時は一時的に無効化）
     healthcheck:
       test: ['CMD', 'node', '-e', "console.log('Health check passed')"]
       interval: 30s
