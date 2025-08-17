@@ -34,12 +34,12 @@ async function main(): Promise<void> {
 
   // 設定検証
   if (!validateConfig()) {
-    console.error('\n🚨 環境変数を .env ファイルに設定してください。');
-    console.error('\n📝 設定例:');
+    console.error('\\n🚨 環境変数を .env ファイルに設定してください。');
+    console.error('\\n📝 設定例:');
     console.error('TELEGRAM_BOT_TOKEN=your_bot_token_here');
     console.error('TELEGRAM_CHAT_ID=your_chat_id_here');
     console.error('MONITORING_URLS=https://www.athome.co.jp/chintai/tokyo/shinjuku-city/list/');
-    console.error('\n💡 詳細は README.md をご確認ください。');
+    console.error('\\n💡 詳細は README.md をご確認ください。');
     process.exit(1);
   }
 
@@ -56,8 +56,7 @@ async function main(): Promise<void> {
     const { AdminServer } = await import('./admin/AdminServer.js');
     const adminServer = new AdminServer();
     adminServer.start(config.admin.port || 3001);
-    console.log(`
-📊 管理画面が起動しました: http://localhost:${config.admin.port || 3001}`);
+    console.log(`\\n📊 管理画面が起動しました: http://localhost:${config.admin.port || 3001}`);
   }
 
   // スケジューラー起動
@@ -66,7 +65,7 @@ async function main(): Promise<void> {
   try {
     await scheduler.start(config.monitoring.urls, config.telegram.enabled);
     
-    // Telegramコマンドハンドラーを設定
+    // Telegramコマンドハンドラーを設定（シングルユーザーモード）
     const telegram = scheduler.getTelegram();
     telegram.setupCommandHandlers(scheduler);
     await telegram.launchBot();
