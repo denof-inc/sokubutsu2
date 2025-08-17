@@ -71,6 +71,10 @@ export class MonitoringScheduler {
       humanNote: 'システムの監視プロセスを開始',
     });
 
+    // 運用時間状態を初期化
+    const { operatingStateStorage } = await import('./utils/operatingHours.js');
+    operatingStateStorage.recordCurrentState();
+
     if (telegramEnabled) {
       // Telegram接続テスト
       const isConnected = await this.telegram.testConnection();
@@ -103,7 +107,7 @@ export class MonitoringScheduler {
       void this.runMonitoringCycle(urls, telegramEnabled);
     });
 
-    // 統計レポート送信（毎時0分・固定）
+    // 統計レポート送信（毎時20分・固定）
     this.statsJob = cron.schedule('0 * * * *', () => {
       void this.sendStatisticsReport(telegramEnabled, urls);
     });
@@ -122,6 +126,37 @@ export class MonitoringScheduler {
    * 監視サイクル実行
    */
   private async runMonitoringCycle(urls: string[], telegramEnabled: boolean = true): Promise<void> {
+    // 運用時間チェック
+    const { isWithinOperatingHours, operatingStateStorage, createSkipMessage } = await import('./utils/operatingHours.js');
+    const operatingStatus = isWithinOperatingHours();
+    
+    if (!operatingStatus.isOperating) {
+      vibeLogger.info('monitoring.cycle.skipped_operating_hours', '運用時間外のため監視をスキップ', {
+        context: {
+          currentHour: operatingStatus.currentHour,
+          nextChangeHour: operatingStatus.nextChangeHour,
+          message: operatingStatus.message,
+        },
+        humanNote: '22時〜6時の運用停止時間帯',
+      });
+      
+      // 運用状態変更の通知処理
+      const stateChange = operatingStateStorage.hasStateChanged();
+      if (stateChange.changed && !stateChange.currentState && telegramEnabled) {
+        const { createOperatingStopMessage } = await import('./utils/operatingHours.js');
+        await this.telegram.sendMessage(createOperatingStopMessage());
+      }
+      
+      return;
+    }
+
+    // 運用再開時の通知処理
+    const stateChange = operatingStateStorage.hasStateChanged();
+    if (stateChange.changed && stateChange.currentState && telegramEnabled) {
+      const { createOperatingStartMessage } = await import('./utils/operatingHours.js');
+      await this.telegram.sendMessage(createOperatingStartMessage());
+    }
+
     // サーキットブレーカーがOPENの場合はスキップ
     if (this.circuitBreaker.isOpen()) {
       vibeLogger.warn('monitoring.cycle.skipped', 'サーキットブレーカーが作動中のため監視をスキップ', {
@@ -139,6 +174,7 @@ export class MonitoringScheduler {
         cycleId,
         timestamp: new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }),
         urlCount: urls.length,
+        operatingHour: operatingStatus.currentHour,
       },
     });
 

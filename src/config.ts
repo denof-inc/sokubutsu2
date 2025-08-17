@@ -59,6 +59,12 @@ export const config: Config = {
       (process.env.REFERER_STRATEGY as 'direct' | 'google') === 'google' ? 'google' : 'direct',
     cooldownMinutes: parseInt(process.env.AUTH_COOLDOWN_MINUTES ?? '15', 10),
   },
+  operatingHours: {
+    enabled: process.env.OPERATING_HOURS_ENABLED === 'true',
+    startHour: parseInt(process.env.OPERATING_HOURS_START ?? '6', 10),
+    endHour: parseInt(process.env.OPERATING_HOURS_END ?? '22', 10),
+    timezone: process.env.OPERATING_HOURS_TIMEZONE ?? 'Asia/Tokyo',
+  },
 };
 
 /**
