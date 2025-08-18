@@ -130,6 +130,12 @@ export interface Config {
     refererStrategy: 'direct' | 'google';
     cooldownMinutes?: number;
   };
+  operatingHours?: {
+    enabled: boolean;
+    startHour: number;
+    endHour: number;
+    timezone: string;
+  };
 }
 
 /**
