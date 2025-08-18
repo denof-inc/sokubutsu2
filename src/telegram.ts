@@ -116,13 +116,14 @@ export class TelegramNotifier {
     const match = data.url.match(/\/(chintai|buy_other)\/([^/]+)\//); 
     const area = match ? match[2] : 'unknown';
     
-    const message = `
-🆕 *新着物件あり*
+    // URLを短縮表示用にフォーマット
+    const shortUrl = this.formatUrlForDisplay(data.url);
+    
+    const message = `🆕 *新着物件あり*
 
 📍 *エリア*: ${area}
-🔗 *URL*: ${data.url}
-⏰ *検知時刻*: ${data.detectedAt.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
-    `;
+🔗 [物件を見る](${data.url})
+⏰ *検知時刻*: ${data.detectedAt.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
 
     await this.sendMessage(message);
   }
@@ -145,8 +146,7 @@ export class TelegramNotifier {
       userFriendlyError = 'ネットワーク接続に問題があります';
     }
     
-    const message = `
-⚠️ *監視エラーのお知らせ*
+    const message = `⚠️ *監視エラーのお知らせ*
 
 📍 *監視名*: ${area}エリア物件
 ⏰ *時間*: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
@@ -154,8 +154,7 @@ export class TelegramNotifier {
 ❌ *エラー内容*: ${userFriendlyError}
 
 しばらく時間をおいて自動的に再試行します。
-継続的にエラーが発生する場合は、サポートまでご連絡ください。
-    `;
+継続的にエラーが発生する場合は、サポートまでご連絡ください。`;
 
     await this.sendMessage(message);
   }
@@ -200,6 +199,9 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
       const now = new Date();
       const currentTime = now.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
       
+      // URLを短縮表示
+      const shortUrl = this.formatUrlForDisplay(stats.url);
+      
       let message = `📊 *1時間サマリー*\n\n`;
       message += `📍 *エリア*: ${prefecture}\n`;
       message += `⏰ *時刻*: ${currentTime}\n\n`;
@@ -227,7 +229,7 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
         message += `• 新着総数: ${stats.newPropertyCount}件\n`;
       }
       
-      message += `\n🔗 ${stats.url}`;
+      message += `\n🔗 [${shortUrl}](${stats.url})`;
       
       await this.sendMessage(message);
       
@@ -321,6 +323,31 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
       return `${urlObj.hostname}${urlObj.pathname}`;
     } catch {
       return url.length > 50 ? `${url.substring(0, 47)}...` : url;
+    }
+  }
+
+  /**
+   * URLを表示用にフォーマット（短縮表示）
+   */
+  private formatUrlForDisplay(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      const hostname = urlObj.hostname;
+      
+      // athome.co.jpの場合の特別処理
+      if (hostname.includes('athome.co.jp')) {
+        const pathMatch = urlObj.pathname.match(/\/(chintai|buy_other)\/([^/]+)\//);
+        if (pathMatch) {
+          const type = pathMatch[1] === 'chintai' ? '賃貸' : '売買';
+          const area = pathMatch[2];
+          return `athome.co.jp - ${type} (${area})`;
+        }
+      }
+      
+      // その他のサイトは短縮表示
+      return hostname.length > 20 ? `${hostname.substring(0, 17)}...` : hostname;
+    } catch {
+      return url.length > 30 ? `${url.substring(0, 27)}...` : url;
     }
   }
 
