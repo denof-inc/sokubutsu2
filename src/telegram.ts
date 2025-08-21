@@ -370,91 +370,12 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
   }
 
   /**
-   * コマンドハンドラーの設定
+   * コマンドハンドラーの設定（マルチユーザーモードのみ）
    */
-  setupCommandHandlers(scheduler: any, userService?: UserService): void {
-    // マルチユーザーモード判定
-    const isMultiUser = userService !== undefined;
-
-    if (isMultiUser) {
-      this.setupMultiUserCommands(scheduler, userService!);
-    } else {
-      this.setupSingleUserCommands(scheduler);
-    }
+  setupCommandHandlers(scheduler: any, userService: UserService): void {
+    this.setupMultiUserCommands(scheduler, userService);
   }
 
-  /**
-   * シングルユーザーモードコマンド（既存）
-   */
-  private setupSingleUserCommands(scheduler: any): void {
-    // /status - 現在の監視状況
-    this.bot.command('status', async (ctx) => {
-      try {
-        const status = await scheduler.getStatus();
-        let message = `📊 *監視状況*\\n\\n`;
-        message += `⏱ *稼働状態*: ${status.isRunning ? '✅ 稼働中' : '⏸ 停止中'}\\n`;
-        message += `📍 *監視URL数*: ${status.urlCount}件\\n`;
-        message += `⏰ *最終チェック*: ${status.lastCheck ? new Date(status.lastCheck).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : 'なし'}\\n`;
-        message += `🔄 *総チェック数*: ${status.totalChecks}回\\n`;
-        message += `✅ *成功率*: ${status.successRate.toFixed(1)}%\\n`;
-        
-        await ctx.reply(message, { parse_mode: 'Markdown' });
-      } catch (error) {
-        await ctx.reply('❌ ステータス取得中にエラーが発生しました');
-        vibeLogger.error('telegram.command.status_error', 'statusコマンドエラー', {
-          context: { error: error instanceof Error ? error.message : String(error) },
-        });
-      }
-    });
-
-    // /stats - 統計情報表示
-    this.bot.command('stats', async (ctx) => {
-      try {
-        const stats = await scheduler.getStatistics();
-        let message = `📈 *統計情報*\\n\\n`;
-        message += `📊 *パフォーマンス*\\n`;
-        message += `  • 総チェック数: ${stats.totalChecks}回\\n`;
-        message += `  • 成功率: ${stats.successRate}%\\n`;
-        message += `  • 平均実行時間: ${stats.averageExecutionTime.toFixed(2)}秒\\n\\n`;
-        message += `🏠 *検知実績*\\n`;
-        message += `  • 新着検知数: ${stats.newListings}回\\n`;
-        message += `  • エラー数: ${stats.errors}回\\n\\n`;
-        message += `⏰ *最終チェック*: ${stats.lastCheck.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
-        
-        await ctx.reply(message, { parse_mode: 'Markdown' });
-      } catch (error) {
-        await ctx.reply('❌ 統計情報取得中にエラーが発生しました');
-        vibeLogger.error('telegram.command.stats_error', 'statsコマンドエラー', {
-          context: { error: error instanceof Error ? error.message : String(error) },
-        });
-      }
-    });
-
-    // /check - 手動チェック実行
-    this.bot.command('check', async (ctx) => {
-      try {
-        await ctx.reply('🔍 手動チェックを開始します...');
-        const result = await scheduler.runManualCheck();
-        
-        let message = `✅ *手動チェック完了*\\n\\n`;
-        message += `📊 *結果*\\n`;
-        message += `  • チェックしたURL: ${result.urlCount}件\\n`;
-        message += `  • 成功: ${result.successCount}件\\n`;
-        message += `  • エラー: ${result.errorCount}件\\n`;
-        message += `  • 新着検知: ${result.newPropertyCount > 0 ? `🆕 ${result.newPropertyCount}件` : 'なし'}\\n`;
-        message += `  • 実行時間: ${(result.executionTime / 1000).toFixed(1)}秒`;
-        
-        await ctx.reply(message, { parse_mode: 'Markdown' });
-      } catch (error) {
-        await ctx.reply('❌ 手動チェック中にエラーが発生しました');
-        vibeLogger.error('telegram.command.check_error', 'checkコマンドエラー', {
-          context: { error: error instanceof Error ? error.message : String(error) },
-        });
-      }
-    });
-
-    this.setupCommonCommands();
-  }
 
   /**
    * マルチユーザーモードコマンド（新規）
@@ -702,30 +623,23 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
       }
     });
 
-    this.setupCommonCommands(true);
+    this.setupCommonCommands();
   }
 
   /**
-   * 共通コマンド
+   * 共通コマンド（マルチユーザーモード専用）
    */
-  private setupCommonCommands(isMultiUser: boolean = false): void {
+  private setupCommonCommands(): void {
     // /help - コマンド一覧
     this.bot.command('help', async (ctx) => {
       let message = `\n📚 *利用可能なコマンド*\n\n`;
       
-      if (isMultiUser) {
-        message += `/register - ユーザー登録\n`;
-        message += `/add_url <URL> <名前> - URL追加\n`;
-        message += `/list_urls - 登録URL一覧\n`;
-        message += `/pause_url <ID> - 監視停止\n`;
-        message += `/resume_url <ID> - 監視再開\n`;
-        message += `/delete_url <ID> - URL削除\n`;
-      } else {
-        message += `/status - 現在の監視状況を表示\n`;
-        message += `/stats - 詳細な統計情報を表示\n`;
-        message += `/check - 手動でチェックを実行\n`;
-      }
-      
+      message += `/register - ユーザー登録\n`;
+      message += `/add <URL> <名前> - URL追加\n`;
+      message += `/list - 登録URL一覧\n`;
+      message += `/pause <ID> - 監視停止\n`;
+      message += `/resume <ID> - 監視再開\n`;
+      message += `/delete <ID> - URL削除\n`;
       message += `/help - このヘルプメッセージを表示\n\n`;
       
       message += `🔔 *自動通知について*\n`;
@@ -736,27 +650,21 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
       message += `📧 *サポート*\n`;
       message += `問題が発生した場合は管理者にお問い合わせください`;
       
-      await ctx.reply(message, { parse_mode: 'Markdown' });
+      await ctx.reply(message);
     });
 
     // /start - ウェルカムメッセージ
     this.bot.command('start', async (ctx) => {
       let message = `\n👋 *ソクブツMVPへようこそ！*\n\n`;
       
-      if (isMultiUser) {
-        message += `このBotは不動産サイトの新着物件を監視し、\n`;
-        message += `リアルタイムで通知します。\n\n`;
-        message += `まず /register でユーザー登録を行い、\n`;
-        message += `その後 /add_url でURL監視を開始してください。\n\n`;
-      } else {
-        message += `このBotは不動産サイトの新着物件を監視し、\n`;
-        message += `リアルタイムで通知します。\n\n`;
-        message += `監視は自動的に5分間隔で実行されています。\n\n`;
-      }
+      message += `このBotは不動産サイトの新着物件を監視し、\n`;
+      message += `リアルタイムで通知します。\n\n`;
+      message += `まず /register でユーザー登録を行い、\n`;
+      message += `その後 /add でURL監視を開始してください。\n\n`;
       
       message += `利用可能なコマンドを見るには /help を入力してください。`;
       
-      await ctx.reply(message, { parse_mode: 'Markdown' });
+      await ctx.reply(message);
     });
   }
 
