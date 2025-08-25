@@ -1058,7 +1058,11 @@ export class MultiUserMonitoringScheduler {
       // ユーザー個別通知を送信
       const telegram = await this.getTelegramService(userUrl.user.telegramChatId);
       if (telegram) {
-        const message = `🆕 新着があります！\\\\n\\\\n📍 監視名: ${userUrl.name}\\\\nURL: ${userUrl.url}\\\\n検知時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
+        const message = `🆕 新着があります！
+
+📍 監視名: ${userUrl.name}
+URL: ${userUrl.url}
+検知時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
         await telegram.sendMessage(message);
       }
       
