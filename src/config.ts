@@ -38,7 +38,7 @@ export const config: Config = {
     logging: process.env.DATABASE_LOGGING === 'true',
   },
   admin: {
-    port: parseInt(process.env.ADMIN_PORT ?? '3001', 10),
+    port: parseInt(process.env.ADMIN_PORT ?? '3002', 10),
     enabled: process.env.ADMIN_ENABLED !== 'false',
   },
   multiUser: {
@@ -65,7 +65,7 @@ export const config: Config = {
     endHour: parseInt(process.env.OPERATING_HOURS_END ?? '22', 10),
     timezone: process.env.OPERATING_HOURS_TIMEZONE ?? 'Asia/Tokyo',
   },
-};
+};;
 
 /**
  * 設定の妥当性を検証

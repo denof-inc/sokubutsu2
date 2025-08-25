@@ -705,6 +705,7 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
       vibeLogger.error('telegram.bot_launch_error', 'Telegram Bot起動エラー', {
         context: { error: error instanceof Error ? error.message : String(error) },
       });
+      throw error; // エラーを再throwしてmain.tsでキャッチ可能にする
     }
   }
 
