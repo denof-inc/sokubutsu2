@@ -81,7 +81,7 @@ describe('TelegramNotifier', () => {
 
       const sentMessage = calls[0]?.[1] ?? '';
       expect(sentMessage).not.toContain('+5件'); // 件数は削除されたので含まれない
-      expect(sentMessage).toContain('https://example.com');
+      expect(sentMessage).toContain('エリア'); // エリア情報が含まれることを確認
     });
 
     it('物件数減少時も正しく通知すること', async () => {

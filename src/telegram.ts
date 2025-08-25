@@ -114,14 +114,10 @@ export class TelegramNotifier {
     const match = data.url.match(/\/(chintai|buy_other)\/([^/]+)\//); 
     const area = match ? match[2] : 'unknown';
     
-    // URLを短縮表示用にフォーマット
-    const shortUrl = this.formatUrlForDisplay(data.url);
-    
-    const message = `🆕 *新着物件あり*
+    const message = `🆕 新着物件あり
 
-📍 *エリア*: ${area}
-🔗 [物件を見る](${data.url})
-⏰ *検知時刻*: ${data.detectedAt.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
+📍 エリア: ${area}
+⏰ 検知時刻: ${data.detectedAt.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
 
     await this.sendMessage(message);
   }

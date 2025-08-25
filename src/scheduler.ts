@@ -1061,7 +1061,6 @@ export class MultiUserMonitoringScheduler {
         const message = `🆕 新着があります！
 
 📍 監視名: ${userUrl.name}
-URL: ${userUrl.url}
 検知時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
         await telegram.sendMessage(message);
       }
