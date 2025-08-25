@@ -72,7 +72,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       
       expect(mockSendMessage).toHaveBeenCalledWith(
         'test-chat-id',
-        expect.stringContaining('📊 *1時間サマリー*'),
+        expect.stringContaining('📊 1時間サマリー'),
         expect.objectContaining({ link_preview_options: { is_disabled: true } })
       );
     });

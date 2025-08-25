@@ -88,18 +88,16 @@ export class TelegramNotifier {
    * 起動通知
    */
   async sendStartupNotice(): Promise<void> {
-    const message = `
-🚀 *ソクブツMVP起動完了*
+    const message = `🚀 ソクブツMVP起動完了
 
-📅 *起動時刻*: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
-⚙️ *監視間隔*: 5分
-🎯 *戦略*: HTTP-first + 軽量実装
+📅 起動時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+⚙️ 監視間隔: 5分
+🎯 戦略: HTTP-first + 軽量実装
 
 ✅ システムが正常に起動し、物件監視を開始しました。
 新着物件が検知されると即座に通知いたします！
 
-🏠 *理想の物件との出会いをお手伝いします*
-    `;
+🏠 理想の物件との出会いをお手伝いします`;
 
     await this.sendMessage(message);
   }
@@ -146,12 +144,12 @@ export class TelegramNotifier {
       userFriendlyError = 'ネットワーク接続に問題があります';
     }
     
-    const message = `⚠️ *監視エラーのお知らせ*
+    const message = `⚠️ 監視エラーのお知らせ
 
-📍 *監視名*: ${area}エリア物件
-⏰ *時間*: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
-🔢 *エラー数*: 3回連続（15分間）
-❌ *エラー内容*: ${userFriendlyError}
+📍 監視名: ${area}エリア物件
+⏰ 時間: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+🔢 エラー数: 3回連続（15分間）
+❌ エラー内容: ${userFriendlyError}
 
 しばらく時間をおいて自動的に再試行します。
 継続的にエラーが発生する場合は、サポートまでご連絡ください。`;
@@ -165,24 +163,22 @@ export class TelegramNotifier {
   async sendStatisticsReport(stats: Statistics): Promise<void> {
     const uptimeHours = Math.floor((Date.now() - stats.lastCheck.getTime()) / (1000 * 60 * 60));
 
-    const message = `
-📊 *ソクブツ統計レポート*
+    const message = `📊 ソクブツ統計レポート
 
-📈 *パフォーマンス*
+📈 パフォーマンス
   • 総チェック数: ${stats.totalChecks}回
   • 成功率: ${stats.successRate}%
   • 平均実行時間: ${stats.averageExecutionTime.toFixed(2)}秒
 
-🏠 *検知実績*
+🏠 検知実績
   • 新着検知数: ${stats.newListings}回
   • エラー数: ${stats.errors}回
 
-⏰ *稼働状況*
+⏰ 稼働状況
   • 最終チェック: ${stats.lastCheck.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
   • 稼働時間: 約${uptimeHours}時間
 
-${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*' : '⚠️ *エラー率が高めです。設定をご確認ください*'}
-    `;
+${stats.successRate >= 95 ? '✅ システムは正常に動作しています' : '⚠️ エラー率が高めです。設定をご確認ください'}`;
 
     await this.sendMessage(message);
   }
@@ -202,13 +198,17 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
       // URLを短縮表示
       const shortUrl = this.formatUrlForDisplay(stats.url);
       
-      let message = `📊 *1時間サマリー*\n\n`;
-      message += `📍 *エリア*: ${prefecture}\n`;
-      message += `⏰ *時刻*: ${currentTime}\n\n`;
+      let message = `📊 1時間サマリー
+
+📍 エリア: ${prefecture}
+⏰ 時刻: ${currentTime}
+
+`;
       
       // 5分ごとの履歴を表示
       if (stats.hourlyHistory && stats.hourlyHistory.length > 0) {
-        message += `📝 *5分ごとの結果*:\n`;
+        message += `📝 5分ごとの結果:
+`;
         for (const entry of stats.hourlyHistory) {
           let icon = '✅';
           if (entry.status === 'あり') {
@@ -216,20 +216,25 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
           } else if (entry.status === 'エラー') {
             icon = '❌';
           }
-          message += `• ${entry.time} ${icon} ${entry.status}\n`;
+          message += `• ${entry.time} ${icon} ${entry.status}
+`;
         }
-        message += `\n`;
+        message += `
+`;
       }
       
-      message += `📊 *統計*:\n`;
-      message += `• チェック回数: ${stats.totalChecks}回\n`;
-      message += `• 成功率: ${stats.successRate.toFixed(1)}%\n`;
+      message += `📊 統計:
+• チェック回数: ${stats.totalChecks}回
+• 成功率: ${stats.successRate.toFixed(1)}%
+`;
       
       if (stats.hasNewProperty) {
-        message += `• 新着総数: ${stats.newPropertyCount}件\n`;
+        message += `• 新着総数: ${stats.newPropertyCount}件
+`;
       }
       
-      message += `\n🔗 [${shortUrl}](${stats.url})`;
+      message += `
+🔗 [${shortUrl}](${stats.url})`;
       
       await this.sendMessage(message);
       
@@ -251,16 +256,14 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
    * システム停止通知
    */
   async sendShutdownNotice(): Promise<void> {
-    const message = `
-🛑 *ソクブツMVP停止*
+    const message = `🛑 ソクブツMVP停止
 
-⏰ *停止時刻*: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+⏰ 停止時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
 
 システムが正常に停止されました。
 再起動時に改めて通知いたします。
 
-🙏 *ご利用ありがとうございました*
-    `;
+🙏 ご利用ありがとうございました`;
 
     await this.sendMessage(message);
   }
@@ -632,37 +635,38 @@ ${stats.successRate >= 95 ? '✅ *システムは正常に動作しています*
   private setupCommonCommands(): void {
     // /help - コマンド一覧
     this.bot.command('help', async (ctx) => {
-      let message = `\n📚 *利用可能なコマンド*\n\n`;
-      
-      message += `/register - ユーザー登録\n`;
-      message += `/add <URL> <名前> - URL追加\n`;
-      message += `/list - 登録URL一覧\n`;
-      message += `/pause <ID> - 監視停止\n`;
-      message += `/resume <ID> - 監視再開\n`;
-      message += `/delete <ID> - URL削除\n`;
-      message += `/help - このヘルプメッセージを表示\n\n`;
-      
-      message += `🔔 *自動通知について*\n`;
-      message += `• 新着物件検知時: 即座に通知\n`;
-      message += `• 1時間ごと: サマリーレポート\n`;
-      message += `• エラー時: 3回連続エラーで警告\n\n`;
-      
-      message += `📧 *サポート*\n`;
-      message += `問題が発生した場合は管理者にお問い合わせください`;
+      let message = `📚 利用可能なコマンド
+
+/register - ユーザー登録
+/add <URL> <名前> - URL追加
+/list - 登録URL一覧
+/pause <ID> - 監視停止
+/resume <ID> - 監視再開
+/delete <ID> - URL削除
+/help - このヘルプメッセージを表示
+
+🔔 自動通知について
+• 新着物件検知時: 即座に通知
+• 1時間ごと: サマリーレポート
+• エラー時: 3回連続エラーで警告
+
+📧 サポート
+問題が発生した場合は管理者にお問い合わせください`;
       
       await ctx.reply(message);
     });
 
     // /start - ウェルカムメッセージ
     this.bot.command('start', async (ctx) => {
-      let message = `\n👋 *ソクブツMVPへようこそ！*\n\n`;
-      
-      message += `このBotは不動産サイトの新着物件を監視し、\n`;
-      message += `リアルタイムで通知します。\n\n`;
-      message += `まず /register でユーザー登録を行い、\n`;
-      message += `その後 /add でURL監視を開始してください。\n\n`;
-      
-      message += `利用可能なコマンドを見るには /help を入力してください。`;
+      let message = `👋 ソクブツMVPへようこそ！
+
+このBotは不動産サイトの新着物件を監視し、
+リアルタイムで通知します。
+
+まず /register でユーザー登録を行い、
+その後 /add でURL監視を開始してください。
+
+利用可能なコマンドを見るには /help を入力してください。`;
       
       await ctx.reply(message);
     });
