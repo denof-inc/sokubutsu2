@@ -780,6 +780,9 @@ export class MultiUserMonitoringScheduler {
   private readonly circuitBreaker: CircuitBreaker;
   private readonly telegramServices: Map<string, TelegramNotifier> = new Map();
   
+  // 5分ごとの履歴管理機能を追加
+  private readonly urlHistory: Map<string, Array<{time: string; status: 'なし' | 'あり' | 'エラー'}>> = new Map();
+  
   private cronJob: cron.ScheduledTask | null = null;
   private statsJob: cron.ScheduledTask | null = null;
   private isRunning = false;
@@ -916,9 +919,9 @@ export class MultiUserMonitoringScheduler {
             const telegram = await this.getTelegramService(userUrl.user.telegramChatId);
             if (telegram) {
               await telegram.sendMessage(
-                `🚨 エラー頻発により監視を一時停止しました\\n\\n` +
-                `連続エラー: ${this.consecutiveErrors}回\\n` +
-                `詳細: ${errorMessage}\\n\\n` +
+                `🚨 エラー頻発により監視を一時停止しました\\\\n\\\\n` +
+                `連続エラー: ${this.consecutiveErrors}回\\\\n` +
+                `詳細: ${errorMessage}\\\\n\\\\n` +
                 (config.circuitBreaker.autoRecoveryEnabled 
                   ? `⏱ ${config.circuitBreaker.recoveryTimeMinutes}分後に自動復旧を試みます`
                   : '手動での復旧が必要です')
@@ -978,12 +981,22 @@ export class MultiUserMonitoringScheduler {
 
     const result = await this.scraper.scrapeAthome(userUrl.url);
 
+    // 5分ごとの履歴記録を追加
+    const urlKey = `${userUrl.userId}-${userUrl.id}`;
+    const currentTime = new Date().toLocaleString('ja-JP', { 
+      timeZone: 'Asia/Tokyo',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
     if (!result.success) {
+      // エラー履歴を記録
+      this.addUrlHistory(urlKey, currentTime, 'エラー');
+      
       // エラー統計を更新
       await this.updateUrlError(userUrl);
       
       // URL別のエラーカウントを更新
-      const urlKey = `${userUrl.userId}-${userUrl.id}`;
       const currentErrorCount = (this.urlErrorCounts.get(urlKey) || 0) + 1;
       this.urlErrorCounts.set(urlKey, currentErrorCount);
       
@@ -1001,7 +1014,6 @@ export class MultiUserMonitoringScheduler {
     }
     
     // 成功時はURLのエラーカウンターをリセット
-    const urlKey = `${userUrl.userId}-${userUrl.id}`;
     this.urlErrorCounts.set(urlKey, 0);
     
     // URL統計を更新
@@ -1014,6 +1026,7 @@ export class MultiUserMonitoringScheduler {
     const previousHash = userUrl.lastHash;
     if (!previousHash) {
       // 初回チェック
+      this.addUrlHistory(urlKey, currentTime, 'なし');
       vibeLogger.info('multiuser.monitoring.initial_url_check', `初回チェック完了`, {
         context: { 
           urlId: userUrl.id,
@@ -1026,6 +1039,7 @@ export class MultiUserMonitoringScheduler {
       await this.updateUrlHash(userUrl, result.hash);
     } else if (previousHash !== result.hash) {
       // ハッシュ変化検知！（新着あり）
+      this.addUrlHistory(urlKey, currentTime, 'あり');
       vibeLogger.info('multiuser.monitoring.change_detected', `🎉 変化検知`, {
         context: {
           urlId: userUrl.id,
@@ -1044,7 +1058,7 @@ export class MultiUserMonitoringScheduler {
       // ユーザー個別通知を送信
       const telegram = await this.getTelegramService(userUrl.user.telegramChatId);
       if (telegram) {
-        const message = `🆕 新着があります！\\n\\n📍 監視名: ${userUrl.name}\\nURL: ${userUrl.url}\\n検知時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
+        const message = `🆕 新着があります！\\\\n\\\\n📍 監視名: ${userUrl.name}\\\\nURL: ${userUrl.url}\\\\n検知時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
         await telegram.sendMessage(message);
       }
       
@@ -1052,6 +1066,7 @@ export class MultiUserMonitoringScheduler {
       await this.updateUrlHash(userUrl, result.hash);
     } else {
       // 変化なし
+      this.addUrlHistory(urlKey, currentTime, 'なし');
       vibeLogger.debug('multiuser.monitoring.no_change', `変化なし`, {
         context: { 
           urlId: userUrl.id,
@@ -1063,6 +1078,23 @@ export class MultiUserMonitoringScheduler {
       });
       // 変化がなくても念のためハッシュを保存（整合性のため）
       await this.updateUrlHash(userUrl, result.hash);
+    }
+  }
+
+  /**
+   * URL履歴記録（5分ごと）
+   */
+  private addUrlHistory(urlKey: string, time: string, status: 'なし' | 'あり' | 'エラー'): void {
+    if (!this.urlHistory.has(urlKey)) {
+      this.urlHistory.set(urlKey, []);
+    }
+
+    const history = this.urlHistory.get(urlKey)!;
+    history.push({ time, status });
+
+    // 過去1時間（12回分）のデータのみ保持
+    if (history.length > 12) {
+      history.shift();
     }
   }
 
@@ -1152,6 +1184,7 @@ export class MultiUserMonitoringScheduler {
 
         // ユーザーのURL統計を取得してレポート送信
         for (const url of user.urls.filter((u: any) => u.isActive)) {
+          const urlKey = `${user.id}-${url.id}`;
           const urlStats = {
             url: url.url,
             totalChecks: url.totalChecks,
@@ -1162,7 +1195,7 @@ export class MultiUserMonitoringScheduler {
             hasNewProperty: url.newListingsCount > 0,
             newPropertyCount: url.newListingsCount,
             lastNewProperty: url.lastCheckedAt || null,
-            hourlyHistory: [], // 簡易実装（必要に応じて拡張）
+            hourlyHistory: this.urlHistory.get(urlKey) || [], // 履歴データを追加
           };
           
           await telegram.sendUrlSummaryReport(urlStats);

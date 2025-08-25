@@ -12,7 +12,6 @@ import { AppDataSource } from './database/connection.js';
 async function main(): Promise<void> {
   console.log('===========================================');
   console.log('   ソクブツ MVP - マルチユーザーモード    ');
-  console.log('    Puppeteer-first戦略＋複数URL対応     ');
   console.log('===========================================');
   console.log(`起動時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`);
   console.log();
@@ -74,57 +73,98 @@ async function main(): Promise<void> {
   // 管理画面サーバー起動（マルチユーザーモードでは必須）
   const { AdminServer } = await import('./admin/AdminServer.js');
   const adminServer = new AdminServer();
-  adminServer.start(config.admin?.port || 3001);
-  console.log(`\n📊 管理画面が起動しました: http://localhost:${config.admin?.port || 3001}`);
+  adminServer.start(config.admin?.port || 3002);
+  console.log(`\n📊 管理画面が起動しました: http://localhost:${config.admin?.port || 3002}`);
 
-  // マルチユーザー監視スケジューラー起動
-  const scheduler = new MultiUserMonitoringScheduler(config.telegram.botToken);
-  const userService = scheduler.getUserService();
+  // デバッグログ: スケジューラー作成前
+  console.log('🔧 MultiUserMonitoringScheduler作成開始...');
+  vibeLogger.info('multiuser.main.scheduler_creating', 'スケジューラー作成開始', {
+    context: { botToken: config.telegram.botToken ? '設定済み' : '未設定' },
+  });
 
   try {
-    // 先にTelegram Botを起動して、初回チェック中でもコマンドを受け付け可能にする
-    const telegram = new TelegramNotifier(config.telegram.botToken, config.telegram.chatId);
-    telegram.setupCommandHandlers(scheduler, userService);
-    await telegram.launchBot();
+    // マルチユーザー監視スケジューラー起動
+    const scheduler = new MultiUserMonitoringScheduler(config.telegram.botToken);
+    console.log('✅ MultiUserMonitoringScheduler作成完了');
+    
+    const userService = scheduler.getUserService();
+    console.log('✅ UserService取得完了');
 
-    // 監視の起動（初回チェックなどは並行で進む）
-    await scheduler.start();
+    try {
+      console.log('🤖 TelegramNotifier作成開始...');
+      const telegram = new TelegramNotifier(config.telegram.botToken, config.telegram.chatId);
+      console.log('✅ TelegramNotifier作成完了');
+      
+      console.log('🤖 Telegramコマンドハンドラー設定開始...');
+      telegram.setupCommandHandlers(scheduler, userService);
+      console.log('✅ Telegramコマンドハンドラー設定完了');
+      
+      // 監視システムを先に起動（Telegram Botの起動を待たない）
+      console.log('🔄 監視スケジューラー起動開始...');
+      await scheduler.start();
+      console.log('✅ 監視スケジューラー起動完了');
 
-    console.log('✅ マルチユーザー監視を開始しました。5分間隔で実行されます。');
-    console.log('🤖 Telegram Botマルチユーザーコマンドが利用可能です。');
-    console.log('📊 ユーザー別統計レポートは1時間ごとに送信されます。');
-    console.log('🛑 停止するには Ctrl+C を押してください。');
-    console.log();
+      console.log('✅ マルチユーザー監視を開始しました。5分間隔で実行されます。');
+      console.log('📊 ユーザー別統計レポートは1時間ごとに送信されます。');
+      console.log('🛑 停止するには Ctrl+C を押してください。');
 
-    vibeLogger.info('multiuser.main.startup_complete', 'マルチユーザーモード起動完了', {
+      // Telegram Botを非同期で起動（監視システムをブロックしない）
+      console.log('🤖 Telegram Bot起動開始（非同期）...');
+      telegram.launchBot()
+        .then(() => {
+          console.log('✅ Telegram Bot起動完了');
+          console.log('🤖 Telegram Botマルチユーザーコマンドが利用可能です。');
+          vibeLogger.info('telegram.bot_started_async', 'Telegram Bot非同期起動完了');
+        })
+        .catch((error) => {
+          console.log('⚠️  Telegram Bot起動失敗（監視は継続）');
+          vibeLogger.error('telegram.bot_start_failed', 'Telegram Bot起動失敗', {
+            context: { error: error instanceof Error ? error.message : String(error) },
+            humanNote: '監視システムは正常に稼働中、Telegram Botのみ利用不可',
+          });
+        });
+
+      console.log();
+
+      vibeLogger.info('multiuser.main.startup_complete', 'マルチユーザーモード起動完了', {
+        context: {
+          mode: 'multiuser',
+          interval: config.monitoring.interval,
+          performance: performanceMonitor.getMetrics(),
+        },
+        humanNote: 'マルチユーザーシステムが正常に起動し、監視を開始しました',
+      });
+
+      // グレースフルシャットダウン設定
+      setupMultiUserGracefulShutdown(scheduler, telegram);
+
+      // プロセスを維持
+      process.stdin.resume();
+    } catch (error) {
+      vibeLogger.error('multiuser.main.startup_error', 'マルチユーザーモード起動エラー', {
+        context: {
+          error:
+            error instanceof Error
+              ? {
+                  message: error.message,
+                  stack: error.stack,
+                  name: error.name,
+                }
+              : { message: String(error) },
+        },
+        aiTodo: 'マルチユーザーモード起動エラーの原因を分析し、解決策を提案',
+      });
+      console.error('🚨 マルチユーザーモード起動エラー:', error instanceof Error ? error.message : error);
+      console.error('🚨 エラー詳細:', error);
+      process.exit(1);
+    }
+  } catch (schedulerError) {
+    console.error('🚨 MultiUserMonitoringScheduler作成エラー:', schedulerError);
+    vibeLogger.error('multiuser.main.scheduler_error', 'スケジューラー作成エラー', {
       context: {
-        mode: 'multiuser',
-        interval: config.monitoring.interval,
-        performance: performanceMonitor.getMetrics(),
+        error: schedulerError instanceof Error ? schedulerError.message : String(schedulerError),
       },
-      humanNote: 'マルチユーザーシステムが正常に起動し、監視を開始しました',
     });
-
-    // グレースフルシャットダウン設定
-    setupMultiUserGracefulShutdown(scheduler, telegram);
-
-    // プロセスを維持
-    process.stdin.resume();
-  } catch (error) {
-    vibeLogger.error('multiuser.main.startup_error', 'マルチユーザーモード起動エラー', {
-      context: {
-        error:
-          error instanceof Error
-            ? {
-                message: error.message,
-                stack: error.stack,
-                name: error.name,
-              }
-            : { message: String(error) },
-      },
-      aiTodo: 'マルチユーザーモード起動エラーの原因を分析し、解決策を提案',
-    });
-    console.error('🚨 マルチユーザーモード起動エラー:', error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }
