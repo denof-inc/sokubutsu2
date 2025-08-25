@@ -367,6 +367,7 @@ export class SimpleStorage {
         hasNewProperty: false,
         newPropertyCount: 0,
         lastNewProperty: null,
+        name: 'Unknown', // SimpleStorage用のデフォルト名
       };
     }
     this.urlStats[url].totalChecks++;
@@ -449,6 +450,7 @@ export class SimpleStorage {
       hasNewProperty: false,
       newPropertyCount: 0,
       lastNewProperty: null,
+      name: 'Unknown', // SimpleStorage用のデフォルト名
     };
     
     return {

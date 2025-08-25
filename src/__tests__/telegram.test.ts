@@ -124,6 +124,7 @@ describe('TelegramNotifier', () => {
     it('1時間サマリーレポートを正しく送信すること', async () => {
       const stats: UrlStatistics = {
         url: 'https://www.athome.co.jp/chintai/tokyo/list/',
+        name: 'テスト監視',
         totalChecks: 12,
         successCount: 10,
         errorCount: 2,

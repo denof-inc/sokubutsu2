@@ -1191,6 +1191,7 @@ URL: ${userUrl.url}
           const urlKey = `${user.id}-${url.id}`;
           const urlStats = {
             url: url.url,
+            name: url.name,
             totalChecks: url.totalChecks,
             successCount: url.totalChecks - url.errorCount,
             errorCount: url.errorCount,

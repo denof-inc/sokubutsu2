@@ -57,6 +57,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
   describe('sendUrlSummaryReport', () => {
     const baseUrlStats: UrlStatistics = {
       url: 'https://www.athome.co.jp/chintai/tokyo/list/',
+      name: 'テスト監視URL',
       totalChecks: 12,
       successCount: 10,
       errorCount: 2,
@@ -181,6 +182,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
     it('レポートがRFP要件を満たすフォーマットである', async () => {
       const urlStats: UrlStatistics = {
         url: 'https://www.athome.co.jp/chintai/tokyo/list/',
+        name: 'RFPテスト監視URL',
         totalChecks: 12,
         successCount: 11,
         errorCount: 1,
@@ -197,7 +199,7 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       
       // RFP要件: URLごとのサマリーレポート
       expect(sentMessage).toContain('1時間サマリー');
-      expect(sentMessage).toContain(urlStats.url);
+      expect(sentMessage).toContain(urlStats.name);
       
       // 統計情報の表示
       expect(sentMessage).toMatch(/チェック回数.*12回/);

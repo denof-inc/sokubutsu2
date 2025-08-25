@@ -206,6 +206,8 @@ export interface MonitoringStatistics {
 export interface UrlStatistics {
   /** 監視対象URL */
   url: string;
+  /** ユーザー設定の名前 */
+  name: string;
   /** 総チェック数 */
   totalChecks: number;
   /** 成功回数 */

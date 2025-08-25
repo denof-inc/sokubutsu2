@@ -195,9 +195,6 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
       const now = new Date();
       const currentTime = now.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
       
-      // URLを短縮表示
-      const shortUrl = this.formatUrlForDisplay(stats.url);
-      
       let message = `📊 1時間サマリー
 
 📍 エリア: ${prefecture}
@@ -234,7 +231,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
       }
       
       message += `
-🔗 [${shortUrl}](${stats.url})`;
+🔗 ${stats.name}`;
       
       await this.sendMessage(message);
       
