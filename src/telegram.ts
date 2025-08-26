@@ -66,19 +66,20 @@ export class TelegramNotifier {
   /**
    * 新着物件通知
    */
-  async sendNewListingNotification(data: NotificationData): Promise<void> {
-    const changeCount = data.currentCount - data.previousCount;
-    const changeIcon = changeCount > 0 ? '🆕' : '📉';
-    const changeText = changeCount > 0 ? `+${changeCount}件` : `${Math.abs(changeCount)}件減少`;
-
-    // URLから地域情報を抽出
-    const match = data.url.match(/\/(chintai|buy_other)\/([^/]+)\//); 
-    const area = match?.[2] ?? 'unknown';
+  async sendNewListingNotification(data: NotificationData, userName?: string): Promise<void> {
+    // ユーザー定義名があればそれを使用、なければURLから地域情報を抽出
+    let displayName: string;
+    if (userName) {
+      displayName = userName;
+    } else {
+      const match = data.url.match(/\/(chintai|buy_other)\/([^/]+)\//); 
+      displayName = match?.[2] ?? 'unknown';
+    }
     
     const message = `🆕 新着物件あり
 
-📍 エリア: ${this.escapeMarkdownV2(area)}
-⏰ 検知時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
+📍 監視名: ${this.createAdminLink(displayName)}
+⏰ 検知時刻: ${this.escapeMarkdownV2(new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))}`;
 
     await this.sendMessage(message);
   }
@@ -86,10 +87,15 @@ export class TelegramNotifier {
   /**
    * エラー通知
    */
-  async sendErrorAlert(url: string, error: string): Promise<void> {
-    // URLから地域情報を抽出
-    const match = url.match(/\/(chintai|buy_other)\/([^/]+)\//); 
-    const area = match?.[2] ?? 'unknown';
+  async sendErrorAlert(url: string, error: string, userName?: string): Promise<void> {
+    // ユーザー定義名があればそれを使用、なければURLから地域情報を抽出
+    let displayName: string;
+    if (userName) {
+      displayName = userName;
+    } else {
+      const match = url.match(/\/(chintai|buy_other)\/([^/]+)\//); 
+      displayName = match?.[2] ?? 'unknown';
+    }
     
     // 一般ユーザー向けのエラーメッセージに変換
     let userFriendlyError = 'サイトへの接続に問題が発生しています';
@@ -103,8 +109,8 @@ export class TelegramNotifier {
     
     const message = `⚠️ 監視エラーのお知らせ
 
-📍 監視名: ${this.escapeMarkdownV2(area)}エリア物件
-⏰ 時間: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+📍 監視名: ${this.createAdminLink(displayName)}
+⏰ 時間: ${this.escapeMarkdownV2(new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))}
 🔢 エラー数: 3回連続（15分間）
 ❌ エラー内容: ${this.escapeMarkdownV2(userFriendlyError)}
 

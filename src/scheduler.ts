@@ -1023,7 +1023,7 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
         const telegram = await this.getTelegramService(userUrl.user.telegramChatId);
         if (telegram) {
           const reason = result.failureReason ? `（理由: ${result.failureReason}）` : '';
-          await telegram.sendErrorAlert(userUrl.url, `15分間継続エラー${reason}: ${result.error || '不明なエラー'}`);
+          await telegram.sendErrorAlert(userUrl.url, `15分間継続エラー${reason}: ${result.error || '不明なエラー'}`, userUrl.name);
         }
         // 通知後はカウンターをリセット
         this.urlErrorCounts.set(urlKey, 0);
@@ -1082,7 +1082,7 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
         
         const message = `🆕 新着があります！
 
-📍 監視名: ${escapedName}
+📍 監視名: [${escapedName}](http://localhost:3005)
 検知時刻: ${escapedTime}`;
         await telegram.sendMessage(message);
       }
