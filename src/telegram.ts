@@ -31,29 +31,36 @@ export class TelegramNotifier {
   }
 
   /**
-   * MarkdownV2用エスケープ処理
+   * HTML用エスケープ処理
    */
-  private escapeMarkdownV2(text: string): string {
-    return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+  private escapeHtml(text: string): string {
+    return text.replace(/[<>&]/g, (match) => {
+      switch (match) {
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '&': return '&amp;';
+        default: return match;
+      }
+    });
   }
 
   /**
    * 管理画面リンク作成
    */
   private createAdminLink(name: string): string {
-    const escapedName = this.escapeMarkdownV2(name);
-    return `[${escapedName}](http://localhost:3005)`;
+    const escapedName = this.escapeHtml(name);
+    return `<a href="http://localhost:3005">${escapedName}</a>`;
   }
 
   /**
    * 起動完了通知
    */
   async sendStartupNotice(): Promise<void> {
-    const message = `🚀 ソクブツMVP起動完了
+    const message = `🚀 <b>ソクブツMVP起動完了</b>
 
 📅 起動時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
 ⚙️ 監視間隔: 5分
-🎯 戦略: HTTP\\-first \\+ 軽量実装
+🎯 戦略: HTTP-first + 軽量実装
 
 ✅ システムが正常に起動し、物件監視を開始しました。
 新着物件が検知されると即座に通知いたします！
@@ -76,10 +83,10 @@ export class TelegramNotifier {
       displayName = match?.[2] ?? 'unknown';
     }
     
-    const message = `🆕 新着物件あり
+    const message = `🆕 <b>新着物件あり</b>
 
 📍 監視名: ${this.createAdminLink(displayName)}
-⏰ 検知時刻: ${this.escapeMarkdownV2(new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))}`;
+⏰ 検知時刻: ${this.escapeHtml(new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))}`;
 
     await this.sendMessage(message);
   }
@@ -107,12 +114,12 @@ export class TelegramNotifier {
       userFriendlyError = 'ネットワーク接続に問題があります';
     }
     
-    const message = `⚠️ 監視エラーのお知らせ
+    const message = `⚠️ <b>監視エラーのお知らせ</b>
 
 📍 監視名: ${this.createAdminLink(displayName)}
-⏰ 時間: ${this.escapeMarkdownV2(new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))}
+⏰ 時間: ${this.escapeHtml(new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))}
 🔢 エラー数: 3回連続（15分間）
-❌ エラー内容: ${this.escapeMarkdownV2(userFriendlyError)}
+❌ エラー内容: ${this.escapeHtml(userFriendlyError)}
 
 しばらく時間をおいて自動的に再試行します。
 継続的にエラーが発生する場合は、サポートまでご連絡ください。`;
@@ -126,7 +133,7 @@ export class TelegramNotifier {
   async sendStatisticsReport(stats: Statistics): Promise<void> {
     const uptimeHours = Math.floor((Date.now() - stats.lastCheck.getTime()) / (1000 * 60 * 60));
 
-    const message = `📊 ソクブツ統計レポート
+    const message = `📊 <b>ソクブツ統計レポート</b>
 
 📈 パフォーマンス
   • 総チェック数: ${stats.totalChecks}回
@@ -158,10 +165,10 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
       const now = new Date();
       const currentTime = now.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
       
-      let message = `📊 1時間サマリー
+      let message = `📊 <b>1時間サマリー</b>
 
-📍 エリア: ${this.escapeMarkdownV2(prefecture)}
-⏰ 時刻: ${this.escapeMarkdownV2(currentTime)}
+📍 エリア: ${this.escapeHtml(prefecture)}
+⏰ 時刻: ${this.escapeHtml(currentTime)}
 
 `;
       
@@ -176,7 +183,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
           } else if (entry.status === 'エラー') {
             icon = '❌';
           }
-          message += `• ${this.escapeMarkdownV2(entry.time)} ${icon} ${this.escapeMarkdownV2(entry.status)}
+          message += `• ${this.escapeHtml(entry.time)} ${icon} ${this.escapeHtml(entry.status)}
 `;
         }
         message += `
@@ -216,7 +223,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
    * システム停止通知
    */
   async sendShutdownNotice(): Promise<void> {
-    const message = `🛑 ソクブツMVP停止
+    const message = `🛑 <b>ソクブツMVP停止</b>
 
 ⏰ 停止時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
 
@@ -234,7 +241,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
   async sendMessage(message: string, retryCount = 0): Promise<void> {
     try {
       await this.bot.telegram.sendMessage(this.chatId, message, {
-        parse_mode: 'MarkdownV2',
+        parse_mode: 'HTML',
         link_preview_options: {
           is_disabled: true,
         },
