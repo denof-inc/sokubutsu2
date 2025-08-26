@@ -235,6 +235,7 @@ describe('TelegramNotifier', () => {
       expect(botInfo).toEqual({
         username: 'test_bot',
         id: 123456789,
+        firstName: 'Test Bot',
       });
       expect(mockGetMe).toHaveBeenCalled();
     });

@@ -776,6 +776,12 @@ export class MonitoringScheduler {
 export class MultiUserMonitoringScheduler {
   private readonly scraper = new SimpleScraper();
   private readonly userService: UserService;
+  /**
+   * UserServiceを取得
+   */
+  getUserService() {
+    return this.userService;
+  }
   private readonly propertyMonitor = new PropertyMonitor();
   private readonly circuitBreaker: CircuitBreaker;
   private readonly telegramServices: Map<string, TelegramNotifier> = new Map();
@@ -805,6 +811,13 @@ export class MultiUserMonitoringScheduler {
   }
 
   /**
+   * MarkdownV2用エスケープ処理
+   */
+  private escapeMarkdownV2(text: string): string {
+    return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+  }
+
+  /**
    * マルチユーザー監視開始
    */
   async start(): Promise<void> {
@@ -829,7 +842,7 @@ export class MultiUserMonitoringScheduler {
       void this.runMonitoringCycle();
     });
 
-    // 統計レポート送信（毎時0分・固定）
+    // 統計レポート送信（毎時20分・固定）
     this.statsJob = cron.schedule('0 * * * *', () => {
       void this.sendAllUsersStatisticsReport();
     });
@@ -918,13 +931,18 @@ export class MultiUserMonitoringScheduler {
             // サーキットブレーカーが作動した場合、管理者に通知
             const telegram = await this.getTelegramService(userUrl.user.telegramChatId);
             if (telegram) {
+              const escapedErrorMsg = this.escapeMarkdownV2(errorMessage);
+              const recoveryMsg = config.circuitBreaker.autoRecoveryEnabled 
+                ? `⏱ ${config.circuitBreaker.recoveryTimeMinutes}分後に自動復旧を試みます`
+                : '手動での復旧が必要です';
+              
               await telegram.sendMessage(
-                `🚨 エラー頻発により監視を一時停止しました\\\\n\\\\n` +
-                `連続エラー: ${this.consecutiveErrors}回\\\\n` +
-                `詳細: ${errorMessage}\\\\n\\\\n` +
-                (config.circuitBreaker.autoRecoveryEnabled 
-                  ? `⏱ ${config.circuitBreaker.recoveryTimeMinutes}分後に自動復旧を試みます`
-                  : '手動での復旧が必要です')
+                `🚨 エラー頻発により監視を一時停止しました
+
+連続エラー: ${this.consecutiveErrors}回
+詳細: ${escapedErrorMsg}
+
+${this.escapeMarkdownV2(recoveryMsg)}`
               );
             }
           }
@@ -1058,10 +1076,14 @@ export class MultiUserMonitoringScheduler {
       // ユーザー個別通知を送信
       const telegram = await this.getTelegramService(userUrl.user.telegramChatId);
       if (telegram) {
+        const escapedName = this.escapeMarkdownV2(userUrl.name);
+        const currentTimeStr = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+        const escapedTime = this.escapeMarkdownV2(currentTimeStr);
+        
         const message = `🆕 新着があります！
 
-📍 監視名: ${userUrl.name}
-検知時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
+📍 監視名: ${escapedName}
+検知時刻: ${escapedTime}`;
         await telegram.sendMessage(message);
       }
       
@@ -1203,15 +1225,17 @@ export class MultiUserMonitoringScheduler {
           };
           
           await telegram.sendUrlSummaryReport(urlStats);
+          
+          vibeLogger.info('multiuser.url_report_sent', 'ユーザー別URL統計レポート送信完了', {
+            context: { userId: user.id, urlId: url.id, stats: urlStats },
+          });
         }
       }
-      
-      vibeLogger.info('multiuser.stats_report.sent', '全ユーザー統計レポート送信完了', {
-        context: { userCount: users.length },
-      });
     } catch (error) {
-      vibeLogger.error('multiuser.stats_report.error', '統計レポート送信エラー', {
-        context: { error: error instanceof Error ? error.message : String(error) },
+      vibeLogger.error('multiuser.stats_report_error', '全ユーザー統計レポート送信エラー', {
+        context: {
+          error: error instanceof Error ? error.message : String(error),
+        },
       });
     }
   }
@@ -1244,12 +1268,5 @@ export class MultiUserMonitoringScheduler {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  /**
-   * ユーザーサービス取得（外部アクセス用）
-   */
-  getUserService(): UserService {
-    return this.userService;
   }
 }
