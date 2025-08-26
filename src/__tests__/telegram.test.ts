@@ -81,7 +81,8 @@ describe('TelegramNotifier', () => {
 
       const sentMessage = calls[0]?.[1] ?? '';
       expect(sentMessage).not.toContain('+5件'); // 件数は削除されたので含まれない
-      expect(sentMessage).toContain('エリア'); // エリア情報が含まれることを確認
+      expect(sentMessage).toContain('監視名'); // 監視名が含まれることを確認
+      expect(sentMessage).toContain('<a href="http://localhost:3005">unknown</a>'); // HTMLリンクが含まれることを確認
     });
 
     it('物件数減少時も正しく通知すること', async () => {
@@ -114,7 +115,8 @@ describe('TelegramNotifier', () => {
       expect(calls[0]?.[1]).toContain('監視エラーのお知らせ');
 
       const sentMessage = calls[0]?.[1] ?? '';
-      expect(sentMessage).toContain('エリア物件'); // 監視名が含まれる
+      expect(sentMessage).toContain('監視名'); // 監視名が含まれる
+      expect(sentMessage).toContain('<a href="http://localhost:3005">unknown</a>'); // HTMLリンクが含まれる
       expect(sentMessage).toContain('3回連続（15分間）'); // エラー数の表示
       expect(sentMessage).toContain('サイトの応答が遅くなっています'); // ユーザーフレンドリーなエラーメッセージ
     });
@@ -235,6 +237,7 @@ describe('TelegramNotifier', () => {
       expect(botInfo).toEqual({
         username: 'test_bot',
         id: 123456789,
+        firstName: 'Test Bot',
       });
       expect(mockGetMe).toHaveBeenCalled();
     });
