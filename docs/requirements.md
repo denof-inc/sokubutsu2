@@ -141,7 +141,7 @@ Telegram Bot コマンド：
 | 言語            | TypeScript            | 5.x                        |
 | バックエンド    | NestJS                | 10.x                       |
 | データベース    | SQLite (MVP) → PostgreSQL (v1.0) | フェーズドアプローチ     |
-| スクレイピング  | Playwright            | 1.4x                       |
+| スクレイピング  | Puppeteer + Stealth   | 21.x                       |
 | テスト          | Jest                  | 29.x                       |
 | CI/CD           | GitHub Actions        | -                          |
 | プロセス管理    | PM2                   | コンテナ内でオプション検討 |

@@ -7,14 +7,14 @@
 ## 📋 MVP要件
 
 ### 必須機能
-- ✅ athome.co.jpの新着物件監視（HTTP-only）
+- ✅ athome.co.jpの新着物件監視（Puppeteer-first戦略）
 - ✅ Telegram通知機能
 - ✅ 5分間隔の自動監視
 - ✅ Docker環境での稼働
 
 ### 技術制約
 - **自宅サーバー（WSL2）**: Bot検知回避のため
-- **軽量実装**: メモリ30-50MB、実行時間2-5秒
+- **実装**: メモリ200-300MB、実行時間5.4秒（Puppeteer使用）
 - **最小限依存関係**: 12パッケージのみ
 
 ## 🏗️ MVP アーキテクチャ
@@ -23,7 +23,7 @@
 ```
 src/
 ├── main.ts          # エントリーポイント・統合制御
-├── scraper.ts       # HTTP-onlyスクレイピング
+├── scraper.ts       # Puppeteerスクレイピング
 ├── telegram.ts      # Telegram通知
 ├── scheduler.ts     # cron監視スケジューラー
 ├── storage.ts       # JSON簡易ストレージ
