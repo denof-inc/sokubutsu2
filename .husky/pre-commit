@@ -1,19 +1,7 @@
-# lint、typecheck、testを実行
-echo "🔍 Running lint check..."
-npm run lint:check || {
-  echo "❌ Lint failed. Fix errors before committing."
-  exit 1
-}
-
-echo "📝 Running type check..."
-npm run typecheck || {
-  echo "❌ Type check failed. Fix errors before committing."
-  exit 1
-}
-
-echo "🧪 Running tests..."
-npm test || {
-  echo "❌ Tests failed. Fix errors before committing."
+# staged filesのみをチェック（lint-staged使用）
+echo "🔍 Running pre-commit checks on staged files..."
+npm run precommit || {
+  echo "❌ Pre-commit checks failed. Fix errors before committing."
   exit 1
 }
 

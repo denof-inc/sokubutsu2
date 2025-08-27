@@ -21,17 +21,17 @@
 - Include step, process, context, TODO information
 - Debug outputs go to ./logs directory
 
-## Scraping Strategy Rules
+## Scraping Strategy Rules (Updated 2025-08-27)
 
-### HTTP-first Strategy (STRICT)
-1. **Stage 1**: HTTP-only (axios + cheerio) - 2-5秒、30-50MB
-2. **Stage 2**: jsdom - 5-10秒、80-120MB (if needed)
-3. **Stage 3**: Playwright - 15-25秒、200-300MB (last resort)
+### Puppeteer-first Strategy (FINAL)
+1. **Stage 1**: Puppeteer + Stealth（bot.sannysoft → Google → target）
+2. **Stage 2**: Real Browser（必要時のみ）
+3. **Fallback**: HTTP-only（Puppeteer失敗時に限る）
 
-### athome.co.jp Special Rules
-- **Google経由処理禁止**: 過剰最適化として扱う
-- **HTTP-only優先**: サーバーサイドレンダリング済み
-- **処理時間目標**: 2-5秒（17.1秒からの改善必須）
+### athome.co.jp Rules
+- **Google経由を許可**: リファラー自然化の一環として使用
+- **Puppeteer標準**: 認証・JSチャレンジ・動的トークンに対応
+- **性能目標**: 実測5.3秒程度（フォールバック率も監視）
 
 ### New Property Monitoring
 - **最新3件固定**: 効率性とのバランス
