@@ -200,7 +200,7 @@ describe('MonitoringScheduler - URL別レポート機能', () => {
         expect.objectContaining({
           hasNewProperty: true,
           newPropertyCount: 2,
-          lastNewProperty: expect.any(String),
+          lastNewProperty: expect.any(Date),
         })
       );
     });
