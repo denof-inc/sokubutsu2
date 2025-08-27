@@ -44,12 +44,15 @@ export class MonitoringScheduler {
   private consecutiveErrors = 0;
   private readonly maxConsecutiveErrors = 5;
   private readonly maxUrlConsecutiveErrors = 3;
-  private readonly urlCheckHistory: Map<string, Array<{time: string; status: 'なし' | 'あり' | 'エラー'}>> = new Map();
+  private readonly urlCheckHistory: Map<
+    string,
+    Array<{ time: string; status: 'なし' | 'あり' | 'エラー' }>
+  > = new Map();
   private readonly urlCooldownUntil: Map<string, number> = new Map();
 
   constructor(telegramToken: string, chatId: string) {
     this.telegram = new TelegramNotifier(telegramToken, chatId);
-    
+
     // サーキットブレーカーの初期化
     const cbConfig: CircuitBreakerConfig = {
       maxConsecutiveErrors: config.circuitBreaker.maxConsecutiveErrors,
@@ -127,26 +130,32 @@ export class MonitoringScheduler {
    */
   private async runMonitoringCycle(urls: string[], telegramEnabled: boolean = true): Promise<void> {
     // 運用時間チェック
-    const { isWithinOperatingHours, operatingStateStorage, createSkipMessage } = await import('./utils/operatingHours.js');
+    const { isWithinOperatingHours, operatingStateStorage } = await import(
+      './utils/operatingHours.js'
+    );
     const operatingStatus = isWithinOperatingHours();
-    
+
     if (!operatingStatus.isOperating) {
-      vibeLogger.info('monitoring.cycle.skipped_operating_hours', '運用時間外のため監視をスキップ', {
-        context: {
-          currentHour: operatingStatus.currentHour,
-          nextChangeHour: operatingStatus.nextChangeHour,
-          message: operatingStatus.message,
-        },
-        humanNote: '22時〜6時の運用停止時間帯',
-      });
-      
+      vibeLogger.info(
+        'monitoring.cycle.skipped_operating_hours',
+        '運用時間外のため監視をスキップ',
+        {
+          context: {
+            currentHour: operatingStatus.currentHour,
+            nextChangeHour: operatingStatus.nextChangeHour,
+            message: operatingStatus.message,
+          },
+          humanNote: '22時〜6時の運用停止時間帯',
+        }
+      );
+
       // 運用状態変更の通知処理
       const stateChange = operatingStateStorage.hasStateChanged();
       if (stateChange.changed && !stateChange.currentState && telegramEnabled) {
         const { createOperatingStopMessage } = await import('./utils/operatingHours.js');
         await this.telegram.sendMessage(createOperatingStopMessage());
       }
-      
+
       return;
     }
 
@@ -159,12 +168,16 @@ export class MonitoringScheduler {
 
     // サーキットブレーカーがOPENの場合はスキップ
     if (this.circuitBreaker.isOpen()) {
-      vibeLogger.warn('monitoring.cycle.skipped', 'サーキットブレーカーが作動中のため監視をスキップ', {
-        context: this.circuitBreaker.getStats(),
-      });
+      vibeLogger.warn(
+        'monitoring.cycle.skipped',
+        'サーキットブレーカーが作動中のため監視をスキップ',
+        {
+          context: this.circuitBreaker.getStats(),
+        }
+      );
       return;
     }
-    
+
     this.isRunning = true;
     const cycleStartTime = Date.now();
 
@@ -186,7 +199,7 @@ export class MonitoringScheduler {
         await this.monitorUrl(url, telegramEnabled);
         successCount++;
         this.consecutiveErrors = 0; // 成功時はリセット
-        
+
         // サーキットブレーカーに成功を記録
         this.circuitBreaker.recordSuccess();
 
@@ -195,23 +208,23 @@ export class MonitoringScheduler {
       } catch (error) {
         errorCount++;
         this.consecutiveErrors++;
-        
+
         // サーキットブレーカーにエラーを記録
         const errorMessage = error instanceof Error ? error.message : String(error);
         const shouldStop = this.circuitBreaker.recordError(errorMessage);
-        
+
         if (shouldStop && telegramEnabled) {
           // サーキットブレーカーが作動した場合、管理者に通知
           await this.telegram.sendMessage(
             `🚨 エラー頻発により監視を一時停止しました\n\n` +
-            `連続エラー: ${this.consecutiveErrors}回\n` +
-            `詳細: ${errorMessage}\n\n` +
-            (config.circuitBreaker.autoRecoveryEnabled 
-              ? `⏱ ${config.circuitBreaker.recoveryTimeMinutes}分後に自動復旧を試みます`
-              : '手動での復旧が必要です')
+              `連続エラー: ${this.consecutiveErrors}回\n` +
+              `詳細: ${errorMessage}\n\n` +
+              (config.circuitBreaker.autoRecoveryEnabled
+                ? `⏱ ${config.circuitBreaker.recoveryTimeMinutes}分後に自動復旧を試みます`
+                : '手動での復旧が必要です')
           );
         }
-        
+
         vibeLogger.error('monitoring.url.error', `URL監視エラー: ${url}`, {
           context: {
             url,
@@ -263,7 +276,9 @@ export class MonitoringScheduler {
     const nowEpoch = Date.now();
     const cd = this.urlCooldownUntil.get(url) || 0;
     if (nowEpoch < cd) {
-      vibeLogger.warn('monitoring.url.cooldown', '認証クールダウン中のためスキップ', { context: { url, until: new Date(cd).toISOString() } });
+      vibeLogger.warn('monitoring.url.cooldown', '認証クールダウン中のためスキップ', {
+        context: { url, until: new Date(cd).toISOString() },
+      });
       return;
     }
     vibeLogger.info('monitoring.url.check', `チェック開始: ${url}`, {
@@ -272,13 +287,13 @@ export class MonitoringScheduler {
 
     this.storage.incrementTotalChecks();
     this.storage.incrementUrlCheck(url);
-    
+
     // 現在時刻を取得（履歴記録用）
     const now = new Date();
-    const timeStr = now.toLocaleTimeString('ja-JP', { 
-      hour: '2-digit', 
+    const timeStr = now.toLocaleTimeString('ja-JP', {
+      hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'Asia/Tokyo'
+      timeZone: 'Asia/Tokyo',
     });
 
     const result = await this.scraper.scrapeAthome(url);
@@ -294,21 +309,24 @@ export class MonitoringScheduler {
       }
       // 履歴に記録
       this.addUrlCheckHistory(url, { time: timeStr, status: 'エラー' });
-      
+
       // URL別のエラーカウントを更新
       const currentErrorCount = (this.urlErrorCounts.get(url) || 0) + 1;
       this.urlErrorCounts.set(url, currentErrorCount);
-      
+
       // 3回連続エラー（15分間）の場合のみ警告通知
       if (telegramEnabled && currentErrorCount >= this.maxUrlConsecutiveErrors) {
         const reason = result.failureReason ? `（理由: ${result.failureReason}）` : '';
-        await this.telegram.sendErrorAlert(url, `15分間継続エラー${reason}: ${result.error || '不明なエラー'}`);
+        await this.telegram.sendErrorAlert(
+          url,
+          `15分間継続エラー${reason}: ${result.error || '不明なエラー'}`
+        );
         // 通知後はカウンターをリセット
         this.urlErrorCounts.set(url, 0);
       }
       return;
     }
-    
+
     // 成功時はURLのエラーカウンターをリセット
     this.urlErrorCounts.set(url, 0);
     this.storage.incrementUrlSuccess(url);
@@ -318,9 +336,6 @@ export class MonitoringScheduler {
       this.storage.recordExecutionTime(result.executionTime);
       this.storage.recordUrlExecutionTime(url, result.executionTime);
     }
-
-    // 新着物件検知ロジックを使用
-    const detectionResult = this.propertyMonitor.detectNewProperties(result.properties || []);
 
     // ハッシュ値の管理（RFP 2.1.1準拠: コンテンツ変更検知）
     const previousHash = this.storage.getHash(url);
@@ -366,13 +381,16 @@ export class MonitoringScheduler {
   /**
    * URL チェック履歴を追加
    */
-  private addUrlCheckHistory(url: string, entry: { time: string; status: 'なし' | 'あり' | 'エラー' }): void {
+  private addUrlCheckHistory(
+    url: string,
+    entry: { time: string; status: 'なし' | 'あり' | 'エラー' }
+  ): void {
     if (!this.urlCheckHistory.has(url)) {
       this.urlCheckHistory.set(url, []);
     }
     const history = this.urlCheckHistory.get(url)!;
     history.push(entry);
-    
+
     // 1時間分（12エントリー = 5分×12）を超えたら古いものを削除
     if (history.length > 12) {
       history.shift();
@@ -471,25 +489,28 @@ export class MonitoringScheduler {
   /**
    * URLごとの統計情報を取得
    */
-  private async getUrlStatistics(url: string): Promise<import('./types.js').UrlStatistics> {
+  private getUrlStatistics(url: string): import('./types.js').UrlStatistics {
     return this.storage.getUrlStats(url);
   }
 
   /**
    * URLごとのサマリーレポートを送信
    */
-  private async sendUrlSummaryReports(urls: string[], telegramEnabled: boolean = true): Promise<void> {
+  private async sendUrlSummaryReports(
+    urls: string[],
+    telegramEnabled: boolean = true
+  ): Promise<void> {
     if (!telegramEnabled) {
       return;
     }
-    
+
     for (const url of urls) {
       try {
-        const urlStats = await this.getUrlStatistics(url);
+        const urlStats = this.getUrlStatistics(url);
         // 履歴を追加
         urlStats.hourlyHistory = this.urlCheckHistory.get(url) || [];
         await this.telegram.sendUrlSummaryReport(urlStats);
-        
+
         vibeLogger.info('monitoring.url_report_sent', 'URL別レポート送信完了', {
           context: { url, stats: urlStats },
         });
@@ -507,7 +528,10 @@ export class MonitoringScheduler {
   /**
    * 統計レポート送信
    */
-  private async sendStatisticsReport(telegramEnabled: boolean = true, urls: string[] = []): Promise<void> {
+  private async sendStatisticsReport(
+    telegramEnabled: boolean = true,
+    urls: string[] = []
+  ): Promise<void> {
     try {
       // 全体統計レポート
       const stats = this.storage.getStats();
@@ -516,7 +540,7 @@ export class MonitoringScheduler {
         vibeLogger.info('monitoring.stats_report_sent', '統計レポート送信完了', {
           context: { stats },
         });
-        
+
         // URLごとのサマリーレポート
         if (urls.length > 0) {
           await this.sendUrlSummaryReports(urls, telegramEnabled);
@@ -581,7 +605,7 @@ export class MonitoringScheduler {
   }> {
     const stats = await this.storage.getStatistics();
     const urls = this.monitoringUrls;
-    
+
     return {
       isRunning: this.isRunning,
       urlCount: urls.length,
@@ -603,7 +627,7 @@ export class MonitoringScheduler {
   }> {
     const startTime = Date.now();
     const urls = this.monitoringUrls;
-    
+
     vibeLogger.info('monitoring.manual_check_start', '手動チェック開始', {
       context: { urlCount: urls.length },
     });
@@ -617,7 +641,7 @@ export class MonitoringScheduler {
         const result = await this.scraper.scrapeAthome(url);
         if (result.success) {
           successCount++;
-          
+
           // 新着物件チェック
           const detectionResult = this.propertyMonitor.detectNewProperties(result.properties || []);
           if (detectionResult.hasNewProperty) {
@@ -638,7 +662,7 @@ export class MonitoringScheduler {
     }
 
     const executionTime = Date.now() - startTime;
-    
+
     vibeLogger.info('monitoring.manual_check_complete', '手動チェック完了', {
       context: {
         urlCount: urls.length,
@@ -704,7 +728,6 @@ export class MonitoringScheduler {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-
   /**
    * 統計情報をコンソールに表示
    */
@@ -737,17 +760,17 @@ export class MonitoringScheduler {
 
 /**
  * マルチユーザー対応監視スケジューラー
- * 
+ *
  * @設計ドキュメント
  * - README.md: 監視フロー全体像
  * - docs/スケジューリング設計.md: cron式と実行タイミング
- * 
+ *
  * @関連クラス
  * - SimpleScraper: 実際のスクレイピング処理を実行（Puppeteer-first戦略）
  * - UserService: ユーザー・URL管理
  * - TelegramNotifier: ユーザー別通知送信
  * - Logger: 監視サイクルのログ出力
- * 
+ *
  * @主要機能
  * - 全ユーザーのアクティブURL監視
  * - ユーザー別新着物件通知
@@ -756,17 +779,17 @@ export class MonitoringScheduler {
  */
 /**
  * マルチユーザー対応監視スケジューラー
- * 
+ *
  * @設計ドキュメント
  * - README.md: 監視フロー全体像
  * - docs/スケジューリング設計.md: cron式と実行タイミング
- * 
+ *
  * @関連クラス
  * - SimpleScraper: 実際のスクレイピング処理を実行（Puppeteer-first戦略）
  * - UserService: ユーザー・URL管理
  * - TelegramNotifier: ユーザー別通知送信
  * - Logger: 監視サイクルのログ出力
- * 
+ *
  * @主要機能
  * - 全ユーザーのアクティブURL監視
  * - ユーザー別新着物件通知
@@ -785,10 +808,13 @@ export class MultiUserMonitoringScheduler {
   private readonly propertyMonitor = new PropertyMonitor();
   private readonly circuitBreaker: CircuitBreaker;
   private readonly telegramServices: Map<string, TelegramNotifier> = new Map();
-  
+
   // 5分ごとの履歴管理機能を追加
-  private readonly urlHistory: Map<string, Array<{time: string; status: 'なし' | 'あり' | 'エラー'}>> = new Map();
-  
+  private readonly urlHistory: Map<
+    string,
+    Array<{ time: string; status: 'なし' | 'あり' | 'エラー' }>
+  > = new Map();
+
   private cronJob: cron.ScheduledTask | null = null;
   private statsJob: cron.ScheduledTask | null = null;
   private isRunning = false;
@@ -796,9 +822,18 @@ export class MultiUserMonitoringScheduler {
   private readonly maxConsecutiveErrors = 5;
   private readonly urlErrorCounts: Map<string, number> = new Map();
 
-  constructor(defaultBotToken: string) {
+  // 集計用（/status, /stats応答向けの簡易統計）
+  private readonly aggregate = {
+    totalChecks: 0,
+    successCount: 0,
+    errorCount: 0,
+    totalCycleExecutionMs: 0,
+    lastCheck: null as Date | null,
+  };
+
+  constructor() {
     this.userService = new UserService();
-    
+
     // サーキットブレーカーの初期化
     const cbConfig: CircuitBreakerConfig = {
       maxConsecutiveErrors: config.circuitBreaker.maxConsecutiveErrors,
@@ -832,10 +867,14 @@ export class MultiUserMonitoringScheduler {
     // 監視間隔は設定から取得（デフォルト5分）
     this.cronJob = cron.schedule(config.monitoring.interval || '*/5 * * * *', () => {
       if (this.isRunning) {
-        vibeLogger.warn('multiuser.monitoring.skip', '前回の監視がまだ実行中です。スキップします。', {
-          context: { isRunning: this.isRunning },
-          aiTodo: '監視サイクルが遅延している可能性を分析',
-        });
+        vibeLogger.warn(
+          'multiuser.monitoring.skip',
+          '前回の監視がまだ実行中です。スキップします。',
+          {
+            context: { isRunning: this.isRunning },
+            aiTodo: '監視サイクルが遅延している可能性を分析',
+          }
+        );
         return;
       }
 
@@ -880,12 +919,16 @@ export class MultiUserMonitoringScheduler {
   private async runMonitoringCycle(): Promise<void> {
     // サーキットブレーカーがOPENの場合はスキップ
     if (this.circuitBreaker.isOpen()) {
-      vibeLogger.warn('multiuser.monitoring.cycle.skipped', 'サーキットブレーカーが作動中のため監視をスキップ', {
-        context: this.circuitBreaker.getStats(),
-      });
+      vibeLogger.warn(
+        'multiuser.monitoring.cycle.skipped',
+        'サーキットブレーカーが作動中のため監視をスキップ',
+        {
+          context: this.circuitBreaker.getStats(),
+        }
+      );
       return;
     }
-    
+
     this.isRunning = true;
     const cycleStartTime = Date.now();
 
@@ -900,7 +943,7 @@ export class MultiUserMonitoringScheduler {
     try {
       // 全ユーザーのアクティブ監視URLを取得
       const activeUrls = await this.userService.getAllActiveMonitoringUrls();
-      
+
       vibeLogger.info('multiuser.monitoring.urls_loaded', '監視対象URL読み込み完了', {
         context: { activeUrlCount: activeUrls.length },
       });
@@ -913,7 +956,7 @@ export class MultiUserMonitoringScheduler {
           await this.monitorUserUrl(userUrl);
           successCount++;
           this.consecutiveErrors = 0; // 成功時はリセット
-          
+
           // サーキットブレーカーに成功を記録
           this.circuitBreaker.recordSuccess();
 
@@ -922,20 +965,20 @@ export class MultiUserMonitoringScheduler {
         } catch (error) {
           errorCount++;
           this.consecutiveErrors++;
-          
+
           // サーキットブレーカーにエラーを記録
           const errorMessage = error instanceof Error ? error.message : String(error);
           const shouldStop = this.circuitBreaker.recordError(errorMessage);
-          
+
           if (shouldStop) {
             // サーキットブレーカーが作動した場合、管理者に通知
-            const telegram = await this.getTelegramService(userUrl.user.telegramChatId);
+            const telegram = this.getTelegramService(userUrl.user.telegramChatId);
             if (telegram) {
               const escapedErrorMsg = this.escapeMarkdownV2(errorMessage);
-              const recoveryMsg = config.circuitBreaker.autoRecoveryEnabled 
+              const recoveryMsg = config.circuitBreaker.autoRecoveryEnabled
                 ? `⏱ ${config.circuitBreaker.recoveryTimeMinutes}分後に自動復旧を試みます`
                 : '手動での復旧が必要です';
-              
+
               await telegram.sendMessage(
                 `🚨 エラー頻発により監視を一時停止しました
 
@@ -946,7 +989,7 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
               );
             }
           }
-          
+
           vibeLogger.error('multiuser.monitoring.url.error', `ユーザーURL監視エラー`, {
             context: {
               urlId: userUrl.id,
@@ -968,11 +1011,18 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
           successCount,
           errorCount,
           totalUrls: activeUrls.length,
-          successRate: activeUrls.length > 0 ? Math.round((successCount / activeUrls.length) * 100) : 0,
+          successRate:
+            activeUrls.length > 0 ? Math.round((successCount / activeUrls.length) * 100) : 0,
         },
         humanNote: 'マルチユーザー監視サイクルのパフォーマンスを確認',
       });
 
+      // 集計を更新
+      this.aggregate.totalChecks += activeUrls.length;
+      this.aggregate.successCount += successCount;
+      this.aggregate.errorCount += errorCount;
+      this.aggregate.totalCycleExecutionMs += cycleTime;
+      this.aggregate.lastCheck = new Date();
     } catch (error) {
       vibeLogger.error('multiuser.monitoring.cycle.error', '監視サイクル実行エラー', {
         context: {
@@ -985,11 +1035,55 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
   }
 
   /**
+   * 現在のステータスを取得（Telegram /status 用）
+   */
+  async getStatus(): Promise<{
+    isRunning: boolean;
+    urlCount: number;
+    lastCheck: Date | null;
+    totalChecks: number;
+    successRate: number;
+  }> {
+    const urls = await this.userService.getAllActiveMonitoringUrls();
+    const denom = this.aggregate.successCount + this.aggregate.errorCount;
+    const successRate = denom > 0 ? (this.aggregate.successCount / denom) * 100 : 0;
+    return {
+      isRunning: this.isRunning,
+      urlCount: urls.length,
+      lastCheck: this.aggregate.lastCheck,
+      totalChecks: this.aggregate.totalChecks,
+      successRate: Number(successRate.toFixed(2)),
+    };
+  }
+
+  /**
+   * 統計情報を取得（Telegram /stats 用）
+   */
+  getStatistics(): import('./types.js').Statistics {
+    const monitoringStats = this.propertyMonitor.getMonitoringStatistics();
+    const denom = this.aggregate.successCount + this.aggregate.errorCount;
+    const successRate = denom > 0 ? (this.aggregate.successCount / denom) * 100 : 0;
+    const avgExecSec =
+      this.aggregate.totalChecks > 0
+        ? this.aggregate.totalCycleExecutionMs / Math.max(this.aggregate.totalChecks, 1) / 1000
+        : 0;
+
+    return {
+      totalChecks: this.aggregate.totalChecks,
+      errors: this.aggregate.errorCount,
+      newListings: monitoringStats.newPropertyDetections,
+      lastCheck: this.aggregate.lastCheck || monitoringStats.lastCheckAt || new Date(),
+      averageExecutionTime: Number(avgExecSec.toFixed(2)),
+      successRate: Number(successRate.toFixed(2)),
+    };
+  }
+
+  /**
    * ユーザーURL監視
    */
   private async monitorUserUrl(userUrl: import('./entities/UserUrl.js').UserUrl): Promise<void> {
     vibeLogger.info('multiuser.monitoring.user_url.check', `ユーザーURL監視開始`, {
-      context: { 
+      context: {
         urlId: userUrl.id,
         userId: userUrl.userId,
         url: userUrl.url,
@@ -1001,44 +1095,45 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
 
     // 5分ごとの履歴記録を追加
     const urlKey = `${userUrl.userId}-${userUrl.id}`;
-    const currentTime = new Date().toLocaleString('ja-JP', { 
+    const currentTime = new Date().toLocaleString('ja-JP', {
       timeZone: 'Asia/Tokyo',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
 
     if (!result.success) {
       // エラー履歴を記録
       this.addUrlHistory(urlKey, currentTime, 'エラー');
-      
+
       // エラー統計を更新
       await this.updateUrlError(userUrl);
-      
+
       // URL別のエラーカウントを更新
       const currentErrorCount = (this.urlErrorCounts.get(urlKey) || 0) + 1;
       this.urlErrorCounts.set(urlKey, currentErrorCount);
-      
+
       // 3回連続エラー（15分間）の場合のみ警告通知
       if (currentErrorCount >= 3) {
-        const telegram = await this.getTelegramService(userUrl.user.telegramChatId);
+        const telegram = this.getTelegramService(userUrl.user.telegramChatId);
         if (telegram) {
           const reason = result.failureReason ? `（理由: ${result.failureReason}）` : '';
-          await telegram.sendErrorAlert(userUrl.url, `15分間継続エラー${reason}: ${result.error || '不明なエラー'}`, userUrl.name);
+          await telegram.sendErrorAlert(
+            userUrl.url,
+            `15分間継続エラー${reason}: ${result.error || '不明なエラー'}`,
+            userUrl.name
+          );
         }
         // 通知後はカウンターをリセット
         this.urlErrorCounts.set(urlKey, 0);
       }
       return;
     }
-    
+
     // 成功時はURLのエラーカウンターをリセット
     this.urlErrorCounts.set(urlKey, 0);
-    
-    // URL統計を更新
-    await this.updateUrlSuccess(userUrl, result);
 
-    // 新着物件検知ロジック
-    const detectionResult = this.propertyMonitor.detectNewProperties(result.properties || []);
+    // URL統計を更新
+    await this.updateUrlSuccess(userUrl);
 
     // ハッシュ値の管理（RFP 2.1.1準拠: コンテンツ変更検知）
     const previousHash = userUrl.lastHash;
@@ -1046,7 +1141,7 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
       // 初回チェック
       this.addUrlHistory(urlKey, currentTime, 'なし');
       vibeLogger.info('multiuser.monitoring.initial_url_check', `初回チェック完了`, {
-        context: { 
+        context: {
           urlId: userUrl.id,
           userId: userUrl.userId,
           url: userUrl.url,
@@ -1069,31 +1164,31 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
         },
         humanNote: 'ユーザーURLでコンテンツの変更を検知しました！',
       });
-      
+
       // 新着カウントを更新
       await this.updateUrlNewProperty(userUrl);
 
       // ユーザー個別通知を送信
-      const telegram = await this.getTelegramService(userUrl.user.telegramChatId);
+      const telegram = this.getTelegramService(userUrl.user.telegramChatId);
       if (telegram) {
         const escapedName = this.escapeMarkdownV2(userUrl.name);
         const currentTimeStr = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
         const escapedTime = this.escapeMarkdownV2(currentTimeStr);
-        
+
         const message = `🆕 新着があります！
 
 📍 監視名: [${escapedName}](http://localhost:3005)
 検知時刻: ${escapedTime}`;
         await telegram.sendMessage(message);
       }
-      
+
       // ハッシュを更新
       await this.updateUrlHash(userUrl, result.hash);
     } else {
       // 変化なし
       this.addUrlHistory(urlKey, currentTime, 'なし');
       vibeLogger.debug('multiuser.monitoring.no_change', `変化なし`, {
-        context: { 
+        context: {
           urlId: userUrl.id,
           userId: userUrl.userId,
           url: userUrl.url,
@@ -1126,13 +1221,13 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
   /**
    * Telegramサービス取得（ユーザー別）
    */
-  private async getTelegramService(chatId: string): Promise<TelegramNotifier | null> {
+  private getTelegramService(chatId: string): TelegramNotifier | null {
     if (this.telegramServices.has(chatId)) {
       return this.telegramServices.get(chatId)!;
     }
 
     // Telegram友達チェック（認証）
-    if (!(await this.checkTelegramFriendship(chatId))) {
+    if (!this.checkTelegramFriendship(chatId)) {
       vibeLogger.warn('multiuser.auth.not_friend', 'Telegram友達でないユーザーからのアクセス', {
         context: { chatId },
         humanNote: '認証されていないユーザーのアクセスを拒否',
@@ -1149,7 +1244,7 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
   /**
    * Telegram友達関係チェック（認証）
    */
-  private async checkTelegramFriendship(chatId: string): Promise<boolean> {
+  private checkTelegramFriendship(chatId: string): boolean {
     try {
       // TODO: 実際のTelegram友達チェック実装
       // 現在は全てのユーザーを許可（開発用）
@@ -1173,14 +1268,17 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
   /**
    * URL統計更新（成功）
    */
-  private async updateUrlSuccess(userUrl: import('./entities/UserUrl.js').UserUrl, result: any): Promise<void> {
+  private async updateUrlSuccess(userUrl: import('./entities/UserUrl.js').UserUrl): Promise<void> {
     await this.userService.incrementUrlStatistics(userUrl.id, 'totalChecks');
   }
 
   /**
    * URLハッシュ更新
    */
-  private async updateUrlHash(userUrl: import('./entities/UserUrl.js').UserUrl, hash: string): Promise<void> {
+  private async updateUrlHash(
+    userUrl: import('./entities/UserUrl.js').UserUrl,
+    hash: string
+  ): Promise<void> {
     await this.userService.updateUrlStatistics(userUrl.id, {
       lastHash: hash,
       lastCheckedAt: new Date(),
@@ -1190,7 +1288,9 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
   /**
    * URL新着カウント更新
    */
-  private async updateUrlNewProperty(userUrl: import('./entities/UserUrl.js').UserUrl): Promise<void> {
+  private async updateUrlNewProperty(
+    userUrl: import('./entities/UserUrl.js').UserUrl
+  ): Promise<void> {
     await this.userService.incrementUrlStatistics(userUrl.id, 'newListingsCount');
   }
 
@@ -1200,11 +1300,11 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
   private async sendAllUsersStatisticsReport(): Promise<void> {
     try {
       const users = await this.userService.getAllUsers();
-      
+
       for (const user of users) {
         if (!user.isActive) continue;
-        
-        const telegram = await this.getTelegramService(user.telegramChatId);
+
+        const telegram = this.getTelegramService(user.telegramChatId);
         if (!telegram) continue;
 
         // ユーザーのURL統計を取得してレポート送信
@@ -1216,16 +1316,19 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
             totalChecks: url.totalChecks,
             successCount: url.totalChecks - url.errorCount,
             errorCount: url.errorCount,
-            successRate: url.totalChecks > 0 ? Math.round(((url.totalChecks - url.errorCount) / url.totalChecks) * 100) : 0,
+            successRate:
+              url.totalChecks > 0
+                ? Math.round(((url.totalChecks - url.errorCount) / url.totalChecks) * 100)
+                : 0,
             averageExecutionTime: 0, // 簡易実装
             hasNewProperty: url.newListingsCount > 0,
             newPropertyCount: url.newListingsCount,
             lastNewProperty: url.lastCheckedAt || null,
             hourlyHistory: this.urlHistory.get(urlKey) || [], // 履歴データを追加
           };
-          
+
           await telegram.sendUrlSummaryReport(urlStats);
-          
+
           vibeLogger.info('multiuser.url_report_sent', 'ユーザー別URL統計レポート送信完了', {
             context: { userId: user.id, urlId: url.id, stats: urlStats },
           });

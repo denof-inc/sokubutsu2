@@ -82,7 +82,7 @@ describe('TelegramNotifier', () => {
       const sentMessage = calls[0]?.[1] ?? '';
       expect(sentMessage).not.toContain('+5件'); // 件数は削除されたので含まれない
       expect(sentMessage).toContain('監視名'); // 監視名が含まれることを確認
-      expect(sentMessage).toContain('<a href="http://localhost:3005">unknown</a>'); // HTMLリンクが含まれることを確認
+      expect(sentMessage).toContain('unknown'); // 監視名のテキストが含まれることを確認
     });
 
     it('物件数減少時も正しく通知すること', async () => {
@@ -116,7 +116,7 @@ describe('TelegramNotifier', () => {
 
       const sentMessage = calls[0]?.[1] ?? '';
       expect(sentMessage).toContain('監視名'); // 監視名が含まれる
-      expect(sentMessage).toContain('<a href="http://localhost:3005">unknown</a>'); // HTMLリンクが含まれる
+      expect(sentMessage).toContain('unknown'); // 監視名のテキストが含まれる
       expect(sentMessage).toContain('3回連続（15分間）'); // エラー数の表示
       expect(sentMessage).toContain('サイトの応答が遅くなっています'); // ユーザーフレンドリーなエラーメッセージ
     });
@@ -141,7 +141,7 @@ describe('TelegramNotifier', () => {
           { time: '10:10', status: 'あり' },
           { time: '10:15', status: 'エラー' },
           { time: '10:20', status: 'なし' },
-        ]
+        ],
       };
 
       await notifier.sendUrlSummaryReport(stats);
@@ -149,7 +149,7 @@ describe('TelegramNotifier', () => {
       expect(mockSendMessage).toHaveBeenCalled();
       const calls = mockSendMessage.mock.calls as unknown as Array<[string, string, any]>;
       const sentMessage = calls[0]?.[1] ?? '';
-      
+
       expect(sentMessage).toContain('1時間サマリー');
       expect(sentMessage).toContain('tokyo');
       expect(sentMessage).toContain('5分ごとの結果');

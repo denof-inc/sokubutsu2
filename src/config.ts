@@ -23,6 +23,10 @@ export const config: Config = {
         })()
       : [],
     interval: process.env.MONITORING_INTERVAL ?? '*/5 * * * *', // デフォルト5分
+    httpTimeoutMs: parseInt(process.env.HTTP_TIMEOUT_MS ?? '15000', 10),
+  },
+  scraping: {
+    strategy: process.env.SCRAPE_STRATEGY === 'http_first' ? 'http_first' : 'puppeteer_first',
   },
   app: {
     port: parseInt(process.env.PORT ?? '3000', 10),
@@ -40,6 +44,7 @@ export const config: Config = {
   admin: {
     port: parseInt(process.env.ADMIN_PORT ?? '3002', 10),
     enabled: process.env.ADMIN_ENABLED !== 'false',
+    ...(process.env.ADMIN_PUBLIC_URL && { publicUrl: process.env.ADMIN_PUBLIC_URL }),
   },
   multiUser: {
     enabled: process.env.MULTI_USER_MODE === 'true',
@@ -65,7 +70,7 @@ export const config: Config = {
     endHour: parseInt(process.env.OPERATING_HOURS_END ?? '22', 10),
     timezone: process.env.OPERATING_HOURS_TIMEZONE ?? 'Asia/Tokyo',
   },
-};;
+};
 
 /**
  * 設定の妥当性を検証
