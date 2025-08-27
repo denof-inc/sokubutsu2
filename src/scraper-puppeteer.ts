@@ -45,9 +45,14 @@ export class PuppeteerScraper {
           '--disable-blink-features=AutomationControlled',
           '--window-size=1920,1080',
         ],
+        protocolTimeout: 60000, // プロトコルタイムアウトを60秒に設定
       });
 
       const page = await browser.newPage();
+
+      // ページタイムアウト設定（20秒に変更）
+      page.setDefaultTimeout(20000);
+      page.setDefaultNavigationTimeout(20000);
 
       // 基本的なWebdriver検出回避
       await page.evaluateOnNewDocument(() => {
