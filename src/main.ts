@@ -1,6 +1,5 @@
-import { config, validateConfig, displayConfig } from './config.js';
+import { config } from './config.js';
 import { MultiUserMonitoringScheduler } from './scheduler.js';
-import { UserService } from './services/UserService.js';
 import { TelegramNotifier } from './telegram.js';
 import { logger, vibeLogger } from './logger.js';
 import { performanceMonitor } from './performance.js';
@@ -50,7 +49,10 @@ async function main(): Promise<void> {
   try {
     await AppDataSource.initialize();
     vibeLogger.info('multiuser.db.initialized', 'データベース初期化完了', {
-      context: { databasePath: config.database?.database || './data/sokubutsu.db', entities: AppDataSource.entityMetadatas.length },
+      context: {
+        databasePath: config.database?.database || './data/sokubutsu.db',
+        entities: AppDataSource.entityMetadatas.length,
+      },
       humanNote: 'データベースが正常に初期化されました',
     });
   } catch (error) {
@@ -84,21 +86,20 @@ async function main(): Promise<void> {
 
   try {
     // マルチユーザー監視スケジューラー起動
-    const scheduler = new MultiUserMonitoringScheduler(config.telegram.botToken);
+    const scheduler = new MultiUserMonitoringScheduler();
     console.log('✅ MultiUserMonitoringScheduler作成完了');
-    
-    const userService = scheduler.getUserService();
+
     console.log('✅ UserService取得完了');
 
     try {
       console.log('🤖 TelegramNotifier作成開始...');
       const telegram = new TelegramNotifier(config.telegram.botToken, config.telegram.chatId);
       console.log('✅ TelegramNotifier作成完了');
-      
+
       console.log('🤖 Telegramコマンドハンドラー設定開始...');
-      telegram.setupCommandHandlers(scheduler, userService);
+      telegram.setupCommandHandlers(scheduler);
       console.log('✅ Telegramコマンドハンドラー設定完了');
-      
+
       // 監視システムを先に起動（Telegram Botの起動を待たない）
       console.log('🔄 監視スケジューラー起動開始...');
       await scheduler.start();
@@ -110,13 +111,14 @@ async function main(): Promise<void> {
 
       // Telegram Botを非同期で起動（監視システムをブロックしない）
       console.log('🤖 Telegram Bot起動開始（非同期）...');
-      telegram.launchBot()
+      telegram
+        .launchBot()
         .then(() => {
           console.log('✅ Telegram Bot起動完了');
           console.log('🤖 Telegram Botマルチユーザーコマンドが利用可能です。');
           vibeLogger.info('telegram.bot_started_async', 'Telegram Bot非同期起動完了');
         })
-        .catch((error) => {
+        .catch(error => {
           console.log('⚠️  Telegram Bot起動失敗（監視は継続）');
           vibeLogger.error('telegram.bot_start_failed', 'Telegram Bot起動失敗', {
             context: { error: error instanceof Error ? error.message : String(error) },
@@ -154,7 +156,10 @@ async function main(): Promise<void> {
         },
         aiTodo: 'マルチユーザーモード起動エラーの原因を分析し、解決策を提案',
       });
-      console.error('🚨 マルチユーザーモード起動エラー:', error instanceof Error ? error.message : error);
+      console.error(
+        '🚨 マルチユーザーモード起動エラー:',
+        error instanceof Error ? error.message : error
+      );
       console.error('🚨 エラー詳細:', error);
       process.exit(1);
     }
@@ -173,9 +178,7 @@ async function main(): Promise<void> {
  * マルチユーザーモード設定検証
  */
 function validateMultiUserConfig(): boolean {
-  const requiredVars = [
-    'TELEGRAM_BOT_TOKEN',
-  ];
+  const requiredVars = ['TELEGRAM_BOT_TOKEN'];
 
   for (const varName of requiredVars) {
     if (!process.env[varName]) {
@@ -202,7 +205,9 @@ function displayMultiUserConfig(): void {
   console.log(`  • データベース: ${config.database?.database || './data/sokubutsu.db'}`);
   console.log(`  • 管理画面: ${config.admin?.enabled ? '✅ 有効' : '❌ 無効'}`);
   console.log(`  • 監視間隔: ${config.monitoring.interval || '*/5 * * * *'}`);
-  console.log(`  • サーキットブレーカー: ${config.circuitBreaker.autoRecoveryEnabled ? '✅ 自動復旧' : '⚠️ 手動復旧'}`);
+  console.log(
+    `  • サーキットブレーカー: ${config.circuitBreaker.autoRecoveryEnabled ? '✅ 自動復旧' : '⚠️ 手動復旧'}`
+  );
 }
 
 /**
@@ -239,7 +244,7 @@ function setupMultiUserGracefulShutdown(
         .then(() => {
           vibeLogger.info('multiuser.db.closed', 'データベース接続を閉じました');
         })
-        .catch((error) => {
+        .catch(error => {
           vibeLogger.error('multiuser.db.close_error', 'データベース接続終了エラー', {
             context: { error: error instanceof Error ? error.message : String(error) },
           });

@@ -106,6 +106,10 @@ export interface Config {
   monitoring: {
     urls: string[];
     interval: string;
+    httpTimeoutMs: number;
+  };
+  scraping?: {
+    strategy: 'puppeteer_first' | 'http_first';
   };
   app: {
     port: number;
@@ -118,6 +122,7 @@ export interface Config {
   admin?: {
     port: number;
     enabled: boolean;
+    publicUrl?: string;
   };
   multiUser?: {
     enabled: boolean;

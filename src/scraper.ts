@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import { ScrapingResult, PropertyInfo } from './types.js';
 import { vibeLogger } from './logger.js';
 import { PuppeteerScraper } from './scraper-puppeteer.js';
+import { config } from './config.js';
 
 /**
  * 軽量HTTPスクレイパー（戦略準拠）
@@ -23,7 +24,7 @@ import { PuppeteerScraper } from './scraper-puppeteer.js';
  * - リトライ機能付きHTTPリクエスト
  */
 export class SimpleScraper {
-  private readonly timeout = 10000; // 10秒タイムアウト
+  private readonly timeout = config.monitoring.httpTimeoutMs; // 設定可能なHTTPタイムアウト
   private readonly maxRetries = 3;
   private puppeteerScraper: PuppeteerScraper | null = null;
   private cookieJar: string = ''; // Cookieを保持
@@ -58,6 +59,23 @@ export class SimpleScraper {
     const startTime = Date.now();
 
     try {
+      // 戦略切替: Puppeteer-firstが標準（Serenaメモリ・実証結果に基づく）
+      if (config.scraping?.strategy === 'puppeteer_first') {
+        if (!this.puppeteerScraper) {
+          this.puppeteerScraper = new PuppeteerScraper();
+        }
+        const pResult = await this.puppeteerScraper.scrapeAthome(url);
+        if (pResult.success) return pResult;
+        // Puppeteerが失敗した場合に限りHTTP-onlyを試す
+        vibeLogger.warn(
+          'scraping.strategy_fallback',
+          'Puppeteer-first失敗。HTTP-onlyへフォールバック',
+          {
+            context: { url, reason: pResult.error || 'unknown' },
+          }
+        );
+      }
+
       vibeLogger.info('scraping.start', `スクレイピング開始: ${url}`, {
         context: { url, method: 'HTTP-first', timeout: this.timeout },
         humanNote: '段階的フォールバック戦略: HTTP-first → Puppeteer Stealth → Real Browser',
@@ -69,16 +87,20 @@ export class SimpleScraper {
       // 認証ページが返された場合のチェック
       const title = $('title').text();
       if (title.includes('認証') || $('body').text().includes('認証にご協力ください')) {
-        vibeLogger.warn('scraping.auth_required', '認証ページが検出されました。Puppeteerにフォールバック', {
-          context: { url, title },
-          humanNote: 'HTTP-first戦略失敗。段階的フォールバックを実行',
-        });
+        vibeLogger.warn(
+          'scraping.auth_required',
+          '認証ページが検出されました。Puppeteerにフォールバック',
+          {
+            context: { url, title },
+            humanNote: 'HTTP-first戦略失敗。段階的フォールバックを実行',
+          }
+        );
 
         // Puppeteerへフォールバック
         if (!this.puppeteerScraper) {
           this.puppeteerScraper = new PuppeteerScraper();
         }
-        
+
         return await this.puppeteerScraper.scrapeAthome(url);
       }
 
@@ -241,6 +263,30 @@ export class SimpleScraper {
       const executionTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
 
+      // タイムアウト/ネットワーク系はPuppeteerにフォールバック
+      if (/timeout|ECONNRESET|ENETUNREACH|Network/i.test(errorMessage)) {
+        try {
+          vibeLogger.warn(
+            'scraping.timeout_fallback',
+            'HTTP-first失敗（タイムアウト/ネットワーク）。Puppeteerにフォールバック',
+            {
+              context: { url, error: errorMessage },
+            }
+          );
+          if (!this.puppeteerScraper) {
+            this.puppeteerScraper = new PuppeteerScraper();
+          }
+          return await this.puppeteerScraper.scrapeAthome(url);
+        } catch (puppeteerError) {
+          // 失敗時は元のフローでエラーとして返す
+          const pe =
+            puppeteerError instanceof Error ? puppeteerError.message : String(puppeteerError);
+          vibeLogger.error('scraping.timeout_fallback_failed', 'Puppeteerフォールバックも失敗', {
+            context: { url, error: pe },
+          });
+        }
+      }
+
       vibeLogger.error('scraping.failed', `スクレイピング失敗: ${url}`, {
         context: {
           url,
@@ -284,9 +330,9 @@ export class SimpleScraper {
         headers: {
           ...this.headers,
           // リファラーを設定（athome.co.jpのトップページ）
-          'Referer': 'https://www.athome.co.jp/',
+          Referer: 'https://www.athome.co.jp/',
           // Cookieがあれば追加
-          ...(this.cookieJar ? { 'Cookie': this.cookieJar } : {}),
+          ...(this.cookieJar ? { Cookie: this.cookieJar } : {}),
         },
         timeout: this.timeout,
         maxRedirects: 5,

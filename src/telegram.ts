@@ -1,6 +1,7 @@
 import { Telegraf } from 'telegraf';
 import { NotificationData, Statistics, UrlStatistics } from './types.js';
 import { vibeLogger } from './logger.js';
+import { config } from './config.js';
 
 /**
  * Telegram通知サービス
@@ -34,12 +35,16 @@ export class TelegramNotifier {
    * HTML用エスケープ処理
    */
   private escapeHtml(text: string): string {
-    return text.replace(/[<>&]/g, (match) => {
+    return text.replace(/[<>&]/g, match => {
       switch (match) {
-        case '<': return '&lt;';
-        case '>': return '&gt;';
-        case '&': return '&amp;';
-        default: return match;
+        case '<':
+          return '&lt;';
+        case '>':
+          return '&gt;';
+        case '&':
+          return '&amp;';
+        default:
+          return match;
       }
     });
   }
@@ -49,7 +54,11 @@ export class TelegramNotifier {
    */
   private createAdminLink(name: string): string {
     const escapedName = this.escapeHtml(name);
-    return `<a href="http://localhost:3005">${escapedName}</a>`;
+    const publicUrl = config.admin?.publicUrl;
+    if (publicUrl) {
+      return `<a href="${this.escapeHtml(publicUrl)}">${escapedName}</a>`;
+    }
+    return `${escapedName}`;
   }
 
   /**
@@ -79,10 +88,10 @@ export class TelegramNotifier {
     if (userName) {
       displayName = userName;
     } else {
-      const match = data.url.match(/\/(chintai|buy_other)\/([^/]+)\//); 
+      const match = data.url.match(/\/(chintai|buy_other)\/([^/]+)\//);
       displayName = match?.[2] ?? 'unknown';
     }
-    
+
     const message = `🆕 <b>新着物件あり</b>
 
 📍 監視名: ${this.createAdminLink(displayName)}
@@ -100,10 +109,10 @@ export class TelegramNotifier {
     if (userName) {
       displayName = userName;
     } else {
-      const match = url.match(/\/(chintai|buy_other)\/([^/]+)\//); 
+      const match = url.match(/\/(chintai|buy_other)\/([^/]+)\//);
       displayName = match?.[2] ?? 'unknown';
     }
-    
+
     // 一般ユーザー向けのエラーメッセージに変換
     let userFriendlyError = 'サイトへの接続に問題が発生しています';
     if (error.includes('timeout') || error.includes('Timeout')) {
@@ -113,7 +122,7 @@ export class TelegramNotifier {
     } else if (error.includes('network') || error.includes('Network')) {
       userFriendlyError = 'ネットワーク接続に問題があります';
     }
-    
+
     const message = `⚠️ <b>監視エラーのお知らせ</b>
 
 📍 監視名: ${this.createAdminLink(displayName)}
@@ -161,17 +170,17 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
       // URLから都道府県名を抽出
       const match = stats.url.match(/\/(chintai|buy_other)\/([^/]+)\//);
       const prefecture = match?.[2] ?? 'unknown';
-      
+
       const now = new Date();
       const currentTime = now.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
-      
+
       let message = `📊 <b>1時間サマリー</b>
 
 📍 エリア: ${this.escapeHtml(prefecture)}
 ⏰ 時刻: ${this.escapeHtml(currentTime)}
 
 `;
-      
+
       // 5分ごとの履歴を表示
       if (stats.hourlyHistory && stats.hourlyHistory.length > 0) {
         message += `📝 5分ごとの結果:
@@ -189,22 +198,22 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
         message += `
 `;
       }
-      
+
       message += `📊 統計:
 • チェック回数: ${stats.totalChecks}回
 • 成功率: ${stats.successRate.toFixed(1)}%
 `;
-      
+
       if (stats.hasNewProperty) {
         message += `• 新着総数: ${stats.newPropertyCount}件
 `;
       }
-      
+
       message += `
 🔗 ${this.createAdminLink(stats.name)}`;
-      
+
       await this.sendMessage(message);
-      
+
       vibeLogger.info('telegram.url_summary_report_sent', 'URL別サマリーレポート送信成功', {
         context: { url: stats.url, prefecture },
       });
@@ -328,20 +337,33 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
   /**
    * コマンドハンドラーの設定
    */
-  setupCommandHandlers(scheduler: any, userService?: any): void {
+  setupCommandHandlers(scheduler: any): void {
+    // Bot全体のエラーハンドリング（予期せぬ例外の可視化）
+    this.bot.catch((err, ctx) => {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      vibeLogger.error('telegram.global_error', 'Telegramハンドラ内で未処理エラー', {
+        context: {
+          updateId: (ctx && (ctx as any).update?.update_id) || 'unknown',
+          error: errorMsg,
+        },
+      });
+    });
+
     // /status - 現在の監視状況
-    this.bot.command('status', async (ctx) => {
+    this.bot.command('status', async ctx => {
       try {
         const status = await scheduler.getStatus();
-        let message = `📊 *監視状況*
-
-⏱ *稼働状態*: ${status.isRunning ? '✅ 稼働中' : '⏸ 停止中'}
-📍 *監視URL数*: ${status.urlCount}件
-⏰ *最終チェック*: ${status.lastCheck ? new Date(status.lastCheck).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : 'なし'}
-🔄 *総チェック数*: ${status.totalChecks}回
-✅ *成功率*: ${status.successRate.toFixed(1)}%`;
-        
-        await ctx.reply(message, { parse_mode: 'MarkdownV2' });
+        // MarkdownV2はエスケープが厳しいため、まずはMarkdownで安定送信
+        const message = [
+          '📊 監視状況',
+          '',
+          `⏱ 稼働状態: ${status.isRunning ? '✅ 稼働中' : '⏸ 停止中'}`,
+          `📍 監視URL数: ${status.urlCount}件`,
+          `⏰ 最終チェック: ${status.lastCheck ? new Date(String(status.lastCheck)).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : 'なし'}`,
+          `🔄 総チェック数: ${status.totalChecks}回`,
+          `✅ 成功率: ${status.successRate.toFixed(1)}%`,
+        ].join('\n');
+        await ctx.reply(message, { parse_mode: 'HTML' });
       } catch (error) {
         await ctx.reply('❌ ステータス取得中にエラーが発生しました');
         vibeLogger.error('telegram.command.status_error', 'statusコマンドエラー', {
@@ -351,23 +373,24 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
     });
 
     // /stats - 統計情報表示
-    this.bot.command('stats', async (ctx) => {
+    this.bot.command('stats', async ctx => {
       try {
         const stats = await scheduler.getStatistics();
-        let message = `📈 *統計情報*
-
-📊 *パフォーマンス*
-  • 総チェック数: ${stats.totalChecks}回
-  • 成功率: ${stats.successRate}%
-  • 平均実行時間: ${stats.averageExecutionTime.toFixed(2)}秒
-
-🏠 *検知実績*
-  • 新着検知数: ${stats.newListings}回
-  • エラー数: ${stats.errors}回
-
-⏰ *最終チェック*: ${stats.lastCheck.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
-        
-        await ctx.reply(message, { parse_mode: 'MarkdownV2' });
+        const message = [
+          '📈 統計情報',
+          '',
+          '📊 パフォーマンス',
+          `  • 総チェック数: ${stats.totalChecks}回`,
+          `  • 成功率: ${stats.successRate}%`,
+          `  • 平均実行時間: ${stats.averageExecutionTime.toFixed(2)}秒`,
+          '',
+          '🏠 検知実績',
+          `  • 新着検知数: ${stats.newListings}回`,
+          `  • エラー数: ${stats.errors}回`,
+          '',
+          `⏰ 最終チェック: ${stats.lastCheck.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`,
+        ].join('\n');
+        await ctx.reply(message, { parse_mode: 'HTML' });
       } catch (error) {
         await ctx.reply('❌ 統計情報取得中にエラーが発生しました');
         vibeLogger.error('telegram.command.stats_error', 'statsコマンドエラー', {
@@ -377,21 +400,22 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
     });
 
     // /check - 手動チェック実行
-    this.bot.command('check', async (ctx) => {
+    this.bot.command('check', async ctx => {
       try {
         await ctx.reply('🔍 手動チェックを開始します...');
         const result = await scheduler.runManualCheck();
-        
-        let message = `✅ *手動チェック完了*
 
-📊 *結果*
-  • チェックしたURL: ${result.urlCount}件
-  • 成功: ${result.successCount}件
-  • エラー: ${result.errorCount}件
-  • 新着検知: ${result.newPropertyCount > 0 ? `🆕 ${result.newPropertyCount}件` : 'なし'}
-  • 実行時間: ${(result.executionTime / 1000).toFixed(1)}秒`;
-        
-        await ctx.reply(message, { parse_mode: 'MarkdownV2' });
+        const message = [
+          '✅ 手動チェック完了',
+          '',
+          '📊 結果',
+          `  • チェックしたURL: ${result.urlCount}件`,
+          `  • 成功: ${result.successCount}件`,
+          `  • エラー: ${result.errorCount}件`,
+          `  • 新着検知: ${result.newPropertyCount > 0 ? `🆕 ${result.newPropertyCount}件` : 'なし'}`,
+          `  • 実行時間: ${(result.executionTime / 1000).toFixed(1)}秒`,
+        ].join('\n');
+        await ctx.reply(message, { parse_mode: 'HTML' });
       } catch (error) {
         await ctx.reply('❌ 手動チェック中にエラーが発生しました');
         vibeLogger.error('telegram.command.check_error', 'checkコマンドエラー', {
@@ -401,37 +425,39 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
     });
 
     // /help - コマンド一覧
-    this.bot.command('help', async (ctx) => {
-      const message = `📚 *利用可能なコマンド*
-
-/status \\- 現在の監視状況を表示
-/stats \\- 詳細な統計情報を表示
-/check \\- 手動でチェックを実行
-/help \\- このヘルプメッセージを表示
-
-🔔 *自動通知について*
-• 新着物件検知時: 即座に通知
-• 1時間ごと: サマリーレポート
-• エラー時: 3回連続エラーで警告
-
-📧 *サポート*
-問題が発生した場合は管理者にお問い合わせください`;
-      
-      await ctx.reply(message, { parse_mode: 'MarkdownV2' });
+    this.bot.command('help', async ctx => {
+      const message = [
+        '📚 利用可能なコマンド',
+        '',
+        '/status - 現在の監視状況を表示',
+        '/stats  - 詳細な統計情報を表示',
+        '/check  - 手動でチェックを実行',
+        '/help   - このヘルプメッセージを表示',
+        '',
+        '🔔 自動通知について',
+        '• 新着物件検知時: 即座に通知',
+        '• 1時間ごと: サマリーレポート',
+        '• エラー時: 3回連続エラーで警告',
+        '',
+        '📧 サポート',
+        '問題が発生した場合は管理者にお問い合わせください',
+      ].join('\n');
+      await ctx.reply(message, { parse_mode: 'HTML' });
     });
 
     // /start - ウェルカムメッセージ
-    this.bot.command('start', async (ctx) => {
-      const message = `👋 *ソクブツMVPへようこそ！*
-
-このBotは不動産サイトの新着物件を監視し、
-リアルタイムで通知します。
-
-利用可能なコマンドを見るには /help を入力してください。
-
-監視は自動的に5分間隔で実行されています。`;
-      
-      await ctx.reply(message, { parse_mode: 'MarkdownV2' });
+    this.bot.command('start', async ctx => {
+      const message = [
+        '👋 ソクブツMVPへようこそ！',
+        '',
+        'このBotは不動産サイトの新着物件を監視し、',
+        'リアルタイムで通知します。',
+        '',
+        '利用可能なコマンドを見るには /help を入力してください。',
+        '',
+        '監視は自動的に5分間隔で実行されています。',
+      ].join('\n');
+      await ctx.reply(message, { parse_mode: 'HTML' });
     });
   }
 
@@ -439,21 +465,73 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
    * Botを起動
    */
   async launchBot(): Promise<void> {
+    // 起動を堅牢化: Webhook解除 → 接続検証 → 起動（リトライ）
+    // 失敗時はthrowして呼び出し元に伝播させる
+    const maxAttempts = 3;
+    let attempt = 0;
+    let lastError: unknown = null;
+
+    // Webhookが残っているとPollingが無音になるため、念のため解除
     try {
-      await this.bot.launch();
-      vibeLogger.info('telegram.bot_launched', 'Telegram Bot起動完了');
-    } catch (error) {
-      vibeLogger.error('telegram.bot_launch_error', 'Telegram Bot起動エラー', {
-        context: { error: error instanceof Error ? error.message : String(error) },
+      await this.bot.telegram.deleteWebhook({ drop_pending_updates: false });
+      vibeLogger.info('telegram.webhook_deleted', 'Webhook解除完了（Polling前初期化）');
+    } catch (e) {
+      // 解除に失敗しても続行（ログのみ）
+      vibeLogger.warn('telegram.webhook_delete_failed', 'Webhook解除に失敗しましたが続行します', {
+        context: { error: e instanceof Error ? e.message : String(e) },
       });
     }
+
+    // 起動前の疎通確認
+    try {
+      await this.bot.telegram.getMe();
+      vibeLogger.info('telegram.prelaunch_ok', '起動前疎通確認OK');
+    } catch (e) {
+      vibeLogger.error('telegram.prelaunch_failed', '起動前疎通確認に失敗', {
+        context: { error: e instanceof Error ? e.message : String(e) },
+      });
+      lastError = e;
+    }
+
+    while (attempt < maxAttempts) {
+      attempt++;
+      try {
+        await this.bot.launch();
+        vibeLogger.info('telegram.bot_launched', 'Telegram Bot起動完了', {
+          context: { attempt },
+        });
+        return;
+      } catch (error) {
+        lastError = error;
+        vibeLogger.error('telegram.bot_launch_error', 'Telegram Bot起動エラー', {
+          context: {
+            attempt,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        });
+        // 指数バックオフで再試行
+        const delay = Math.pow(2, attempt - 1) * 1000;
+        await this.sleep(delay);
+      }
+    }
+
+    // ここに来たら失敗のためthrow
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(lastError instanceof Error ? lastError.message : 'telegram launch failed');
   }
 
   /**
    * Botを停止
    */
   stopBot(): void {
-    this.bot.stop();
+    try {
+      this.bot.stop();
+    } catch (e) {
+      vibeLogger.warn('telegram.bot_stop_error', 'Telegram Bot停止時に警告', {
+        context: { error: e instanceof Error ? e.message : String(e) },
+      });
+    }
     vibeLogger.info('telegram.bot_stopped', 'Telegram Bot停止');
   }
 }

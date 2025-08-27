@@ -11,6 +11,7 @@ const mockStop = jest.fn<() => void>();
 const mockCommand = jest.fn((name: string, handler: (ctx: any) => any) => {
   registeredCommands[name] = handler;
 });
+const mockCatch = jest.fn();
 
 const mockTelegraf = jest.fn(() => ({
   telegram: {
@@ -18,6 +19,7 @@ const mockTelegraf = jest.fn(() => ({
     sendMessage: mockSendMessage,
   },
   command: mockCommand,
+  catch: mockCatch,
   launch: mockLaunch,
   stop: mockStop,
 }));
@@ -95,7 +97,13 @@ describe('TelegramNotifier command handlers', () => {
       const reply = jest.fn();
       await registeredCommands[cmd]?.({ reply });
       expect(reply).toHaveBeenCalled();
+      const args = (reply.mock.calls[0] || []) as any[];
+      const opts = args[1] as { parse_mode?: string } | undefined;
+      // help/startは常にHTMLのはず
+      if (cmd === 'help' || cmd === 'start') {
+        expect(opts?.parse_mode).toBe('HTML');
+      }
+      reply.mockClear();
     }
   });
 });
-
