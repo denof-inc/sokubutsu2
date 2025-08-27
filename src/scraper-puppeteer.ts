@@ -39,9 +39,14 @@ export class PuppeteerScraper {
     const maxRetries = 2;
 
     try {
-      vibeLogger.info('puppeteer.start', `Puppeteer スクレイピング開始: ${url}`, {
-        context: { url, maxRetries },
-      });
+      vibeLogger.info(
+        'puppeteer.start',
+        `Puppeteer スクレイピング開始（最新突破技術適用版）: ${url}`,
+        {
+          context: { url, maxRetries },
+          humanNote: 'Context7調査結果: Fingerprint偽装・高度Stealth・自然操作パターン適用',
+        }
+      );
 
       // リトライループの開始
       while (retryCount <= maxRetries) {
@@ -55,60 +60,152 @@ export class PuppeteerScraper {
               '--disable-gpu',
               '--disable-blink-features=AutomationControlled',
               '--window-size=1920,1080',
-              '--disable-web-security', // Cookie isolation強化
-              '--disable-features=VizDisplayCompositor', // Bot検知回避
+              '--disable-web-security',
+              '--disable-features=VizDisplayCompositor',
+              // Context7調査: より高度な検出回避
+              '--disable-background-timer-throttling',
+              '--disable-backgrounding-occluded-windows',
+              '--disable-renderer-backgrounding',
+              '--disable-extensions',
+              '--no-first-run',
+              '--no-default-browser-check',
+              '--disable-infobars',
+              '--disable-translate',
+              '--disable-ipc-flooding-protection',
+              // Fingerprint偽装強化
+              '--enable-features=NetworkService,NetworkServiceLogging',
+              '--disable-features=TranslateUI,BlinkGenPropertyTrees',
             ],
-            protocolTimeout: 60000,
+            protocolTimeout: 120000, // Context7推奨: 2分に増加
           }));
 
           // 独立したブラウザコンテキストを作成（正しいメソッド使用）
           const context = await browser.createBrowserContext();
           const page = await context.newPage();
 
-          // ページタイムアウト設定（20秒に変更）
-          page.setDefaultTimeout(20000);
-          page.setDefaultNavigationTimeout(20000);
-
-          vibeLogger.info(
-            'puppeteer.context_created',
-            `新しいコンテキスト作成（試行${retryCount + 1}/${maxRetries + 1}）`,
-            {
-              context: { retryCount },
-            }
-          );
-
-          // 基本的なWebdriver検出回避（強化版）
+          // Context7調査: 高度なFingerprint偽装
           await page.evaluateOnNewDocument(() => {
+            // WebDriver検出完全回避
             Object.defineProperty(navigator, 'webdriver', {
               get: () => undefined,
             });
 
-            // Chrome Detection Evasion強化
+            // Chrome Detection Evasion強化（Crawlee方式）
             Object.defineProperty(navigator, 'plugins', {
-              get: () => [1, 2, 3, 4, 5],
+              get: () => [
+                {
+                  name: 'Chrome PDF Plugin',
+                  filename: 'internal-pdf-viewer',
+                  description: 'Portable Document Format',
+                },
+                {
+                  name: 'Chromium PDF Plugin',
+                  filename: 'internal-pdf-viewer',
+                  description: 'Portable Document Format',
+                },
+              ],
             });
 
-            // Language設定の自然化
+            // Language設定の自然化（Context7推奨）
             Object.defineProperty(navigator, 'languages', {
               get: () => ['ja-JP', 'ja', 'en-US', 'en'],
             });
+
+            // Memory・Hardware情報の偽装（Zendriver方式）
+            Object.defineProperty(navigator, 'deviceMemory', {
+              get: () => 8,
+            });
+            Object.defineProperty(navigator, 'hardwareConcurrency', {
+              get: () => 8,
+            });
+
+            // Timezone・Platform偽装
+            Object.defineProperty(navigator, 'platform', {
+              get: () => 'Win32',
+            });
+
+            // Chrome runtime偽装（型安全版）
+            interface ChromeRuntime {
+              onConnect: undefined;
+              onMessage: undefined;
+            }
+            (window as unknown as { chrome: { runtime: ChromeRuntime } }).chrome = {
+              runtime: {
+                onConnect: undefined,
+                onMessage: undefined,
+              },
+            };
+
+            // Permission API偽装（型安全バージョン）
+            const originalQuery = window.navigator.permissions.query.bind(
+              window.navigator.permissions
+            );
+            window.navigator.permissions.query = (
+              parameters: PermissionDescriptor
+            ): Promise<PermissionStatus> => {
+              if (parameters.name === 'notifications') {
+                return Promise.resolve({
+                  state: 'granted' as PermissionState,
+                  name: parameters.name,
+                  onchange: null,
+                  addEventListener: () => {},
+                  removeEventListener: () => {},
+                  dispatchEvent: () => true,
+                } as PermissionStatus);
+              }
+              return originalQuery(parameters);
+            };
           });
 
+          // Context7推奨: より自然なUser-Agent設定
           await page.setUserAgent(
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
           );
+
+          // より詳細なHTTPヘッダー設定（Crawlee方式）
           await page.setExtraHTTPHeaders({
             'Accept-Language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
-            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            Accept:
+              'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
+            'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
           });
 
-          // 3段階アクセスパターン（Cookie管理強化版）
+          // Viewport設定（Context7推奨の自然な解像度）
+          await page.setViewport({
+            width: 1920,
+            height: 1080,
+            deviceScaleFactor: 1,
+            isMobile: false,
+            hasTouch: false,
+          });
+
+          // ページタイムアウト設定（Context7推奨: より長い待機時間）
+          page.setDefaultTimeout(30000);
+          page.setDefaultNavigationTimeout(30000);
+
+          vibeLogger.info(
+            'puppeteer.context_created',
+            `最新突破技術適用コンテキスト作成（試行${retryCount + 1}/${maxRetries + 1}）`,
+            {
+              context: { retryCount, fingerprintApplied: true, stealthEnhanced: true },
+            }
+          );
+
+          // Context7調査: 3段階アクセスパターン + 自然な操作
           vibeLogger.info(
             'puppeteer.step1',
-            'ステップ1: Cookie完全クリア後、bot.sannysoft.com でボット検出テスト',
-            {
-              context: { retryCount },
-            }
+            'ステップ1: 高度Stealth機能でbot.sannysoft.comテスト',
+            { context: { retryCount } }
           );
 
           // Cookie完全削除
@@ -118,37 +215,47 @@ export class PuppeteerScraper {
 
           await page.goto('https://bot.sannysoft.com', {
             waitUntil: 'domcontentloaded',
-            timeout: 15000,
+            timeout: 20000,
           });
-          await new Promise(r => setTimeout(r, 3000));
 
-          vibeLogger.info(
-            'puppeteer.step2',
-            'ステップ2: Cookie再クリア後、Google経由でリファラー自然化',
-            {
-              context: { retryCount },
-            }
-          );
+          // Context7推奨: 自然なマウス移動・スクロール操作
+          await page.mouse.move(100, 100);
+          await new Promise(r => setTimeout(r, 1000));
+          await page.mouse.move(500, 300);
+          await page.evaluate(() => window.scrollTo(0, 100));
+          await new Promise(r => setTimeout(r, 2000));
+
+          vibeLogger.info('puppeteer.step2', 'ステップ2: Google経由でFingerprint偽装を維持', {
+            context: { retryCount },
+          });
 
           // Google前にもCookie削除
           await client.send('Network.clearBrowserCookies');
 
           await page.goto('https://www.google.com', {
             waitUntil: 'domcontentloaded',
-            timeout: 15000,
+            timeout: 20000,
           });
-          await new Promise(r => setTimeout(r, 3000));
 
-          vibeLogger.info('puppeteer.step3', 'ステップ3: Cookie維持状態でアットホームへアクセス', {
+          // Google上で自然な操作パターン
+          await page.mouse.move(200, 200);
+          await page.evaluate(() => window.scrollTo(0, 50));
+          await new Promise(r => setTimeout(r, 2500));
+
+          vibeLogger.info('puppeteer.step3', 'ステップ3: 強化された偽装でアットホームアクセス', {
             context: { url, retryCount },
           });
 
           // アットホーム前はCookieをそのまま維持（Google経由の自然性を保持）
           await page.goto(url, {
             waitUntil: 'domcontentloaded',
-            timeout: 20000,
+            timeout: 30000,
           });
-          await new Promise(r => setTimeout(r, 5000));
+
+          // アットホーム上でも自然な操作
+          await page.mouse.move(300, 400);
+          await page.evaluate(() => window.scrollTo(0, 200));
+          await new Promise(r => setTimeout(r, 3000));
 
           // ページタイトルとコンテンツを取得
           const pageTitle: string = await page.title();
@@ -158,20 +265,16 @@ export class PuppeteerScraper {
           if (pageTitle.includes('認証') || pageContent.includes('認証にご協力ください')) {
             vibeLogger.warn(
               'puppeteer.auth_detected',
-              `認証ページを検出（試行${retryCount + 1}/${maxRetries + 1}）`,
+              `認証ページを検出（試行${retryCount + 1}/${maxRetries + 1}）- 最新技術適用にも関わらず`,
               {
-                context: { title: pageTitle, retryCount },
+                context: { title: pageTitle, retryCount, stealthApplied: true },
               }
             );
 
             if (retryCount < maxRetries) {
-              vibeLogger.info(
-                'puppeteer.auth_retry',
-                '認証回避のため新しいコンテキストでリトライ',
-                {
-                  context: { retryCount: retryCount + 1 },
-                }
-              );
+              vibeLogger.info('puppeteer.auth_retry', 'より高度な偽装技術でリトライ実行', {
+                context: { retryCount: retryCount + 1 },
+              });
 
               // コンテキストとブラウザを完全にクリーンアップ
               await context.close();
@@ -179,38 +282,47 @@ export class PuppeteerScraper {
 
               retryCount++;
 
-              // 指数バックオフ待機
-              const waitTime = Math.pow(2, retryCount) * 2000;
+              // Context7推奨: より長い指数バックオフ待機
+              const waitTime = Math.pow(2, retryCount) * 3000; // 3秒ベース
               await new Promise(r => setTimeout(r, waitTime));
 
               continue; // リトライループを継続
             } else {
-              throw new Error(`認証ページが継続表示されています（${maxRetries + 1}回試行後）`);
+              throw new Error(
+                `最新突破技術適用でも認証ページが継続表示（${maxRetries + 1}回試行後）`
+              );
             }
           }
 
-          // 認証成功時の処理を継続
-
-          // Cookieを取得して保存
+          // 認証突破成功時の処理を継続
           const cookies = await page.cookies();
-          vibeLogger.info('puppeteer.cookies_captured', 'Cookie取得成功（認証突破完了）', {
-            context: { cookieCount: cookies.length, retryCount },
-          });
+          vibeLogger.info(
+            'puppeteer.cookies_captured',
+            'Cookie取得成功（最新突破技術で認証突破完了）',
+            {
+              context: { cookieCount: cookies.length, retryCount, breakthroughTech: 'applied' },
+            }
+          );
 
-          // 物件要素の取得（Web Componentsセレクタを使用）
+          // 物件要素の取得（Context7調査: より確実なセレクタ）
           const properties: PropertyInfo[] = await page.evaluate((): PropertyInfo[] => {
-            console.log('Starting property search...');
+            console.log('Starting property search with enhanced selectors...');
             console.log('Current URL:', window.location.href);
             console.log('Page title:', document.title);
 
-            // Web Componentsを含む新しいセレクタ
+            // Context7推奨: より広範囲なセレクタ（Web Components優先）
             const selectors = [
-              // Web Components
+              // Web Components（最優先）
               'athome-csite-pc-part-rent-business-other-bukken-card',
               'athome-search-result-list-item',
               'athome-buy-other-object-list-item',
               'athome-object-item',
-              // 従来のセレクタ
+              // 現代的セレクタ
+              '[data-testid*="property"]',
+              '[data-cy*="property"]',
+              '[class*="PropertyCard"]',
+              '[class*="property-card"]',
+              // 従来のセレクタ（強化）
               '.item-cassette',
               '.p-main-cassette-item',
               '.cassette-item',
@@ -218,13 +330,17 @@ export class PuppeteerScraper {
               '[class*="property"]',
               '[class*="bukken"]',
               '[class*="item"]',
+              // フォールバック
+              'article[class*="item"]',
+              'section[class*="property"]',
+              'div[class*="result-item"]',
             ];
 
             let foundElements: PropertyInfo[] = [];
 
             for (const selector of selectors) {
               const elements = document.querySelectorAll(selector);
-              console.log(`Selector "${selector}": found ${elements.length} elements`);
+              console.log(`Enhanced selector "${selector}": found ${elements.length} elements`);
 
               if (elements.length > 0) {
                 // 最初の3件を取得
@@ -233,66 +349,105 @@ export class PuppeteerScraper {
                   .map((el: Element): PropertyInfo | null => {
                     const text = el.textContent ?? '';
 
-                    // Web Componentsの場合、shadow DOMも考慮
+                    // Context7推奨: より堅牢な情報抽出
                     let title = '';
                     let price = '';
                     let location = '';
 
-                    // 通常のDOM要素から情報を取得
-                    const linkEl = el.querySelector('a');
-                    if (linkEl) {
-                      title = linkEl.textContent?.trim() ?? '';
-                    }
+                    // タイトル抽出（複数パターン対応）
+                    const titleSelectors = [
+                      'a[href*="bukken"]',
+                      'a[href*="property"]',
+                      'a',
+                      '[class*="title"]',
+                      '[data-testid*="title"]',
+                      'h2',
+                      'h3',
+                      'h4',
+                      '.bukken-name',
+                      '.property-name',
+                    ];
 
-                    // タイトルが取得できない場合の代替手段
-                    if (!title) {
-                      const titleEl = el.querySelector(
-                        '[class*="title"], h2, h3, h4, .bukken-name, .property-name'
-                      );
-                      if (titleEl) {
-                        title = titleEl.textContent?.trim() ?? '';
+                    for (const titleSel of titleSelectors) {
+                      const titleEl = el.querySelector(titleSel);
+                      if (titleEl?.textContent?.trim()) {
+                        title = titleEl.textContent.trim();
+                        break;
                       }
                     }
 
+                    // タイトルが取得できない場合の高度な代替手段
                     if (!title) {
-                      // テキストの最初の行をタイトルとする
                       const lines = text.split('\n').filter((line: string) => line.trim());
                       if (lines.length > 0) {
-                        // 価格以外の最初の行をタイトルとする
+                        // より厳密な価格以外の判定
                         for (const line of lines) {
-                          if (!line.includes('万円') && line.length > 5) {
-                            title = line.trim();
+                          const trimmedLine = line.trim();
+                          if (
+                            trimmedLine.length > 5 &&
+                            !trimmedLine.includes('万円') &&
+                            !trimmedLine.match(/^\d+[,\d]*$/) &&
+                            !trimmedLine.includes('件') &&
+                            !trimmedLine.includes('㎡')
+                          ) {
+                            title = trimmedLine;
                             break;
                           }
                         }
                       }
                     }
 
-                    // 価格を取得
-                    const priceEl = el.querySelector(
-                      '[class*="price"], .bukken-price, .property-price'
-                    );
-                    if (priceEl) {
-                      price = priceEl.textContent?.trim() ?? '';
+                    // 価格抽出（強化版）
+                    const priceSelectors = [
+                      '[class*="price"]',
+                      '[data-testid*="price"]',
+                      '.bukken-price',
+                      '.property-price',
+                    ];
+
+                    for (const priceSel of priceSelectors) {
+                      const priceEl = el.querySelector(priceSel);
+                      if (priceEl?.textContent?.trim()) {
+                        price = priceEl.textContent.trim();
+                        break;
+                      }
                     }
+
                     if (!price) {
-                      const priceMatch = text.match(/[0-9,]+万円/);
+                      // より柔軟な価格マッチング
+                      const priceMatch = text.match(
+                        /[0-9,]+(?:\.[0-9]+)?万円|[0-9,]+(?:\.[0-9]+)?円/
+                      );
                       price = priceMatch ? priceMatch[0] : '';
                     }
 
-                    // 場所を取得
-                    const locationEl = el.querySelector(
-                      '[class*="location"], [class*="address"], .bukken-address'
-                    );
-                    if (locationEl) {
-                      location = locationEl.textContent?.trim() ?? '';
+                    // 場所抽出（強化版）
+                    const locationSelectors = [
+                      '[class*="location"]',
+                      '[class*="address"]',
+                      '[data-testid*="location"]',
+                      '[data-testid*="address"]',
+                      '.bukken-address',
+                      '.property-location',
+                    ];
+
+                    for (const locSel of locationSelectors) {
+                      const locationEl = el.querySelector(locSel);
+                      if (locationEl?.textContent?.trim()) {
+                        location = locationEl.textContent.trim();
+                        break;
+                      }
                     }
+
                     if (!location) {
-                      const locationMatch = text.match(/広島[市県][\s\S]{0,50}?[区町]/);
+                      // より広範囲な地域マッチング
+                      const locationMatch = text.match(/[都道府県市区町村][^0-9]{0,50}?[区市町村]/);
                       location = locationMatch ? locationMatch[0] : '';
                     }
 
-                    console.log(`Item: title="${title}", price="${price}", location="${location}"`);
+                    console.log(
+                      `Enhanced extraction: title="${title}", price="${price}", location="${location}"`
+                    );
 
                     return title && price ? { title, price, location } : null;
                   })
@@ -300,24 +455,29 @@ export class PuppeteerScraper {
 
                 if (items.length > 0) {
                   foundElements = items;
-                  console.log(`Found ${items.length} valid items with selector "${selector}"`);
+                  console.log(
+                    `Found ${items.length} valid items with enhanced selector "${selector}"`
+                  );
                   break;
                 }
               }
             }
 
             if (foundElements.length === 0) {
-              console.log('No property elements found');
+              console.log('No property elements found with enhanced selectors');
               console.log('Page HTML length:', document.body.innerHTML.length);
 
-              // Web Componentsの存在確認
+              // Context7推奨: Web Componentsの詳細解析
               const webComponents = Array.from(document.querySelectorAll('*')).filter(el =>
                 el.tagName.includes('-')
               );
-              console.log('Web Components found:', webComponents.length);
-              if (webComponents.length > 0 && webComponents.length < 20) {
-                webComponents.forEach(wc => {
-                  console.log('Web Component:', wc.tagName.toLowerCase());
+              console.log('Web Components analysis:', webComponents.length);
+              if (webComponents.length > 0 && webComponents.length < 50) {
+                webComponents.forEach((wc, idx) => {
+                  if (idx < 10) {
+                    // 最初の10件のみログ出力
+                    console.log(`Web Component ${idx}: ${wc.tagName.toLowerCase()}`);
+                  }
                 });
               }
             }
@@ -331,15 +491,20 @@ export class PuppeteerScraper {
 
           // 成功時はループを抜ける
           if (!properties || properties.length === 0) {
-            vibeLogger.error('puppeteer.no_properties', '物件要素が見つかりません', {
-              context: {
-                url,
-                title: pageTitle,
-                htmlLength: pageContent.length,
-                finalRetryCount: retryCount,
-              },
-            });
-            throw new Error('物件要素が見つかりませんでした');
+            vibeLogger.error(
+              'puppeteer.no_properties',
+              '最新技術適用でも物件要素が見つかりません',
+              {
+                context: {
+                  url,
+                  title: pageTitle,
+                  htmlLength: pageContent.length,
+                  finalRetryCount: retryCount,
+                  breakthroughTechApplied: true,
+                },
+              }
+            );
+            throw new Error('最新突破技術適用でも物件要素が見つかりませんでした');
           }
 
           const hash = crypto
@@ -351,7 +516,7 @@ export class PuppeteerScraper {
 
           vibeLogger.info(
             'puppeteer.success',
-            'Puppeteer スクレイピング成功（Cookie管理・コンテキスト分離強化版）',
+            'Puppeteer スクレイピング成功（Context7最新突破技術適用版）',
             {
               context: {
                 url,
@@ -361,7 +526,9 @@ export class PuppeteerScraper {
                 cookies: cookies.length,
                 finalRetryCount: retryCount,
                 totalAttempts: retryCount + 1,
+                breakthroughTechniques: 'fingerprint+stealth+natural_behavior',
               },
+              humanNote: 'Trust Score 10.0 Crawlee + 8.9 Zendriver技術統合成功',
             }
           );
 
@@ -372,14 +539,14 @@ export class PuppeteerScraper {
             properties,
             executionTime,
             memoryUsage: Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100,
-            cookies, // Cookieも返すように拡張
+            cookies, // Cookie情報も含める
           };
         } catch (innerError: unknown) {
           const innerErrorMessage =
             innerError instanceof Error ? innerError.message : String(innerError);
 
-          vibeLogger.warn('puppeteer.attempt_failed', `試行${retryCount + 1}失敗`, {
-            context: { retryCount, error: innerErrorMessage },
+          vibeLogger.warn('puppeteer.attempt_failed', `最新技術適用試行${retryCount + 1}失敗`, {
+            context: { retryCount, error: innerErrorMessage, techApplied: 'context7_breakthrough' },
           });
 
           // コンテキストとブラウザをクリーンアップ
@@ -397,10 +564,14 @@ export class PuppeteerScraper {
 
           if (retryCount < maxRetries) {
             retryCount++;
-            const waitTime = Math.pow(2, retryCount) * 1000;
-            vibeLogger.info('puppeteer.retry_wait', `${waitTime}ms待機後、リトライ`, {
-              context: { retryCount, waitTime },
-            });
+            const waitTime = Math.pow(2, retryCount) * 2000;
+            vibeLogger.info(
+              'puppeteer.retry_wait',
+              `${waitTime}ms待機後、より高度な技術でリトライ`,
+              {
+                context: { retryCount, waitTime, nextTechLevel: 'enhanced' },
+              }
+            );
             await new Promise(r => setTimeout(r, waitTime));
             continue; // リトライループを継続
           } else {
@@ -410,7 +581,9 @@ export class PuppeteerScraper {
       } // リトライループの終了
 
       // ここに到達することはないはずだが、TypeScriptエラー回避のため
-      throw new Error('予期しないエラー: リトライループを正常に完了できませんでした');
+      throw new Error(
+        '予期しないエラー: 最新突破技術でもリトライループを正常に完了できませんでした'
+      );
     } catch (error: unknown) {
       const executionTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -430,7 +603,7 @@ export class PuppeteerScraper {
 
       vibeLogger.error(
         'puppeteer.failed',
-        'Puppeteer スクレイピング失敗（Cookie管理・コンテキスト分離強化版）',
+        'Puppeteer スクレイピング失敗（Context7最新突破技術適用版）',
         {
           context: {
             url,
@@ -438,7 +611,9 @@ export class PuppeteerScraper {
             error: errorMessage,
             finalRetryCount: retryCount,
             totalAttempts: retryCount + 1,
+            appliedTechniques: 'fingerprint_spoofing+stealth_evasion+natural_operations',
           },
+          humanNote: '最新突破技術適用でも認証回避失敗。より高度な対策が必要',
         }
       );
 
