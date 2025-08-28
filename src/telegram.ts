@@ -375,6 +375,19 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
       });
     });
 
+    // 受信メッセージの観測ログ（診断用）
+    this.bot.on('message:text', ctx => {
+      try {
+        const text = ctx.message?.text ?? '';
+        const chat = ctx.chat?.type ?? 'unknown';
+        vibeLogger.debug('telegram.update_received', 'テキストメッセージ受信', {
+          context: { text, chat, from: ctx.from?.id },
+        });
+      } catch {
+        // 何もしない（観測のみ）
+      }
+    });
+
     // /status - 現在の監視状況
     this.bot.command('status', async ctx => {
       try {
@@ -485,6 +498,24 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
       ].join('\n');
       await ctx.reply(message, { parse_mode: 'HTML' });
     });
+
+    // 不明コマンド対応（先に定義したコマンドにマッチしない場合）
+    this.bot.on('message:text', async ctx => {
+      const text = ctx.message?.text ?? '';
+      if (text.startsWith('/')) {
+        const known = ['/status', '/stats', '/check', '/help', '/start'];
+        const name = (text.split(' ')[0] ?? '').trim();
+        if (!known.includes(name)) {
+          const msg = [
+            '❓ 不明なコマンドです。',
+            '',
+            '利用可能なコマンド:',
+            '/status, /stats, /check, /help, /start',
+          ].join('\n');
+          await ctx.reply(msg, { parse_mode: 'HTML' });
+        }
+      }
+    });
   }
 
   /**
@@ -527,6 +558,21 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
           context: { attempt },
         });
         this.running = true;
+        // 利便性向上: コマンド候補をTelegram側に登録
+        try {
+          await this.bot.api.setMyCommands([
+            { command: 'status', description: '現在の監視状況を表示' },
+            { command: 'stats', description: '詳細な統計情報を表示' },
+            { command: 'check', description: '手動でチェックを実行' },
+            { command: 'help', description: 'コマンド一覧を表示' },
+            { command: 'start', description: 'Botの使い方ガイド' },
+          ]);
+          vibeLogger.info('telegram.commands_set', 'Botコマンドを登録しました');
+        } catch (e) {
+          vibeLogger.warn('telegram.commands_set_failed', 'Botコマンド登録に失敗しました', {
+            context: { error: e instanceof Error ? e.message : String(e) },
+          });
+        }
         return;
       } catch (error) {
         lastError = error;
