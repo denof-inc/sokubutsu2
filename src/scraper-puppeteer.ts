@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import type { Browser } from 'puppeteer';
+import type { Browser, Page } from 'puppeteer';
 import { ScrapingResult, PropertyInfo } from './types.js';
 import { vibeLogger } from './logger.js';
 import * as crypto from 'crypto';
@@ -29,6 +29,21 @@ export class PuppeteerScraper {
   private readonly timeout = 60000; // 60秒タイムアウト
 
   /**
+   * Headless 環境での Input.dispatchMouseEvent 内部エラーを回避するため、
+   * マウス移動は try/catch で握り潰して継続する。
+   */
+  private async safeMouseMove(page: Page, x: number, y: number): Promise<void> {
+    try {
+      await page.mouse.move(x, y);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      vibeLogger.warn('puppeteer.mouse_move_skipped', 'Headless環境でのmouse.moveをスキップ', {
+        context: { x, y, error: msg },
+      });
+    }
+  }
+
+  /**
    * Cookie管理とコンテキスト分離による認証回避を実装
    * 各段階でCookieクリアを行い、認証検知時はリトライロジックを実行
    */
@@ -51,7 +66,7 @@ export class PuppeteerScraper {
       // リトライループの開始
       while (retryCount <= maxRetries) {
         try {
-          browser = (await puppeteer.launch({
+          browser = await puppeteer.launch({
             headless: true,
             args: [
               '--no-sandbox',
@@ -77,7 +92,7 @@ export class PuppeteerScraper {
               '--disable-features=TranslateUI,BlinkGenPropertyTrees',
             ],
             protocolTimeout: 120000, // Context7推奨: 2分に増加
-          }));
+          });
 
           // 独立したブラウザコンテキストを作成（正しいメソッド使用）
           const context = await browser.createBrowserContext();
@@ -189,9 +204,9 @@ export class PuppeteerScraper {
             hasTouch: false,
           });
 
-          // ページタイムアウト設定（Context7推奨: より長い待機時間）
-          page.setDefaultTimeout(30000);
-          page.setDefaultNavigationTimeout(30000);
+          // ページタイムアウト設定（60秒に延長）
+          page.setDefaultTimeout(this.timeout);
+          page.setDefaultNavigationTimeout(this.timeout);
 
           vibeLogger.info(
             'puppeteer.context_created',
@@ -202,45 +217,52 @@ export class PuppeteerScraper {
           );
 
           // Context7調査: 3段階アクセスパターン + 自然な操作
-          vibeLogger.info(
-            'puppeteer.step1',
-            'ステップ1: 高度Stealth機能でbot.sannysoft.comテスト',
-            { context: { retryCount } }
-          );
-
-          // Cookie完全削除
+          // 初回試行時のみウォームアップ（bot.sannysoft → Google）を実施
           const client = await page.target().createCDPSession();
-          await client.send('Network.clearBrowserCookies');
-          await client.send('Network.clearBrowserCache');
+          if (retryCount === 0) {
+            vibeLogger.info(
+              'puppeteer.step1',
+              'ステップ1: 高度Stealth機能でbot.sannysoft.comテスト（初回のみ）',
+              { context: { retryCount } }
+            );
 
-          await page.goto('https://bot.sannysoft.com', {
-            waitUntil: 'domcontentloaded',
-            timeout: 20000,
-          });
+            // Cookie完全削除
+            await client.send('Network.clearBrowserCookies');
+            await client.send('Network.clearBrowserCache');
 
-          // Context7推奨: 自然なマウス移動・スクロール操作
-          await page.mouse.move(100, 100);
-          await new Promise(r => setTimeout(r, 1000));
-          await page.mouse.move(500, 300);
-          await page.evaluate(() => window.scrollTo(0, 100));
-          await new Promise(r => setTimeout(r, 2000));
+            await page.goto('https://bot.sannysoft.com', {
+              waitUntil: 'domcontentloaded',
+              timeout: this.timeout,
+            });
 
-          vibeLogger.info('puppeteer.step2', 'ステップ2: Google経由でFingerprint偽装を維持', {
-            context: { retryCount },
-          });
+            // 軽いスクロールのみ（mouse.moveは安全化済）
+            await this.safeMouseMove(page, 100, 100);
+            await new Promise(r => setTimeout(r, 800));
+            await this.safeMouseMove(page, 500, 300);
+            await page.evaluate(() => window.scrollTo(0, 100));
+            await new Promise(r => setTimeout(r, 1200));
 
-          // Google前にもCookie削除
-          await client.send('Network.clearBrowserCookies');
+            vibeLogger.info(
+              'puppeteer.step2',
+              'ステップ2: Google経由でFingerprint偽装を維持（初回のみ）',
+              {
+                context: { retryCount },
+              }
+            );
 
-          await page.goto('https://www.google.com', {
-            waitUntil: 'domcontentloaded',
-            timeout: 20000,
-          });
+            // Google前にもCookie削除
+            await client.send('Network.clearBrowserCookies');
 
-          // Google上で自然な操作パターン
-          await page.mouse.move(200, 200);
-          await page.evaluate(() => window.scrollTo(0, 50));
-          await new Promise(r => setTimeout(r, 2500));
+            await page.goto('https://www.google.com', {
+              waitUntil: 'domcontentloaded',
+              timeout: this.timeout,
+            });
+
+            // Google上で軽い操作
+            await this.safeMouseMove(page, 200, 200);
+            await page.evaluate(() => window.scrollTo(0, 50));
+            await new Promise(r => setTimeout(r, 1200));
+          }
 
           vibeLogger.info('puppeteer.step3', 'ステップ3: 強化された偽装でアットホームアクセス', {
             context: { url, retryCount },
@@ -249,11 +271,11 @@ export class PuppeteerScraper {
           // アットホーム前はCookieをそのまま維持（Google経由の自然性を保持）
           await page.goto(url, {
             waitUntil: 'domcontentloaded',
-            timeout: 30000,
+            timeout: this.timeout,
           });
 
           // アットホーム上でも自然な操作
-          await page.mouse.move(300, 400);
+          await this.safeMouseMove(page, 300, 400);
           await page.evaluate(() => window.scrollTo(0, 200));
           await new Promise(r => setTimeout(r, 3000));
 
@@ -283,7 +305,7 @@ export class PuppeteerScraper {
               retryCount++;
 
               // Context7推奨: より長い指数バックオフ待機
-              const waitTime = Math.pow(2, retryCount) * 3000; // 3秒ベース
+              const waitTime = Math.pow(2, retryCount) * 1500; // 1.5秒ベースに短縮
               await new Promise(r => setTimeout(r, waitTime));
 
               continue; // リトライループを継続
@@ -564,7 +586,7 @@ export class PuppeteerScraper {
 
           if (retryCount < maxRetries) {
             retryCount++;
-            const waitTime = Math.pow(2, retryCount) * 2000;
+            const waitTime = Math.pow(2, retryCount) * 1500; // 1.5秒ベースに短縮
             vibeLogger.info(
               'puppeteer.retry_wait',
               `${waitTime}ms待機後、より高度な技術でリトライ`,
