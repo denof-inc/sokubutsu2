@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schemas.anthropic.com/claude/mcp.json",
+  "mcpServers": {
+    "cipher": {
+      "command": "scripts/start-cipher-mcp.sh",
+      "args": []
+    }
+  }
+}
