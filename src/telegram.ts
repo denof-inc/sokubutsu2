@@ -1,4 +1,4 @@
-import { Telegraf } from 'telegraf';
+import { Bot } from 'grammy';
 import { NotificationData, Statistics, UrlStatistics } from './types.js';
 import { vibeLogger } from './logger.js';
 import { config } from './config.js';
@@ -21,13 +21,38 @@ import { config } from './config.js';
  * - 統計レポート定期送信
  * - リトライ機能付きメッセージ送信
  */
+interface IMonitoringScheduler {
+  getStatus(): Promise<{
+    isRunning: boolean;
+    urlCount: number;
+    lastCheck: Date | null;
+    totalChecks: number;
+    successRate: number;
+  }>;
+  getStatistics(): {
+    totalChecks: number;
+    errors: number;
+    newListings: number;
+    lastCheck: Date;
+    averageExecutionTime: number;
+    successRate: number;
+  };
+  runManualCheck(): Promise<{
+    urlCount: number;
+    successCount: number;
+    errorCount: number;
+    newPropertyCount: number;
+    executionTime: number;
+  }>;
+}
+
 export class TelegramNotifier {
-  private readonly bot: Telegraf;
+  private readonly bot: Bot;
   private readonly chatId: string;
   private readonly maxRetries = 3;
 
   constructor(botToken: string, chatId: string) {
-    this.bot = new Telegraf(botToken);
+    this.bot = new Bot(botToken);
     this.chatId = chatId;
   }
 
@@ -249,7 +274,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
    */
   async sendMessage(message: string, retryCount = 0): Promise<void> {
     try {
-      await this.bot.telegram.sendMessage(this.chatId, message, {
+      await this.bot.api.sendMessage(this.chatId, message, {
         parse_mode: 'HTML',
         link_preview_options: {
           is_disabled: true,
@@ -302,7 +327,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
    */
   async testConnection(): Promise<boolean> {
     try {
-      await this.bot.telegram.getMe();
+      await this.bot.api.getMe();
       return true;
     } catch {
       return false;
@@ -314,7 +339,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
    */
   async getBotInfo(): Promise<{ id: number; username: string; firstName: string }> {
     try {
-      const me = await this.bot.telegram.getMe();
+      const me = await this.bot.api.getMe();
       return {
         id: me.id,
         username: me.username || 'unknown',
@@ -337,13 +362,13 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
   /**
    * コマンドハンドラーの設定
    */
-  setupCommandHandlers(scheduler: any): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setupCommandHandlers(scheduler: IMonitoringScheduler): void {
     // Bot全体のエラーハンドリング（予期せぬ例外の可視化）
-    this.bot.catch((err, ctx) => {
+    this.bot.catch(err => {
       const errorMsg = err instanceof Error ? err.message : String(err);
       vibeLogger.error('telegram.global_error', 'Telegramハンドラ内で未処理エラー', {
         context: {
-          updateId: (ctx && (ctx as any).update?.update_id) || 'unknown',
           error: errorMsg,
         },
       });
@@ -375,7 +400,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
     // /stats - 統計情報表示
     this.bot.command('stats', async ctx => {
       try {
-        const stats = await scheduler.getStatistics();
+        const stats = scheduler.getStatistics();
         const message = [
           '📈 統計情報',
           '',
@@ -473,7 +498,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
 
     // Webhookが残っているとPollingが無音になるため、念のため解除
     try {
-      await this.bot.telegram.deleteWebhook({ drop_pending_updates: false });
+      await this.bot.api.deleteWebhook({ drop_pending_updates: false });
       vibeLogger.info('telegram.webhook_deleted', 'Webhook解除完了（Polling前初期化）');
     } catch (e) {
       // 解除に失敗しても続行（ログのみ）
@@ -484,7 +509,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
 
     // 起動前の疎通確認
     try {
-      await this.bot.telegram.getMe();
+      await this.bot.api.getMe();
       vibeLogger.info('telegram.prelaunch_ok', '起動前疎通確認OK');
     } catch (e) {
       vibeLogger.error('telegram.prelaunch_failed', '起動前疎通確認に失敗', {
@@ -496,7 +521,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
     while (attempt < maxAttempts) {
       attempt++;
       try {
-        await this.bot.launch();
+        await this.bot.start();
         vibeLogger.info('telegram.bot_launched', 'Telegram Bot起動完了', {
           context: { attempt },
         });
@@ -524,9 +549,9 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
   /**
    * Botを停止
    */
-  stopBot(): void {
+  async stopBot(): Promise<void> {
     try {
-      this.bot.stop();
+      await this.bot.stop();
     } catch (e) {
       vibeLogger.warn('telegram.bot_stop_error', 'Telegram Bot停止時に警告', {
         context: { error: e instanceof Error ? e.message : String(e) },

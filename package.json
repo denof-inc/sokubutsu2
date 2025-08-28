@@ -30,7 +30,11 @@
     "docker:run": "docker-compose up -d",
     "docker:stop": "docker-compose down",
     "clean": "rm -rf dist coverage *.log",
-    "prepare": "husky"
+    "prepare": "husky",
+    "mcp:cipher": "node dist/mcp/cipher-mcp-server.js --stdio",
+    "mcp:cipher:dev": "node --import tsx --no-warnings src/mcp/cipher-mcp-server.ts --stdio",
+    "build:mcp": "tsc -p tsconfig.json",
+    "mcp:cipher:run": "bash scripts/cipher-mcp.sh"
   },
   "dependencies": {
     "@types/better-sqlite3": "^7.6.13",
@@ -42,6 +46,7 @@
     "dotenv": "^17.2.1",
     "ejs": "^3.1.10",
     "express": "^5.1.0",
+    "grammy": "^1.38.1",
     "node-cron": "^3.0.3",
     "node-fetch": "^2.7.0",
     "puppeteer": "^24.16.0",

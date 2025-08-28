@@ -1059,7 +1059,14 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
   /**
    * 統計情報を取得（Telegram /stats 用）
    */
-  getStatistics(): import('./types.js').Statistics {
+  getStatistics(): {
+    totalChecks: number;
+    errors: number;
+    newListings: number;
+    lastCheck: Date;
+    averageExecutionTime: number;
+    successRate: number;
+  } {
     const monitoringStats = this.propertyMonitor.getMonitoringStatistics();
     const denom = this.aggregate.successCount + this.aggregate.errorCount;
     const successRate = denom > 0 ? (this.aggregate.successCount / denom) * 100 : 0;
@@ -1072,9 +1079,93 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
       totalChecks: this.aggregate.totalChecks,
       errors: this.aggregate.errorCount,
       newListings: monitoringStats.newPropertyDetections,
-      lastCheck: this.aggregate.lastCheck || monitoringStats.lastCheckAt || new Date(),
+      lastCheck: this.aggregate.lastCheck ?? monitoringStats.lastCheckAt ?? new Date(),
       averageExecutionTime: Number(avgExecSec.toFixed(2)),
       successRate: Number(successRate.toFixed(2)),
+    };
+  }
+
+  async runManualCheck(): Promise<{
+    urlCount: number;
+    successCount: number;
+    errorCount: number;
+    newPropertyCount: number;
+    executionTime: number;
+  }> {
+    const startTime = Date.now();
+
+    vibeLogger.info('monitoring.multi_user_manual_check_start', '全ユーザー手動チェック開始', {
+      context: {},
+    });
+
+    let totalUrlCount = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    let newPropertyCount = 0;
+
+    try {
+      // 全ユーザーのURLを取得して監視実行
+      const allUsers = await this.userService.getAllUsers();
+
+      for (const user of allUsers) {
+        const userUrls = await this.userService.getUserUrls(user.id);
+        totalUrlCount += userUrls.length;
+
+        for (const userUrl of userUrls) {
+          try {
+            const result = await this.scraper.scrapeAthome(userUrl.url);
+            if (result.success) {
+              successCount++;
+
+              // 新着物件チェック
+              const detectionResult = this.propertyMonitor.detectNewProperties(
+                result.properties || []
+              );
+              if (detectionResult.hasNewProperty) {
+                newPropertyCount += detectionResult.newPropertyCount;
+              }
+            } else {
+              errorCount++;
+            }
+          } catch (error) {
+            errorCount++;
+            vibeLogger.error('monitoring.multi_user_manual_check_error', '手動チェックエラー', {
+              context: {
+                url: userUrl.url,
+                userId: user.id,
+                error: error instanceof Error ? error.message : String(error),
+              },
+            });
+          }
+        }
+      }
+    } catch (error) {
+      vibeLogger.error('monitoring.multi_user_manual_check_fatal', '手動チェック致命的エラー', {
+        context: {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+      errorCount = totalUrlCount; // 全て失敗とみなす
+    }
+
+    const executionTime = Date.now() - startTime;
+
+    vibeLogger.info('monitoring.multi_user_manual_check_complete', '全ユーザー手動チェック完了', {
+      context: {
+        urlCount: totalUrlCount,
+        successCount,
+        errorCount,
+        newPropertyCount,
+        executionTime,
+      },
+    });
+
+    return {
+      urlCount: totalUrlCount,
+      successCount,
+      errorCount,
+      newPropertyCount,
+      executionTime,
     };
   }
 
