@@ -1,20 +1,30 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { NotificationData, Statistics, UrlStatistics } from '../types.js';
 
-// モック関数を作成
+// grammy Bot のモック関数を作成
 const mockGetMe = jest.fn<() => Promise<any>>();
 const mockSendMessage = jest.fn<() => Promise<any>>();
+const mockDeleteWebhook = jest.fn<() => Promise<any>>();
+const mockStart = jest.fn<() => Promise<void>>();
+const mockStop = jest.fn<() => Promise<void>>();
+const mockCommand = jest.fn<(name: string, handler: (ctx: any) => any) => void>();
+const mockCatch = jest.fn();
 
-const mockTelegraf = jest.fn(() => ({
-  telegram: {
+const MockBot = jest.fn(() => ({
+  api: {
     getMe: mockGetMe,
     sendMessage: mockSendMessage,
+    deleteWebhook: mockDeleteWebhook,
   },
+  start: mockStart,
+  stop: mockStop,
+  command: mockCommand,
+  catch: mockCatch,
 }));
 
-// Telegrafのモック
-jest.unstable_mockModule('telegraf', () => ({
-  Telegraf: mockTelegraf,
+// grammy のモック
+jest.unstable_mockModule('grammy', () => ({
+  Bot: MockBot,
 }));
 
 // モックの後でインポート

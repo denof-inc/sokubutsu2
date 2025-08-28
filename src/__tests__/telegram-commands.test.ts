@@ -28,30 +28,30 @@ interface IMonitoringScheduler {
 // コマンド登録を捕捉するレジストリ
 const registeredCommands: Record<string, (ctx: any) => any> = {};
 
-// Telegrafモック
+// grammy Botモック
 const mockGetMe = jest.fn<() => Promise<any>>();
 const mockSendMessage = jest.fn<() => Promise<any>>();
-const mockLaunch = jest.fn<() => Promise<void>>();
+const mockStart = jest.fn<() => Promise<void>>();
 const mockStop = jest.fn<() => void>();
 const mockCommand = jest.fn((name: string, handler: (ctx: any) => any) => {
   registeredCommands[name] = handler;
 });
 const mockCatch = jest.fn();
 
-const mockTelegraf = jest.fn(() => ({
-  telegram: {
+const MockBot = jest.fn(() => ({
+  api: {
     getMe: mockGetMe,
     sendMessage: mockSendMessage,
   },
   command: mockCommand,
   catch: mockCatch,
-  launch: mockLaunch,
+  start: mockStart,
   stop: mockStop,
 }));
 
-// telegrafをモック
-jest.unstable_mockModule('telegraf', () => ({
-  Telegraf: mockTelegraf,
+// grammyをモック
+jest.unstable_mockModule('grammy', () => ({
+  Bot: MockBot,
 }));
 
 // モック後に対象を動的インポート
@@ -69,7 +69,7 @@ describe('TelegramNotifier command handlers', () => {
       username: 'bot_test',
     });
     mockSendMessage.mockResolvedValue({ ok: true });
-    mockLaunch.mockResolvedValue();
+    mockStart.mockResolvedValue();
   });
 
   it('registers and responds to basic commands', async () => {

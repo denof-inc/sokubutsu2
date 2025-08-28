@@ -1,20 +1,24 @@
 import { jest } from '@jest/globals';
 import { UrlStatistics } from '../types.js';
 
-// Telegrafのモック関数を作成
+// grammy Botのモック関数を作成
 const mockSendMessage = jest.fn<(chatId: string, text: string, options?: any) => Promise<any>>();
 const mockGetMe = jest.fn<() => Promise<any>>();
 
-const mockTelegraf = jest.fn(() => ({
-  telegram: {
+const MockBot = jest.fn(() => ({
+  api: {
     sendMessage: mockSendMessage,
     getMe: mockGetMe,
   },
+  start: jest.fn(),
+  stop: jest.fn(),
+  command: jest.fn(),
+  catch: jest.fn(),
 }));
 
-// Telegrafのモック
-jest.unstable_mockModule('telegraf', () => ({
-  Telegraf: mockTelegraf,
+// grammyのモック
+jest.unstable_mockModule('grammy', () => ({
+  Bot: MockBot,
 }));
 
 // vibeLoggerのモック
@@ -33,24 +37,24 @@ const { vibeLogger } = await import('../logger.js');
 
 describe('TelegramNotifier - URL別レポート機能', () => {
   let notifier: InstanceType<typeof TelegramNotifier>;
-  
+
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // デフォルトのモック設定
     mockSendMessage.mockResolvedValue({
       message_id: 123,
       date: Date.now(),
       chat: { id: 'test-chat-id', type: 'private' },
-      text: 'Test message'
+      text: 'Test message',
     });
-    mockGetMe.mockResolvedValue({ 
-      id: 1, 
-      is_bot: true, 
+    mockGetMe.mockResolvedValue({
+      id: 1,
+      is_bot: true,
       first_name: 'Test Bot',
-      username: 'test_bot' 
+      username: 'test_bot',
     });
-    
+
     notifier = new TelegramNotifier('test-token', 'test-chat-id');
   });
 
@@ -65,12 +69,12 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       averageExecutionTime: 3.5,
       hasNewProperty: false,
       newPropertyCount: 0,
-      lastNewProperty: null
+      lastNewProperty: null,
     };
 
     it('URL別サマリーレポートを送信できる', async () => {
       await notifier.sendUrlSummaryReport(baseUrlStats);
-      
+
       expect(mockSendMessage).toHaveBeenCalledWith(
         'test-chat-id',
         expect.stringContaining('📊 <b>1時間サマリー</b>'),
@@ -80,9 +84,9 @@ describe('TelegramNotifier - URL別レポート機能', () => {
 
     it('新着なしの場合のレポート形式が正しい', async () => {
       await notifier.sendUrlSummaryReport(baseUrlStats);
-      
+
       const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
-      
+
       // 必要な情報が含まれていることを確認
       expect(sentMessage).toContain('tokyo');
       expect(sentMessage).toContain('チェック回数: 12回');
@@ -95,13 +99,13 @@ describe('TelegramNotifier - URL別レポート機能', () => {
         ...baseUrlStats,
         hasNewProperty: true,
         newPropertyCount: 3,
-        lastNewProperty: new Date('2025-01-09T12:30:00Z')
+        lastNewProperty: new Date('2025-01-09T12:30:00Z'),
       };
-      
+
       await notifier.sendUrlSummaryReport(statsWithNew);
-      
+
       const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
-      
+
       // 新着情報が含まれていることを確認
       expect(sentMessage).toContain('新着総数: 3件');
     });
@@ -110,17 +114,17 @@ describe('TelegramNotifier - URL別レポート機能', () => {
       const testCases = [
         { url: 'https://www.athome.co.jp/chintai/tokyo/list/', expected: 'tokyo' },
         { url: 'https://www.athome.co.jp/chintai/osaka/list/', expected: 'osaka' },
-        { url: 'https://www.athome.co.jp/buy_other/hiroshima/list/', expected: 'hiroshima' }
+        { url: 'https://www.athome.co.jp/buy_other/hiroshima/list/', expected: 'hiroshima' },
       ];
-      
+
       for (const testCase of testCases) {
         mockSendMessage.mockClear();
-        
+
         await notifier.sendUrlSummaryReport({
           ...baseUrlStats,
-          url: testCase.url
+          url: testCase.url,
         });
-        
+
         const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
         expect(sentMessage).toContain(testCase.expected);
       }
@@ -132,11 +136,11 @@ describe('TelegramNotifier - URL別レポート機能', () => {
         totalChecks: 10,
         successCount: 3,
         errorCount: 7,
-        successRate: 30
+        successRate: 30,
       };
-      
+
       await notifier.sendUrlSummaryReport(highErrorStats);
-      
+
       const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
       // 新フォーマットではエラー率の警告は削除されたため、この確認は不要
       // 代わりに基本的な情報が含まれることを確認
@@ -145,11 +149,11 @@ describe('TelegramNotifier - URL別レポート機能', () => {
 
     it('送信エラーが発生した場合ログに記録する', async () => {
       mockSendMessage.mockRejectedValueOnce(new Error('Network error'));
-      
+
       // sendUrlSummaryReportはエラーを内部で処理してログに記録するため、
       // エラーを投げずに正常終了する
       await notifier.sendUrlSummaryReport(baseUrlStats);
-      
+
       const logError = vibeLogger.error as jest.Mock;
       expect(logError).toHaveBeenCalledWith(
         expect.stringContaining('telegram'),
@@ -160,16 +164,16 @@ describe('TelegramNotifier - URL別レポート機能', () => {
 
     it('複数のURLレポートを連続送信できる', async () => {
       const urls = ['tokyo', 'osaka', 'kyoto'];
-      
+
       for (const city of urls) {
         await notifier.sendUrlSummaryReport({
           ...baseUrlStats,
-          url: `https://www.athome.co.jp/chintai/${city}/list/`
+          url: `https://www.athome.co.jp/chintai/${city}/list/`,
         });
       }
-      
+
       expect(mockSendMessage).toHaveBeenCalledTimes(3);
-      
+
       // 各メッセージが異なるURLの情報を含むことを確認
       urls.forEach((city, index) => {
         const sentMessage = mockSendMessage.mock.calls[index]?.[1] ?? '';
@@ -190,21 +194,21 @@ describe('TelegramNotifier - URL別レポート機能', () => {
         averageExecutionTime: 2.8,
         hasNewProperty: true,
         newPropertyCount: 2,
-        lastNewProperty: new Date()
+        lastNewProperty: new Date(),
       };
-      
+
       await notifier.sendUrlSummaryReport(urlStats);
-      
+
       const sentMessage = mockSendMessage.mock.calls[0]?.[1] ?? '';
-      
+
       // RFP要件: URLごとのサマリーレポート
       expect(sentMessage).toContain('1時間サマリー');
       expect(sentMessage).toContain(urlStats.name);
-      
+
       // 統計情報の表示
       expect(sentMessage).toMatch(/チェック回数.*12回/);
       expect(sentMessage).toMatch(/成功率.*91\.7%/);
-      
+
       // 新着情報の表示
       expect(sentMessage).toMatch(/新着.*2件/);
     });
