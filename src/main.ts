@@ -100,44 +100,25 @@ async function main(): Promise<void> {
       telegram.setupCommandHandlers(scheduler);
       console.log('✅ Telegramコマンドハンドラー設定完了');
 
-      // 監視システムを先に起動（Telegram Botの起動を待たない）
-      console.log('🔄 監視スケジューラー起動開始...');
-      await scheduler.start();
-      console.log('✅ 監視スケジューラー起動完了');
+      // Webhookモード
+      const webhookPath = '/telegram/webhook';
+      const publicUrl = config.admin?.publicUrl;
+      if (!publicUrl) {
+        throw new Error(
+          'ADMIN_PUBLIC_URL (config.admin.publicUrl) が未設定のため、Webhook URL を生成できません'
+        );
+      }
+      const webhookUrl = `${publicUrl.replace(/\/$/, '')}${webhookPath}`;
+      adminServer.registerPost(webhookPath, telegram.getWebhookHandler());
+      await telegram.setWebhook(webhookUrl, true);
+      console.log(`🔗 Telegram Webhook を設定しました: ${webhookUrl}`);
 
-      console.log('✅ マルチユーザー監視を開始しました。5分間隔で実行されます。');
-      console.log('📊 ユーザー別統計レポートは1時間ごとに送信されます。');
-      console.log('🛑 停止するには Ctrl+C を押してください。');
-
-      // Telegram Botを非同期で起動（監視システムをブロックしない）
-      console.log('🤖 Telegram Bot起動開始（非同期）...');
-      const launchOnce = () =>
-        void telegram
-          .launchBot()
-          .then(() => {
-            console.log('✅ Telegram Bot起動完了');
-            console.log('🤖 Telegram Botマルチユーザーコマンドが利用可能です。');
-            vibeLogger.info('telegram.bot_started_async', 'Telegram Bot非同期起動完了');
-          })
-          .catch(error => {
-            console.log('⚠️  Telegram Bot起動失敗（監視は継続）');
-            vibeLogger.error('telegram.bot_start_failed', 'Telegram Bot起動失敗', {
-              context: { error: error instanceof Error ? error.message : String(error) },
-              humanNote: '監視システムは正常に稼働中、Telegram Botのみ利用不可',
-            });
-          });
-
-      // 初回起動試行
-      launchOnce();
-
-      // 起動失敗時のリランチャ（60秒ごと、起動済みならスキップ）
-      setInterval(() => {
-        if (!telegram.isRunning()) {
-          vibeLogger.info('telegram.relaunch_scheduled', 'Bot未起動のため再起動を試行します');
-          // 明示的にvoidで浮動Promiseを抑制
-          void launchOnce();
-        }
-      }, 60000);
+      // スケジューラーは非同期で起動（コマンドとの疎結合を確保）
+      console.log('🔄 監視スケジューラー起動開始...（非同期）');
+      void scheduler.start();
+      console.log(
+        '✅ 監視スケジューラー起動要求を送信しました（初回チェックはバックグラウンドで実行）'
+      );
 
       console.log();
 

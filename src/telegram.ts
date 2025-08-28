@@ -1,4 +1,5 @@
-import { Bot } from 'grammy';
+import { Bot, webhookCallback } from 'grammy';
+import type { RequestHandler } from 'express';
 import { NotificationData, Statistics, UrlStatistics } from './types.js';
 import { vibeLogger } from './logger.js';
 import { config } from './config.js';
@@ -700,5 +701,21 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
 
   isRunning(): boolean {
     return this.running;
+  }
+
+  // Webhookモード: Express用ハンドラを返す
+  getWebhookHandler(): RequestHandler {
+    return webhookCallback(this.bot, 'express');
+  }
+
+  // Webhook設定
+  async setWebhook(url: string, dropPending = true): Promise<void> {
+    await this.bot.api.setWebhook(url, { drop_pending_updates: dropPending });
+    vibeLogger.info('telegram.webhook_set', 'Webhookを設定しました', { context: { url } });
+  }
+
+  async deleteWebhook(): Promise<void> {
+    await this.bot.api.deleteWebhook({ drop_pending_updates: false });
+    vibeLogger.info('telegram.webhook_deleted', 'Webhook解除完了');
   }
 }

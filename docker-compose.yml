@@ -13,10 +13,9 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
-    # ポート公開は今回必須ではないため一時的に無効化（Telegramは外向き通信のみ）
-    # ports:
-    #   - '3005:3000'
-    # - '3001:3001'  # 管理画面（ホストで競合時は一時的に無効化）
+    # Webhook受信のため管理画面ポートを公開
+    ports:
+      - '3002:3002'
     healthcheck:
       test: ['CMD', 'node', '-e', "console.log('Health check passed')"]
       interval: 30s

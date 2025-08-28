@@ -157,7 +157,7 @@ docker-compose restart
 - CPU制限: 0.5コア
 - ログローテーション: 10MB × 3ファイル
 
-## 📱 Telegram Bot設定
+## 📱 Telegram Bot設定（Webhook）
 
 ### 1. Bot作成
 1. [@BotFather](https://t.me/BotFather) にアクセス
@@ -168,6 +168,22 @@ docker-compose restart
 1. 作成したBotに何かメッセージを送信
 2. `https://api.telegram.org/bot<BOT_TOKEN>/getUpdates` にアクセス
 3. `chat.id` を確認
+
+### 3. Webhook用公開URLを設定
+
+`.env` に以下を追加します（HTTPS必須）。
+
+```
+ADMIN_PUBLIC_URL=https://your-domain.example.com
+```
+
+本リポジトリは管理画面サーバー（Express）に `/telegram/webhook` を自動登録し、起動時に Telegram API へ Webhook URL を設定します。
+
+Webhook URL 例: `https://your-domain.example.com/telegram/webhook`
+
+Docker では `3002:3002` を公開しているため、リバースプロキシ等で上記URLにルーティングしてください。
+
+注意: 旧ロングポーリング実装（`bot.start()`）は使用しません。
 
 ## 🔧 トラブルシューティング
 

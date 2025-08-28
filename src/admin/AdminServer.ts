@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { type RequestHandler } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { UserService } from '../services/UserService.js';
@@ -106,5 +106,10 @@ export class AdminServer {
         context: { port },
       });
     });
+  }
+
+  // Webhookなど外部からのハンドラ登録用
+  registerPost(path: string, handler: RequestHandler): void {
+    this.app.post(path, handler);
   }
 }
