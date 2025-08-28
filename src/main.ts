@@ -111,20 +111,33 @@ async function main(): Promise<void> {
 
       // Telegram Botを非同期で起動（監視システムをブロックしない）
       console.log('🤖 Telegram Bot起動開始（非同期）...');
-      telegram
-        .launchBot()
-        .then(() => {
-          console.log('✅ Telegram Bot起動完了');
-          console.log('🤖 Telegram Botマルチユーザーコマンドが利用可能です。');
-          vibeLogger.info('telegram.bot_started_async', 'Telegram Bot非同期起動完了');
-        })
-        .catch(error => {
-          console.log('⚠️  Telegram Bot起動失敗（監視は継続）');
-          vibeLogger.error('telegram.bot_start_failed', 'Telegram Bot起動失敗', {
-            context: { error: error instanceof Error ? error.message : String(error) },
-            humanNote: '監視システムは正常に稼働中、Telegram Botのみ利用不可',
+      const launchOnce = () =>
+        void telegram
+          .launchBot()
+          .then(() => {
+            console.log('✅ Telegram Bot起動完了');
+            console.log('🤖 Telegram Botマルチユーザーコマンドが利用可能です。');
+            vibeLogger.info('telegram.bot_started_async', 'Telegram Bot非同期起動完了');
+          })
+          .catch(error => {
+            console.log('⚠️  Telegram Bot起動失敗（監視は継続）');
+            vibeLogger.error('telegram.bot_start_failed', 'Telegram Bot起動失敗', {
+              context: { error: error instanceof Error ? error.message : String(error) },
+              humanNote: '監視システムは正常に稼働中、Telegram Botのみ利用不可',
+            });
           });
-        });
+
+      // 初回起動試行
+      launchOnce();
+
+      // 起動失敗時のリランチャ（60秒ごと、起動済みならスキップ）
+      setInterval(() => {
+        if (!telegram.isRunning()) {
+          vibeLogger.info('telegram.relaunch_scheduled', 'Bot未起動のため再起動を試行します');
+          // 明示的にvoidで浮動Promiseを抑制
+          void launchOnce();
+        }
+      }, 60000);
 
       console.log();
 
@@ -232,11 +245,11 @@ function setupMultiUserGracefulShutdown(
     // 最終パフォーマンス指標表示
     performanceMonitor.displayMetrics();
 
-    // Telegram Botを停止
-    telegram.stopBot();
+    // Telegram Botを停止（明示的にvoid指定）
+    void telegram.stopBot();
 
     // マルチユーザースケジューラー停止
-    scheduler.stop();
+    void scheduler.stop();
 
     // データベース接続を閉じる
     if (AppDataSource.isInitialized) {

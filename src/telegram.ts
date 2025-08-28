@@ -50,6 +50,7 @@ export class TelegramNotifier {
   private readonly bot: Bot;
   private readonly chatId: string;
   private readonly maxRetries = 3;
+  private running = false;
 
   constructor(botToken: string, chatId: string) {
     this.bot = new Bot(botToken);
@@ -525,6 +526,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
         vibeLogger.info('telegram.bot_launched', 'Telegram Bot起動完了', {
           context: { attempt },
         });
+        this.running = true;
         return;
       } catch (error) {
         lastError = error;
@@ -558,5 +560,10 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
       });
     }
     vibeLogger.info('telegram.bot_stopped', 'Telegram Bot停止');
+    this.running = false;
+  }
+
+  isRunning(): boolean {
+    return this.running;
   }
 }
