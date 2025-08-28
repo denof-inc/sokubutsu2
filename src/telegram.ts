@@ -376,15 +376,104 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
     });
 
     // 受信メッセージの観測ログ（診断用）
-    this.bot.on('message:text', ctx => {
+    this.bot.on('message:text', async ctx => {
       try {
         const text = ctx.message?.text ?? '';
         const chat = ctx.chat?.type ?? 'unknown';
-        vibeLogger.debug('telegram.update_received', 'テキストメッセージ受信', {
+        vibeLogger.info('telegram.update_received', 'テキストメッセージ受信', {
           context: { text, chat, from: ctx.from?.id },
         });
+
+        // コマンド文字列を抽出（/cmd または /cmd@botname 形式に対応）
+        if (text.startsWith('/')) {
+          const raw = (text.split(' ')[0] ?? '').trim();
+          const name = raw.split('@')[0] ?? raw;
+          switch (name) {
+            case '/help': {
+              const message = [
+                '📚 利用可能なコマンド',
+                '',
+                '/status - 現在の監視状況を表示',
+                '/stats  - 詳細な統計情報を表示',
+                '/check  - 手動でチェックを実行',
+                '/help   - このヘルプメッセージを表示',
+              ].join('\n');
+              await ctx.reply(message, { parse_mode: 'HTML' });
+              vibeLogger.info('telegram.cmd_received', 'helpコマンドに応答しました');
+              return;
+            }
+            case '/status': {
+              try {
+                const status = await scheduler.getStatus();
+                const message = [
+                  '📊 監視状況',
+                  '',
+                  `⏱ 稼働状態: ${status.isRunning ? '✅ 稼働中' : '⏸ 停止中'}`,
+                  `📍 監視URL数: ${status.urlCount}件`,
+                  `⏰ 最終チェック: ${status.lastCheck ? new Date(String(status.lastCheck)).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : 'なし'}`,
+                  `📈 成功率: ${status.successRate}%`,
+                  `🧪 総チェック数: ${status.totalChecks}`,
+                ].join('\n');
+                await ctx.reply(message, { parse_mode: 'HTML' });
+                vibeLogger.info('telegram.cmd_received', 'statusコマンドに応答しました');
+              } catch (error) {
+                await ctx.reply('❌ ステータス取得に失敗しました');
+                vibeLogger.error('telegram.command.status_error', 'statusコマンドエラー', {
+                  context: { error: error instanceof Error ? error.message : String(error) },
+                });
+              }
+              return;
+            }
+            case '/stats': {
+              try {
+                const stats = scheduler.getStatistics();
+                const message = [
+                  '📈 統計情報',
+                  '',
+                  `総チェック数: ${stats.totalChecks}`,
+                  `エラー数: ${stats.errors}`,
+                  `新着検知: ${stats.newListings}`,
+                  `最終チェック: ${stats.lastCheck.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`,
+                  `平均実行時間: ${stats.averageExecutionTime.toFixed(1)}秒`,
+                  `成功率: ${stats.successRate}%`,
+                ].join('\n');
+                await ctx.reply(message, { parse_mode: 'HTML' });
+                vibeLogger.info('telegram.cmd_received', 'statsコマンドに応答しました');
+              } catch (error) {
+                await ctx.reply('❌ 統計取得に失敗しました');
+                vibeLogger.error('telegram.command.stats_error', 'statsコマンドエラー', {
+                  context: { error: error instanceof Error ? error.message : String(error) },
+                });
+              }
+              return;
+            }
+            case '/check': {
+              await ctx.reply('🔍 手動チェックを開始します...');
+              try {
+                const result = await scheduler.runManualCheck();
+                const message = [
+                  '✅ 手動チェック完了',
+                  '',
+                  `  • チェックしたURL: ${result.urlCount}件`,
+                  `  • 成功: ${result.successCount}件`,
+                  `  • エラー: ${result.errorCount}件`,
+                  `  • 新着検知: ${result.newPropertyCount > 0 ? `🆕 ${result.newPropertyCount}件` : 'なし'}`,
+                  `  • 実行時間: ${(result.executionTime / 1000).toFixed(1)}秒`,
+                ].join('\n');
+                await ctx.reply(message, { parse_mode: 'HTML' });
+                vibeLogger.info('telegram.cmd_received', 'checkコマンドに応答しました');
+              } catch (error) {
+                await ctx.reply('❌ 手動チェック中にエラーが発生しました');
+                vibeLogger.error('telegram.command.check_error', 'checkコマンドエラー', {
+                  context: { error: error instanceof Error ? error.message : String(error) },
+                });
+              }
+              return;
+            }
+          }
+        }
       } catch {
-        // 何もしない（観測のみ）
+        // 受信観測のみ
       }
     });
 
