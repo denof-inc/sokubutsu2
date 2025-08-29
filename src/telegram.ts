@@ -51,7 +51,6 @@ export class TelegramNotifier {
   private readonly bot: Bot;
   private readonly chatId: string;
   private readonly maxRetries = 3;
-  private running = false;
 
   constructor(botToken: string, chatId: string) {
     this.bot = new Bot(botToken);
@@ -608,100 +607,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
     });
   }
 
-  /**
-   * Botを起動
-   */
-  async launchBot(): Promise<void> {
-    // 起動を堅牢化: Webhook解除 → 接続検証 → 起動（リトライ）
-    // 失敗時はthrowして呼び出し元に伝播させる
-    const maxAttempts = 3;
-    let attempt = 0;
-    let lastError: unknown = null;
-
-    // Webhookが残っているとPollingが無音になるため、念のため解除
-    try {
-      await this.bot.api.deleteWebhook({ drop_pending_updates: false });
-      vibeLogger.info('telegram.webhook_deleted', 'Webhook解除完了（Polling前初期化）');
-    } catch (e) {
-      // 解除に失敗しても続行（ログのみ）
-      vibeLogger.warn('telegram.webhook_delete_failed', 'Webhook解除に失敗しましたが続行します', {
-        context: { error: e instanceof Error ? e.message : String(e) },
-      });
-    }
-
-    // 起動前の疎通確認
-    try {
-      await this.bot.api.getMe();
-      vibeLogger.info('telegram.prelaunch_ok', '起動前疎通確認OK');
-    } catch (e) {
-      vibeLogger.error('telegram.prelaunch_failed', '起動前疎通確認に失敗', {
-        context: { error: e instanceof Error ? e.message : String(e) },
-      });
-      lastError = e;
-    }
-
-    while (attempt < maxAttempts) {
-      attempt++;
-      try {
-        await this.bot.start();
-        vibeLogger.info('telegram.bot_launched', 'Telegram Bot起動完了', {
-          context: { attempt },
-        });
-        this.running = true;
-        // 利便性向上: コマンド候補をTelegram側に登録
-        try {
-          await this.bot.api.setMyCommands([
-            { command: 'status', description: '現在の監視状況を表示' },
-            { command: 'stats', description: '詳細な統計情報を表示' },
-            { command: 'check', description: '手動でチェックを実行' },
-            { command: 'help', description: 'コマンド一覧を表示' },
-            { command: 'start', description: 'Botの使い方ガイド' },
-          ]);
-          vibeLogger.info('telegram.commands_set', 'Botコマンドを登録しました');
-        } catch (e) {
-          vibeLogger.warn('telegram.commands_set_failed', 'Botコマンド登録に失敗しました', {
-            context: { error: e instanceof Error ? e.message : String(e) },
-          });
-        }
-        return;
-      } catch (error) {
-        lastError = error;
-        vibeLogger.error('telegram.bot_launch_error', 'Telegram Bot起動エラー', {
-          context: {
-            attempt,
-            error: error instanceof Error ? error.message : String(error),
-          },
-        });
-        // 指数バックオフで再試行
-        const delay = Math.pow(2, attempt - 1) * 1000;
-        await this.sleep(delay);
-      }
-    }
-
-    // ここに来たら失敗のためthrow
-    throw lastError instanceof Error
-      ? lastError
-      : new Error(lastError instanceof Error ? lastError.message : 'telegram launch failed');
-  }
-
-  /**
-   * Botを停止
-   */
-  async stopBot(): Promise<void> {
-    try {
-      await this.bot.stop();
-    } catch (e) {
-      vibeLogger.warn('telegram.bot_stop_error', 'Telegram Bot停止時に警告', {
-        context: { error: e instanceof Error ? e.message : String(e) },
-      });
-    }
-    vibeLogger.info('telegram.bot_stopped', 'Telegram Bot停止');
-    this.running = false;
-  }
-
-  isRunning(): boolean {
-    return this.running;
-  }
+  // 旧ロングポーリング実装は削除（Webhook運用）
 
   // Webhookモード: Express用ハンドラを返す
   getWebhookHandler(): RequestHandler {

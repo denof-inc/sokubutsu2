@@ -226,8 +226,8 @@ function setupMultiUserGracefulShutdown(
     // 最終パフォーマンス指標表示
     performanceMonitor.displayMetrics();
 
-    // Telegram Botを停止（明示的にvoid指定）
-    void telegram.stopBot();
+    // Webhookを解除（明示的にvoid指定）
+    void telegram.deleteWebhook();
 
     // マルチユーザースケジューラー停止
     void scheduler.stop();

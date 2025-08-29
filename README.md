@@ -119,7 +119,7 @@ src/
 ├── logger.ts            # ログ管理（vibelogger使用）
 ├── performance.ts       # パフォーマンス監視
 ├── scraper.ts           # スクレイピング（HTTP-first戦略）
-├── telegram.ts          # Telegram通知（Telegraf使用）
+├── telegram.ts          # Telegram通知（grammy使用・Webhook）
 ├── storage.ts           # データ保存（JSON/SQLite）
 ├── scheduler.ts         # 監視スケジューラー
 ├── property-monitor.ts  # 新着物件検知ロジック
