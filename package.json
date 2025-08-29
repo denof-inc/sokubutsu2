@@ -47,7 +47,7 @@
     "ejs": "^3.1.10",
     "express": "^5.1.0",
     "grammy": "^1.38.1",
-    "node-cron": "^3.0.3",
+    "node-cron": "^4.2.1",
     "node-fetch": "^2.7.0",
     "puppeteer": "^24.16.0",
     "puppeteer-extra": "^3.3.6",
