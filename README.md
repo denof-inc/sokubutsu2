@@ -6,14 +6,13 @@
 
 ソクブツMVPは、athome.co.jpの新着物件を監視し、Telegramで即座に通知する軽量なサービスです。
 
-### 主な特徴
+### 主な特徴（現行仕様）
 
-- ✅ **ESMモジュールシステム**: 完全ESM対応で最新のJavaScript標準に準拠
-- ✅ **HTTP-first戦略**: 軽量・高速処理（2-5秒）
-- ✅ **TypeScript**: 型安全性を保証した堅牢な実装
-- ✅ **Docker対応**: 自宅サーバー最適化
-- ✅ **完全テスト環境**: Jest + ESM環境でのテスト実装
-- ✅ **CI/CD完備**: GitHub Actions による自動テスト・品質チェック
+- ✅ **ESMモジュールシステム**: 完全ESM対応
+- ✅ **Puppeteer-first戦略**: 認証回避・指紋対策込み（実測: 約5秒/回）
+- ✅ **Telegram通知（grammy + Webhook）**: Cloudflare Tunnelで常時HTTPS公開
+- ✅ **TypeScript**: 型安全・Jestテスト完備
+- ✅ **Docker対応**: 自宅サーバ向け最適化
 
 ## 🚀 クイックスタート（5分で起動）
 
@@ -56,7 +55,7 @@ npm run build
 npm start
 ```
 
-## 📋 環境変数設定
+## 📋 環境変数設定（主要）
 
 | 変数名 | 必須 | 説明 | 例 |
 |--------|------|------|-----|
@@ -68,6 +67,7 @@ npm start
 | `NODE_ENV` | ❌ | 実行環境 | `production` |
 | `DATA_DIR` | ❌ | データディレクトリ | `./data` |
 | `LOG_LEVEL` | ❌ | ログレベル | `info` |
+| `ADMIN_PUBLIC_URL` | ✅(Webhook) | 公開URL（HTTPS） | `https://bot.example.com` |
 
 ## 🛠️ 開発コマンド
 
@@ -182,6 +182,16 @@ ADMIN_PUBLIC_URL=https://your-domain.example.com
 Webhook URL 例: `https://your-domain.example.com/telegram/webhook`
 
 Docker では `3002:3002` を公開しているため、リバースプロキシ等で上記URLにルーティングしてください。
+
+補足: Cloudflareでゾーン管理ができない／DNSを変更できない場合は、Tailscale Funnel（無料）で安定HTTPSの公開URL（例: `https://<host>.<tailnet>.ts.net`）を取得できます。詳細手順は「docs/運用・デプロイガイド.md > Webhook公開（ゾーン未委譲時の代替：Tailscale Funnel）」を参照してください。
+
+### Webhook自己修復ガード（安定運用のための自動復旧）
+- 機能: TelegramのWebHook URLを定期検証し、不一致や解除を検知したら自動で再設定します。
+- 設定:
+  - `.env` / `.env.production` に以下（デフォルト有効）
+    - `WEBHOOK_GUARDIAN_ENABLED=true`
+    - `WEBHOOK_GUARDIAN_INTERVAL=10`（分）
+- 期待効果: 起動直後の一時的な失敗や外部要因でWebHookが外れても、自動で復旧し通知断を最小化します。
 
 注意: 旧ロングポーリング実装（`bot.start()`）は使用しません。
 

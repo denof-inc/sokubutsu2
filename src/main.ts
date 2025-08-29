@@ -110,8 +110,41 @@ async function main(): Promise<void> {
       }
       const webhookUrl = `${publicUrl.replace(/\/$/, '')}${webhookPath}`;
       adminServer.registerPost(webhookPath, telegram.getWebhookHandler());
-      await telegram.setWebhook(webhookUrl, true);
-      console.log(`🔗 Telegram Webhook を設定しました: ${webhookUrl}`);
+      try {
+        await telegram.setWebhook(webhookUrl, true);
+        console.log(`🔗 Telegram Webhook を設定しました: ${webhookUrl}`);
+      } catch (e) {
+        vibeLogger.warn(
+          'multiuser.webhook_set.initial_failed',
+          '起動時のWebhook設定に失敗しました。自己修復ガードで再設定を試みます。',
+          {
+            context: {
+              error: e instanceof Error ? e.message : String(e),
+              webhookUrl,
+            },
+          }
+        );
+        console.warn(
+          '⚠️ 起動時にWebhook設定できませんでした。しばらくすると自動再設定を試みます。'
+        );
+      }
+
+      // Webhook自己修復ガード: 定期的に正しいURLであることを検証し、不一致なら再設定
+      if (config.webhookGuardian?.enabled) {
+        const intervalMs = Math.max(1, config.webhookGuardian.intervalMinutes || 10) * 60 * 1000;
+        setInterval(() => {
+          void telegram.ensureWebhook(webhookUrl).then(result => {
+            if (!result.ok) {
+              vibeLogger.warn('multiuser.webhook_guard.check_failed', 'Webhook検証に失敗', {
+                context: { webhookUrl },
+              });
+            }
+          });
+        }, intervalMs);
+        console.log(
+          `🛡️ Webhook自己修復ガードを有効化しました（${config.webhookGuardian.intervalMinutes}分間隔）`
+        );
+      }
 
       // スケジューラーは非同期で起動（コマンドとの疎結合を確保）
       console.log('🔄 監視スケジューラー起動開始...（非同期）');

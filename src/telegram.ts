@@ -356,6 +356,51 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
     }
   }
 
+  /**
+   * Webhook情報取得
+   */
+  async getWebhookInfo(): Promise<{
+    url: string | null;
+    hasCustomCertificate?: boolean;
+    pendingUpdateCount?: number;
+  }> {
+    // Telegram APIのgetWebhookInfoをそのまま呼び出す
+    // 返却値はWebhookInfo（urlが未設定なら空文字or nullのケースがあるため正規化）
+    const info = await this.bot.api.getWebhookInfo();
+    return {
+      url: info.url || null,
+      hasCustomCertificate: (info as any).has_custom_certificate,
+      pendingUpdateCount: (info as any).pending_update_count,
+    };
+  }
+
+  /**
+   * 期待するURLにWebhookが設定されているか検証し、必要に応じて修復する
+   * @returns changed: 再設定を実行したかどうか
+   */
+  async ensureWebhook(
+    expectedUrl: string
+  ): Promise<{ ok: boolean; changed: boolean; currentUrl: string | null }> {
+    try {
+      const info = await this.getWebhookInfo();
+      const current = info.url;
+      if (current !== expectedUrl) {
+        await this.setWebhook(expectedUrl, true);
+        vibeLogger.warn('telegram.webhook_guard.reset', 'Webhook URL不一致のため再設定しました', {
+          context: { expectedUrl, currentUrl: current },
+          humanNote: '自己修復ガードがWebhookを再設定',
+        });
+        return { ok: true, changed: true, currentUrl: expectedUrl };
+      }
+      return { ok: true, changed: false, currentUrl: current };
+    } catch (error) {
+      vibeLogger.error('telegram.webhook_guard.error', 'Webhook検証/再設定でエラー', {
+        context: { error: error instanceof Error ? error.message : String(error), expectedUrl },
+      });
+      return { ok: false, changed: false, currentUrl: null };
+    }
+  }
+
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }

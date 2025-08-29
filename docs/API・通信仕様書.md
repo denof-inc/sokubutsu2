@@ -2,7 +2,7 @@
 
 ## 🎯 このドキュメントについて
 
-このドキュメントは、ソクブツシステムのAPI仕様およびTelegram通信プロトコルの技術仕様を定義します。外部サービスとの連携、内部API設計、Telegram Bot APIの活用方法を包括的に説明します。
+このドキュメントは、ソクブツシステムのAPI仕様およびTelegram通信プロトコルの技術仕様を定義します。外部サービスとの連携、内部API設計、Telegram Bot API（Webhook運用）の活用方法を包括的に説明します。
 
 ## 📋 API概要
 
@@ -185,16 +185,17 @@ Authorization: Bearer {ADMIN_TOKEN}
 
 ## 📡 Telegram Bot API仕様
 
-### Telegram Bot設定
+### Telegram Bot設定（grammy / Webhook）
 
 #### Bot初期設定
 ```typescript
-// Telegram Bot設定
-const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
+// Telegram Bot設定（grammy）
+import { Bot } from 'grammy';
+const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN!);
 
 // Webhook設定
-const WEBHOOK_URL = `${process.env.WEBHOOK_DOMAIN}/webhook/telegram`;
-await bot.telegram.setWebhook(WEBHOOK_URL);
+const WEBHOOK_URL = `${process.env.ADMIN_PUBLIC_URL}/telegram/webhook`;
+await bot.api.setWebhook(WEBHOOK_URL);
 ```
 
 #### 環境変数
@@ -327,10 +328,10 @@ WEBHOOK_DOMAIN=https://your-domain.com
 対応が必要な可能性があります。
 ```
 
-### Webhook API
+### Webhook API（受信エンドポイント）
 
-#### POST /webhook/telegram
-Telegram Webhookを受信します。
+#### POST /telegram/webhook
+Telegram Webhookを受信します（ExpressにgrammyのwebhookCallbackを登録）。
 
 **リクエスト**
 ```json
