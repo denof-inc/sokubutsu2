@@ -124,6 +124,10 @@ export interface Config {
     enabled: boolean;
     publicUrl?: string;
   };
+  webhookGuardian?: {
+    enabled: boolean;
+    intervalMinutes: number;
+  };
   multiUser?: {
     enabled: boolean;
   };

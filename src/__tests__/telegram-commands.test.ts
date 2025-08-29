@@ -1,32 +1,65 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
+interface IMonitoringScheduler {
+  getStatus(): Promise<{
+    isRunning: boolean;
+    urlCount: number;
+    lastCheck: Date | null;
+    totalChecks: number;
+    successRate: number;
+  }>;
+  getStatistics(): {
+    totalChecks: number;
+    errors: number;
+    newListings: number;
+    lastCheck: Date;
+    averageExecutionTime: number;
+    successRate: number;
+  };
+  runManualCheck(): Promise<{
+    urlCount: number;
+    successCount: number;
+    errorCount: number;
+    newPropertyCount: number;
+    executionTime: number;
+  }>;
+}
+
 // コマンド登録を捕捉するレジストリ
 const registeredCommands: Record<string, (ctx: any) => any> = {};
 
-// Telegrafモック
+// grammy Botモック
 const mockGetMe = jest.fn<() => Promise<any>>();
 const mockSendMessage = jest.fn<() => Promise<any>>();
-const mockLaunch = jest.fn<() => Promise<void>>();
+const mockStart = jest.fn<() => Promise<void>>();
 const mockStop = jest.fn<() => void>();
 const mockCommand = jest.fn((name: string, handler: (ctx: any) => any) => {
   registeredCommands[name] = handler;
 });
 const mockCatch = jest.fn();
+const mockOn = jest.fn();
 
-const mockTelegraf = jest.fn(() => ({
-  telegram: {
+const MockBot = jest.fn(() => ({
+  api: {
     getMe: mockGetMe,
     sendMessage: mockSendMessage,
   },
   command: mockCommand,
   catch: mockCatch,
-  launch: mockLaunch,
+  start: mockStart,
   stop: mockStop,
+  on: mockOn,
 }));
 
-// telegrafをモック
-jest.unstable_mockModule('telegraf', () => ({
-  Telegraf: mockTelegraf,
+// grammyをモック
+jest.unstable_mockModule('grammy', () => ({
+  Bot: MockBot,
+  webhookCallback: jest.fn(() => {
+    const handler = (_req: unknown, _res: unknown, next?: () => void) => {
+      if (typeof next === 'function') next();
+    };
+    return handler as unknown as import('express').RequestHandler;
+  }),
 }));
 
 // モック後に対象を動的インポート
@@ -44,13 +77,13 @@ describe('TelegramNotifier command handlers', () => {
       username: 'bot_test',
     });
     mockSendMessage.mockResolvedValue({ ok: true });
-    mockLaunch.mockResolvedValue();
+    mockStart.mockResolvedValue();
   });
 
   it('registers and responds to basic commands', async () => {
     const notifier = new TelegramNotifier('token', 'chat');
 
-    const fakeScheduler = {
+    const fakeScheduler: IMonitoringScheduler = {
       getStatus: async () => {
         await new Promise(resolve => setTimeout(resolve, 0));
         return {
@@ -61,8 +94,7 @@ describe('TelegramNotifier command handlers', () => {
           successRate: 100,
         };
       },
-      getStatistics: async () => {
-        await new Promise(resolve => setTimeout(resolve, 0));
+      getStatistics: () => {
         return {
           totalChecks: 10,
           errors: 0,
@@ -82,7 +114,7 @@ describe('TelegramNotifier command handlers', () => {
           executionTime: 1000,
         };
       },
-    } as any;
+    };
 
     notifier.setupCommandHandlers(fakeScheduler);
 
@@ -97,8 +129,8 @@ describe('TelegramNotifier command handlers', () => {
       const reply = jest.fn();
       await registeredCommands[cmd]?.({ reply });
       expect(reply).toHaveBeenCalled();
-      const args = (reply.mock.calls[0] || []) as any[];
-      const opts = args[1] as { parse_mode?: string } | undefined;
+      const args = (reply.mock.calls[0] ?? []) as any[];
+      const opts = (args[1] as { parse_mode?: string }) ?? undefined;
       // help/startは常にHTMLのはず
       if (cmd === 'help' || cmd === 'start') {
         expect(opts?.parse_mode).toBe('HTML');

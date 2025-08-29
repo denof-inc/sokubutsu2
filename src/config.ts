@@ -46,6 +46,10 @@ export const config: Config = {
     enabled: process.env.ADMIN_ENABLED !== 'false',
     ...(process.env.ADMIN_PUBLIC_URL && { publicUrl: process.env.ADMIN_PUBLIC_URL }),
   },
+  webhookGuardian: {
+    enabled: process.env.WEBHOOK_GUARDIAN_ENABLED !== 'false',
+    intervalMinutes: parseInt(process.env.WEBHOOK_GUARDIAN_INTERVAL ?? '10', 10),
+  },
   multiUser: {
     enabled: process.env.MULTI_USER_MODE === 'true',
   },

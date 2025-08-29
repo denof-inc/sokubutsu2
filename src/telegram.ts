@@ -1,4 +1,5 @@
-import { Telegraf } from 'telegraf';
+import { Bot, webhookCallback } from 'grammy';
+import type { RequestHandler } from 'express';
 import { NotificationData, Statistics, UrlStatistics } from './types.js';
 import { vibeLogger } from './logger.js';
 import { config } from './config.js';
@@ -21,13 +22,38 @@ import { config } from './config.js';
  * - 統計レポート定期送信
  * - リトライ機能付きメッセージ送信
  */
+interface IMonitoringScheduler {
+  getStatus(): Promise<{
+    isRunning: boolean;
+    urlCount: number;
+    lastCheck: Date | null;
+    totalChecks: number;
+    successRate: number;
+  }>;
+  getStatistics(): {
+    totalChecks: number;
+    errors: number;
+    newListings: number;
+    lastCheck: Date;
+    averageExecutionTime: number;
+    successRate: number;
+  };
+  runManualCheck(): Promise<{
+    urlCount: number;
+    successCount: number;
+    errorCount: number;
+    newPropertyCount: number;
+    executionTime: number;
+  }>;
+}
+
 export class TelegramNotifier {
-  private readonly bot: Telegraf;
+  private readonly bot: Bot;
   private readonly chatId: string;
   private readonly maxRetries = 3;
 
   constructor(botToken: string, chatId: string) {
-    this.bot = new Telegraf(botToken);
+    this.bot = new Bot(botToken);
     this.chatId = chatId;
   }
 
@@ -249,7 +275,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
    */
   async sendMessage(message: string, retryCount = 0): Promise<void> {
     try {
-      await this.bot.telegram.sendMessage(this.chatId, message, {
+      await this.bot.api.sendMessage(this.chatId, message, {
         parse_mode: 'HTML',
         link_preview_options: {
           is_disabled: true,
@@ -302,7 +328,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
    */
   async testConnection(): Promise<boolean> {
     try {
-      await this.bot.telegram.getMe();
+      await this.bot.api.getMe();
       return true;
     } catch {
       return false;
@@ -314,7 +340,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
    */
   async getBotInfo(): Promise<{ id: number; username: string; firstName: string }> {
     try {
-      const me = await this.bot.telegram.getMe();
+      const me = await this.bot.api.getMe();
       return {
         id: me.id,
         username: me.username || 'unknown',
@@ -330,6 +356,51 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
     }
   }
 
+  /**
+   * Webhook情報取得
+   */
+  async getWebhookInfo(): Promise<{
+    url: string | null;
+    hasCustomCertificate?: boolean;
+    pendingUpdateCount?: number;
+  }> {
+    // Telegram APIのgetWebhookInfoをそのまま呼び出す
+    // 返却値はWebhookInfo（urlが未設定なら空文字or nullのケースがあるため正規化）
+    const info = await this.bot.api.getWebhookInfo();
+    return {
+      url: info.url || null,
+      hasCustomCertificate: (info as any).has_custom_certificate,
+      pendingUpdateCount: (info as any).pending_update_count,
+    };
+  }
+
+  /**
+   * 期待するURLにWebhookが設定されているか検証し、必要に応じて修復する
+   * @returns changed: 再設定を実行したかどうか
+   */
+  async ensureWebhook(
+    expectedUrl: string
+  ): Promise<{ ok: boolean; changed: boolean; currentUrl: string | null }> {
+    try {
+      const info = await this.getWebhookInfo();
+      const current = info.url;
+      if (current !== expectedUrl) {
+        await this.setWebhook(expectedUrl, true);
+        vibeLogger.warn('telegram.webhook_guard.reset', 'Webhook URL不一致のため再設定しました', {
+          context: { expectedUrl, currentUrl: current },
+          humanNote: '自己修復ガードがWebhookを再設定',
+        });
+        return { ok: true, changed: true, currentUrl: expectedUrl };
+      }
+      return { ok: true, changed: false, currentUrl: current };
+    } catch (error) {
+      vibeLogger.error('telegram.webhook_guard.error', 'Webhook検証/再設定でエラー', {
+        context: { error: error instanceof Error ? error.message : String(error), expectedUrl },
+      });
+      return { ok: false, changed: false, currentUrl: null };
+    }
+  }
+
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
@@ -337,16 +408,118 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
   /**
    * コマンドハンドラーの設定
    */
-  setupCommandHandlers(scheduler: any): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setupCommandHandlers(scheduler: IMonitoringScheduler): void {
     // Bot全体のエラーハンドリング（予期せぬ例外の可視化）
-    this.bot.catch((err, ctx) => {
+    this.bot.catch(err => {
       const errorMsg = err instanceof Error ? err.message : String(err);
       vibeLogger.error('telegram.global_error', 'Telegramハンドラ内で未処理エラー', {
         context: {
-          updateId: (ctx && (ctx as any).update?.update_id) || 'unknown',
           error: errorMsg,
         },
       });
+    });
+
+    // 受信メッセージの観測ログ（診断用）
+    this.bot.on('message:text', async ctx => {
+      try {
+        const text = ctx.message?.text ?? '';
+        const chat = ctx.chat?.type ?? 'unknown';
+        vibeLogger.info('telegram.update_received', 'テキストメッセージ受信', {
+          context: { text, chat, from: ctx.from?.id },
+        });
+
+        // コマンド文字列を抽出（/cmd または /cmd@botname 形式に対応）
+        if (text.startsWith('/')) {
+          const raw = (text.split(' ')[0] ?? '').trim();
+          const name = raw.split('@')[0] ?? raw;
+          switch (name) {
+            case '/help': {
+              const message = [
+                '📚 利用可能なコマンド',
+                '',
+                '/status - 現在の監視状況を表示',
+                '/stats  - 詳細な統計情報を表示',
+                '/check  - 手動でチェックを実行',
+                '/help   - このヘルプメッセージを表示',
+              ].join('\n');
+              await ctx.reply(message, { parse_mode: 'HTML' });
+              vibeLogger.info('telegram.cmd_received', 'helpコマンドに応答しました');
+              return;
+            }
+            case '/status': {
+              try {
+                const status = await scheduler.getStatus();
+                const message = [
+                  '📊 監視状況',
+                  '',
+                  `⏱ 稼働状態: ${status.isRunning ? '✅ 稼働中' : '⏸ 停止中'}`,
+                  `📍 監視URL数: ${status.urlCount}件`,
+                  `⏰ 最終チェック: ${status.lastCheck ? new Date(String(status.lastCheck)).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : 'なし'}`,
+                  `📈 成功率: ${status.successRate}%`,
+                  `🧪 総チェック数: ${status.totalChecks}`,
+                ].join('\n');
+                await ctx.reply(message, { parse_mode: 'HTML' });
+                vibeLogger.info('telegram.cmd_received', 'statusコマンドに応答しました');
+              } catch (error) {
+                await ctx.reply('❌ ステータス取得に失敗しました');
+                vibeLogger.error('telegram.command.status_error', 'statusコマンドエラー', {
+                  context: { error: error instanceof Error ? error.message : String(error) },
+                });
+              }
+              return;
+            }
+            case '/stats': {
+              try {
+                const stats = scheduler.getStatistics();
+                const message = [
+                  '📈 統計情報',
+                  '',
+                  `総チェック数: ${stats.totalChecks}`,
+                  `エラー数: ${stats.errors}`,
+                  `新着検知: ${stats.newListings}`,
+                  `最終チェック: ${stats.lastCheck.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`,
+                  `平均実行時間: ${stats.averageExecutionTime.toFixed(1)}秒`,
+                  `成功率: ${stats.successRate}%`,
+                ].join('\n');
+                await ctx.reply(message, { parse_mode: 'HTML' });
+                vibeLogger.info('telegram.cmd_received', 'statsコマンドに応答しました');
+              } catch (error) {
+                await ctx.reply('❌ 統計取得に失敗しました');
+                vibeLogger.error('telegram.command.stats_error', 'statsコマンドエラー', {
+                  context: { error: error instanceof Error ? error.message : String(error) },
+                });
+              }
+              return;
+            }
+            case '/check': {
+              await ctx.reply('🔍 手動チェックを開始します...');
+              try {
+                const result = await scheduler.runManualCheck();
+                const message = [
+                  '✅ 手動チェック完了',
+                  '',
+                  `  • チェックしたURL: ${result.urlCount}件`,
+                  `  • 成功: ${result.successCount}件`,
+                  `  • エラー: ${result.errorCount}件`,
+                  `  • 新着検知: ${result.newPropertyCount > 0 ? `🆕 ${result.newPropertyCount}件` : 'なし'}`,
+                  `  • 実行時間: ${(result.executionTime / 1000).toFixed(1)}秒`,
+                ].join('\n');
+                await ctx.reply(message, { parse_mode: 'HTML' });
+                vibeLogger.info('telegram.cmd_received', 'checkコマンドに応答しました');
+              } catch (error) {
+                await ctx.reply('❌ 手動チェック中にエラーが発生しました');
+                vibeLogger.error('telegram.command.check_error', 'checkコマンドエラー', {
+                  context: { error: error instanceof Error ? error.message : String(error) },
+                });
+              }
+              return;
+            }
+          }
+        }
+      } catch {
+        // 受信観測のみ
+      }
     });
 
     // /status - 現在の監視状況
@@ -375,7 +548,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
     // /stats - 統計情報表示
     this.bot.command('stats', async ctx => {
       try {
-        const stats = await scheduler.getStatistics();
+        const stats = scheduler.getStatistics();
         const message = [
           '📈 統計情報',
           '',
@@ -459,79 +632,41 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
       ].join('\n');
       await ctx.reply(message, { parse_mode: 'HTML' });
     });
-  }
 
-  /**
-   * Botを起動
-   */
-  async launchBot(): Promise<void> {
-    // 起動を堅牢化: Webhook解除 → 接続検証 → 起動（リトライ）
-    // 失敗時はthrowして呼び出し元に伝播させる
-    const maxAttempts = 3;
-    let attempt = 0;
-    let lastError: unknown = null;
-
-    // Webhookが残っているとPollingが無音になるため、念のため解除
-    try {
-      await this.bot.telegram.deleteWebhook({ drop_pending_updates: false });
-      vibeLogger.info('telegram.webhook_deleted', 'Webhook解除完了（Polling前初期化）');
-    } catch (e) {
-      // 解除に失敗しても続行（ログのみ）
-      vibeLogger.warn('telegram.webhook_delete_failed', 'Webhook解除に失敗しましたが続行します', {
-        context: { error: e instanceof Error ? e.message : String(e) },
-      });
-    }
-
-    // 起動前の疎通確認
-    try {
-      await this.bot.telegram.getMe();
-      vibeLogger.info('telegram.prelaunch_ok', '起動前疎通確認OK');
-    } catch (e) {
-      vibeLogger.error('telegram.prelaunch_failed', '起動前疎通確認に失敗', {
-        context: { error: e instanceof Error ? e.message : String(e) },
-      });
-      lastError = e;
-    }
-
-    while (attempt < maxAttempts) {
-      attempt++;
-      try {
-        await this.bot.launch();
-        vibeLogger.info('telegram.bot_launched', 'Telegram Bot起動完了', {
-          context: { attempt },
-        });
-        return;
-      } catch (error) {
-        lastError = error;
-        vibeLogger.error('telegram.bot_launch_error', 'Telegram Bot起動エラー', {
-          context: {
-            attempt,
-            error: error instanceof Error ? error.message : String(error),
-          },
-        });
-        // 指数バックオフで再試行
-        const delay = Math.pow(2, attempt - 1) * 1000;
-        await this.sleep(delay);
+    // 不明コマンド対応（先に定義したコマンドにマッチしない場合）
+    this.bot.on('message:text', async ctx => {
+      const text = ctx.message?.text ?? '';
+      if (text.startsWith('/')) {
+        const known = ['/status', '/stats', '/check', '/help', '/start'];
+        const name = (text.split(' ')[0] ?? '').trim();
+        if (!known.includes(name)) {
+          const msg = [
+            '❓ 不明なコマンドです。',
+            '',
+            '利用可能なコマンド:',
+            '/status, /stats, /check, /help, /start',
+          ].join('\n');
+          await ctx.reply(msg, { parse_mode: 'HTML' });
+        }
       }
-    }
-
-    // ここに来たら失敗のためthrow
-    throw lastError instanceof Error
-      ? lastError
-      : new Error(lastError instanceof Error ? lastError.message : 'telegram launch failed');
+    });
   }
 
-  /**
-   * Botを停止
-   */
-  stopBot(): void {
-    try {
-      this.bot.stop();
-    } catch (e) {
-      vibeLogger.warn('telegram.bot_stop_error', 'Telegram Bot停止時に警告', {
-        context: { error: e instanceof Error ? e.message : String(e) },
-      });
-    }
-    vibeLogger.info('telegram.bot_stopped', 'Telegram Bot停止');
+  // 旧ロングポーリング実装は削除（Webhook運用）
+
+  // Webhookモード: Express用ハンドラを返す
+  getWebhookHandler(): RequestHandler {
+    return webhookCallback(this.bot, 'express');
+  }
+
+  // Webhook設定
+  async setWebhook(url: string, dropPending = true): Promise<void> {
+    await this.bot.api.setWebhook(url, { drop_pending_updates: dropPending });
+    vibeLogger.info('telegram.webhook_set', 'Webhookを設定しました', { context: { url } });
+  }
+
+  async deleteWebhook(): Promise<void> {
+    await this.bot.api.deleteWebhook({ drop_pending_updates: false });
+    vibeLogger.info('telegram.webhook_deleted', 'Webhook解除完了');
   }
 }

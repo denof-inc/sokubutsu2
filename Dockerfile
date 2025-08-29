@@ -1,5 +1,5 @@
-# マルチステージビルド: ビルドステージ
-FROM node:24-alpine AS builder
+# マルチステージビルド: ビルドステージ  
+FROM node:20-alpine AS builder
 
 # Puppeteer/Chromium + better-sqlite3 コンパイル依存関係をインストール
 RUN apk add --no-cache \
@@ -47,7 +47,7 @@ RUN npx tsc
 RUN if [ -d src/admin/views ]; then cp -r src/admin/views dist/admin/; fi
 
 # 本番ステージ: 軽量なランタイムイメージ
-FROM node:24-alpine
+FROM node:20-alpine
 
 # ランタイム依存関係のみインストール
 RUN apk add --no-cache \

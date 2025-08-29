@@ -1,7 +1,5 @@
 import axios, { AxiosResponse, AxiosRequestConfig } from 'axios';
-import * as cheerio from 'cheerio';
-import * as crypto from 'crypto';
-import { ScrapingResult, PropertyInfo } from './types.js';
+import { ScrapingResult } from './types.js';
 import { vibeLogger } from './logger.js';
 import { PuppeteerScraper } from './scraper-puppeteer.js';
 import { config } from './config.js';
@@ -59,235 +57,46 @@ export class SimpleScraper {
     const startTime = Date.now();
 
     try {
-      // 戦略切替: Puppeteer-firstが標準（Serenaメモリ・実証結果に基づく）
-      if (config.scraping?.strategy === 'puppeteer_first') {
-        if (!this.puppeteerScraper) {
-          this.puppeteerScraper = new PuppeteerScraper();
-        }
-        const pResult = await this.puppeteerScraper.scrapeAthome(url);
-        if (pResult.success) return pResult;
-        // Puppeteerが失敗した場合に限りHTTP-onlyを試す
-        vibeLogger.warn(
-          'scraping.strategy_fallback',
-          'Puppeteer-first失敗。HTTP-onlyへフォールバック',
-          {
-            context: { url, reason: pResult.error || 'unknown' },
-          }
-        );
-      }
-
-      vibeLogger.info('scraping.start', `スクレイピング開始: ${url}`, {
-        context: { url, method: 'HTTP-first', timeout: this.timeout },
-        humanNote: '段階的フォールバック戦略: HTTP-first → Puppeteer Stealth → Real Browser',
+      // Puppeteer-only戦略（HTTP-firstフォールバック削除）
+      vibeLogger.info('scraping.start', `Puppeteer単体スクレイピング開始: ${url}`, {
+        context: { url, method: 'Puppeteer-only' },
+        humanNote: 'Context7最新技術適用でPuppeteer単体実行。HTTP-firstフォールバック削除済み',
       });
 
-      const response = await this.fetchWithRetry(url);
-      const $ = cheerio.load(response.data);
+      this.puppeteerScraper ??= new PuppeteerScraper();
 
-      // 認証ページが返された場合のチェック
-      const title = $('title').text();
-      if (title.includes('認証') || $('body').text().includes('認証にご協力ください')) {
-        vibeLogger.warn(
-          'scraping.auth_required',
-          '認証ページが検出されました。Puppeteerにフォールバック',
-          {
-            context: { url, title },
-            humanNote: 'HTTP-first戦略失敗。段階的フォールバックを実行',
-          }
-        );
+      // Puppeteer単体で実行（認証突破に特化）
+      const result = await this.puppeteerScraper.scrapeAthome(url);
 
-        // Puppeteerへフォールバック
-        if (!this.puppeteerScraper) {
-          this.puppeteerScraper = new PuppeteerScraper();
-        }
-
-        return await this.puppeteerScraper.scrapeAthome(url);
-      }
-
-      // athome.co.jp専用セレクター（戦略文書で実証済み）
-      const selectors = [
-        'athome-search-result-list-item', // カスタム要素の可能性（最優先）
-        'athome-buy-other-object-list-item', // 売買物件リスト要素
-        'athome-object-item', // 物件要素
-        '[class*="property"]', // 実証済み: 効果的
-        '[class*="bukken"]', // 実証済み: 効果的
-        '[class*="item"]', // 実証済み: 効果的
-        '.item-cassette', // 補助的
-        '.property-list-item', // 補助的
-        '[class*="object"]', // object関連クラス
-        '[class*="list-item"]', // list-item関連クラス
-        'div[class*="result"]', // result関連クラス
-        'article', // 記事要素
-        'section[class*="list"]', // セクション要素
-        // 追加の可能性
-        '.search-result-list > *', // 検索結果リストの子要素
-        '.result-list > *', // 結果リストの子要素
-        '[data-item]', // data属性を持つ要素
-        '[data-property]', // data属性を持つ要素
-      ];
-
-      let properties: ReturnType<typeof $> | null = null;
-      let usedSelector = '';
-
-      // セレクターを順次試行
-      vibeLogger.debug('scraping.selector.search', 'セレクター検索開始', {
-        context: { totalSelectors: selectors.length },
-      });
-
-      for (const selector of selectors) {
-        const elements = $(selector);
-        vibeLogger.debug('scraping.selector.test', `セレクターテスト: ${selector}`, {
-          context: { selector, count: elements.length },
-        });
-
-        if (elements.length > 0) {
-          properties = elements;
-          usedSelector = selector;
-          vibeLogger.debug(
-            'scraping.selector.found',
-            `有効なセレクター発見: ${selector} (${elements.length}件)`,
-            {
-              context: { selector, count: elements.length },
-            }
-          );
-          break;
-        }
-      }
-
-      if (!properties || properties.length === 0) {
-        // デバッグ情報を出力
-        vibeLogger.debug('scraping.selector.not_found', 'セレクターが見つかりません', {
+      if (result.success) {
+        vibeLogger.info('scraping.success', 'Puppeteer単体スクレイピング成功', {
           context: {
             url,
-            htmlLength: response.data.length,
-            titleTag: $('title').text(),
-            bodyText: $('body').text().substring(0, 200), // 最初の200文字
+            executionTime: result.executionTime,
+            propertiesCount: result.count,
+            hash: result.hash,
+            memoryUsage: result.memoryUsage,
           },
+          humanNote: 'Context7最新突破技術で認証回避成功',
         });
-
-        // より広範なセレクターで再検索
-        const allDivs = $('div');
-        vibeLogger.debug('scraping.debug.divs', `全div要素数: ${allDivs.length}`, {
+      } else {
+        vibeLogger.error('scraping.failed', 'Puppeteer単体スクレイピング失敗', {
           context: {
-            totalDivs: allDivs.length,
-            // class属性を持つdivの数
-            divsWithClass: allDivs.filter((i, el) => !!$(el).attr('class')).length,
+            url,
+            executionTime: result.executionTime,
+            error: result.error,
+            failureReason: result.failureReason,
           },
-        });
-
-        throw new Error('物件要素が見つかりませんでした');
-      }
-
-      const count = properties.length;
-      const contentText = properties.text();
-      const hash = crypto.createHash('md5').update(contentText).digest('hex');
-      const executionTime = Date.now() - startTime;
-
-      // ページ内の件数表示を探す
-      const bodyText = $('body').text();
-      const countMatches = bodyText.match(/(\d+)件/g);
-      if (countMatches && countMatches.length > 0) {
-        vibeLogger.debug('scraping.page_info', 'ページ内の件数情報', {
-          context: {
-            foundCounts: countMatches,
-            detectedCount: count,
-            selector: usedSelector,
-          },
+          humanNote: '最新技術適用でも失敗。より高度な対策が必要',
         });
       }
 
-      // 物件詳細情報を抽出
-      const propertyInfoList: PropertyInfo[] = [];
-      properties.each((index, element) => {
-        if (index < 3) {
-          // 最新3件のみ
-          const $el = $(element);
-          const elementText = $el.text();
-
-          // ページ件数表示（「337件」など）をスキップ
-          if (elementText.match(/^\d+件$/)) {
-            return;
-          }
-
-          // 物件情報の抽出（athome.co.jpの実際の構造に基づく）
-          const title =
-            $el.find('a').first().text().trim() ||
-            $el.find('[class*="title"], h2, h3').first().text().trim() ||
-            elementText.split('\n')[0]?.trim() ||
-            '';
-
-          // 価格の抽出（より具体的なパターン）
-          const price =
-            elementText.match(/[0-9,]+万円/)?.[0] ||
-            $el.find('[class*="price"]').text().trim() ||
-            '';
-
-          // 所在地の抽出
-          const location =
-            $el.find('[class*="location"], [class*="address"]').text().trim() ||
-            elementText.match(/広島[市県][\s\S]+?[区町]/)?.[0] ||
-            '';
-
-          if (title && price) {
-            const propertyInfo: PropertyInfo = {
-              title,
-              price,
-              ...(location ? { location } : {}),
-            };
-            propertyInfoList.push(propertyInfo);
-          }
-        }
-      });
-
-      vibeLogger.info('scraping.success', 'スクレイピング完了', {
-        context: {
-          url,
-          executionTime,
-          selector: usedSelector,
-          hash,
-          memoryUsage: Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100,
-          propertiesFound: propertyInfoList.length,
-        },
-        humanNote: 'パフォーマンス目標: 2-5秒、メモリ30-50MB',
-      });
-
-      return {
-        success: true,
-        hash,
-        count,
-        properties: propertyInfoList,
-        executionTime,
-        memoryUsage: Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100,
-      };
+      return result;
     } catch (error) {
       const executionTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      // タイムアウト/ネットワーク系はPuppeteerにフォールバック
-      if (/timeout|ECONNRESET|ENETUNREACH|Network/i.test(errorMessage)) {
-        try {
-          vibeLogger.warn(
-            'scraping.timeout_fallback',
-            'HTTP-first失敗（タイムアウト/ネットワーク）。Puppeteerにフォールバック',
-            {
-              context: { url, error: errorMessage },
-            }
-          );
-          if (!this.puppeteerScraper) {
-            this.puppeteerScraper = new PuppeteerScraper();
-          }
-          return await this.puppeteerScraper.scrapeAthome(url);
-        } catch (puppeteerError) {
-          // 失敗時は元のフローでエラーとして返す
-          const pe =
-            puppeteerError instanceof Error ? puppeteerError.message : String(puppeteerError);
-          vibeLogger.error('scraping.timeout_fallback_failed', 'Puppeteerフォールバックも失敗', {
-            context: { url, error: pe },
-          });
-        }
-      }
-
-      vibeLogger.error('scraping.failed', `スクレイピング失敗: ${url}`, {
+      vibeLogger.error('scraping.failed', `Puppeteer単体スクレイピング例外: ${url}`, {
         context: {
           url,
           executionTime,
@@ -300,7 +109,7 @@ export class SimpleScraper {
                 }
               : { message: String(error) },
         },
-        aiTodo: 'エラーパターンを分析し、リカバリー戦略を提案',
+        humanNote: 'Puppeteer初期化またはセットアップエラー',
       });
 
       return {

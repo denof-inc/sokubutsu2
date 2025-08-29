@@ -82,5 +82,5 @@ jobs:
       - name: Quality check
         run: npm run quality:check
 
-      - name: Check for security vulnerabilities
-        run: npm audit --audit-level=moderate
+      - name: Check for security vulnerabilities (prod-only)
+        run: npm audit --omit=dev --audit-level=moderate

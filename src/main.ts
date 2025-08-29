@@ -100,31 +100,58 @@ async function main(): Promise<void> {
       telegram.setupCommandHandlers(scheduler);
       console.log('✅ Telegramコマンドハンドラー設定完了');
 
-      // 監視システムを先に起動（Telegram Botの起動を待たない）
-      console.log('🔄 監視スケジューラー起動開始...');
-      await scheduler.start();
-      console.log('✅ 監視スケジューラー起動完了');
+      // Webhookモード
+      const webhookPath = '/telegram/webhook';
+      const publicUrl = config.admin?.publicUrl;
+      if (!publicUrl) {
+        throw new Error(
+          'ADMIN_PUBLIC_URL (config.admin.publicUrl) が未設定のため、Webhook URL を生成できません'
+        );
+      }
+      const webhookUrl = `${publicUrl.replace(/\/$/, '')}${webhookPath}`;
+      adminServer.registerPost(webhookPath, telegram.getWebhookHandler());
+      try {
+        await telegram.setWebhook(webhookUrl, true);
+        console.log(`🔗 Telegram Webhook を設定しました: ${webhookUrl}`);
+      } catch (e) {
+        vibeLogger.warn(
+          'multiuser.webhook_set.initial_failed',
+          '起動時のWebhook設定に失敗しました。自己修復ガードで再設定を試みます。',
+          {
+            context: {
+              error: e instanceof Error ? e.message : String(e),
+              webhookUrl,
+            },
+          }
+        );
+        console.warn(
+          '⚠️ 起動時にWebhook設定できませんでした。しばらくすると自動再設定を試みます。'
+        );
+      }
 
-      console.log('✅ マルチユーザー監視を開始しました。5分間隔で実行されます。');
-      console.log('📊 ユーザー別統計レポートは1時間ごとに送信されます。');
-      console.log('🛑 停止するには Ctrl+C を押してください。');
-
-      // Telegram Botを非同期で起動（監視システムをブロックしない）
-      console.log('🤖 Telegram Bot起動開始（非同期）...');
-      telegram
-        .launchBot()
-        .then(() => {
-          console.log('✅ Telegram Bot起動完了');
-          console.log('🤖 Telegram Botマルチユーザーコマンドが利用可能です。');
-          vibeLogger.info('telegram.bot_started_async', 'Telegram Bot非同期起動完了');
-        })
-        .catch(error => {
-          console.log('⚠️  Telegram Bot起動失敗（監視は継続）');
-          vibeLogger.error('telegram.bot_start_failed', 'Telegram Bot起動失敗', {
-            context: { error: error instanceof Error ? error.message : String(error) },
-            humanNote: '監視システムは正常に稼働中、Telegram Botのみ利用不可',
+      // Webhook自己修復ガード: 定期的に正しいURLであることを検証し、不一致なら再設定
+      if (config.webhookGuardian?.enabled) {
+        const intervalMs = Math.max(1, config.webhookGuardian.intervalMinutes || 10) * 60 * 1000;
+        setInterval(() => {
+          void telegram.ensureWebhook(webhookUrl).then(result => {
+            if (!result.ok) {
+              vibeLogger.warn('multiuser.webhook_guard.check_failed', 'Webhook検証に失敗', {
+                context: { webhookUrl },
+              });
+            }
           });
-        });
+        }, intervalMs);
+        console.log(
+          `🛡️ Webhook自己修復ガードを有効化しました（${config.webhookGuardian.intervalMinutes}分間隔）`
+        );
+      }
+
+      // スケジューラーは非同期で起動（コマンドとの疎結合を確保）
+      console.log('🔄 監視スケジューラー起動開始...（非同期）');
+      void scheduler.start();
+      console.log(
+        '✅ 監視スケジューラー起動要求を送信しました（初回チェックはバックグラウンドで実行）'
+      );
 
       console.log();
 
@@ -232,11 +259,11 @@ function setupMultiUserGracefulShutdown(
     // 最終パフォーマンス指標表示
     performanceMonitor.displayMetrics();
 
-    // Telegram Botを停止
-    telegram.stopBot();
+    // Webhookを解除（明示的にvoid指定）
+    void telegram.deleteWebhook();
 
     // マルチユーザースケジューラー停止
-    scheduler.stop();
+    void scheduler.stop();
 
     // データベース接続を閉じる
     if (AppDataSource.isInitialized) {

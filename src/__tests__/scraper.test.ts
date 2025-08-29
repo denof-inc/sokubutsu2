@@ -1,6 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { SimpleScraper } from '../scraper.js';
-import axios, { AxiosResponse } from 'axios';
+import axios from 'axios';
 import type { ScrapingResult } from '../types.js';
 
 // axios をモック化
@@ -19,26 +18,43 @@ const mockScrapingResult: ScrapingResult = {
   memoryUsage: 100,
 };
 
-jest.mock('../scraper-puppeteer.js', () => ({
+jest.unstable_mockModule('../scraper-puppeteer.js', () => ({
   PuppeteerScraper: jest.fn().mockImplementation(() => ({
-    scrapeAthome: jest.fn<() => Promise<ScrapingResult>>().mockResolvedValue(mockScrapingResult),
+    scrapeAthome: jest
+      .fn<() => Promise<ScrapingResult>>()
+      .mockImplementation(() => Promise.resolve(mockScrapingResult)),
   })),
 }));
 
 // config をモック化 (puppeteer_firstフォールバックを無効化)
-jest.mock('../config.js', () => ({
+jest.unstable_mockModule('../config.js', () => ({
   config: {
     scraping: {
-      strategy: 'http_first', // puppeteer_firstフォールバックを無効化
+      strategy: 'http_first', // 現仕様では未使用だが互換のため
     },
     monitoring: {
       httpTimeoutMs: 5000,
     },
+    storage: {
+      dataDir: './data',
+    },
+    database: {
+      database: './data/test.db',
+      synchronize: true,
+      logging: false,
+    },
+    app: {
+      env: 'test',
+      port: 0,
+    },
   },
 }));
 
+// モック後に対象をインポート
+const { SimpleScraper } = await import('../scraper.js');
+
 describe('SimpleScraper', () => {
-  let scraper: SimpleScraper;
+  let scraper: any;
 
   beforeEach(() => {
     scraper = new SimpleScraper();
@@ -47,25 +63,11 @@ describe('SimpleScraper', () => {
 
   describe('scrapeAthome', () => {
     it('正常なHTMLを処理できること', async () => {
-      // テスト用HTML
-      const testHtml = `
-        <html>
-          <body>
-            <div class="property">物件1</div>
-            <div class="property">物件2</div>
-            <div class="property">物件3</div>
-          </body>
-        </html>
-      `;
-
-      const mockResponse: AxiosResponse = {
-        data: testHtml,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config: {} as any,
-      };
-      (mockedAxios.get as jest.MockedFunction<typeof axios.get>).mockResolvedValue(mockResponse);
+      // Puppeteer-only戦略: PuppeteerScraperの結果に追随
+      (mockScrapingResult as any).success = true;
+      (mockScrapingResult as any).count = 3;
+      (mockScrapingResult as any).hash = 'hash-ok';
+      (mockScrapingResult as any).properties = [{}, {}, {}];
 
       const result = await scraper.scrapeAthome('https://example.com');
 
@@ -77,16 +79,8 @@ describe('SimpleScraper', () => {
     }, 30000);
 
     it('物件が見つからない場合はエラーを返すこと', async () => {
-      const testHtml = '<html><body><p>物件なし</p></body></html>';
-
-      const mockResponse: AxiosResponse = {
-        data: testHtml,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config: {} as any,
-      };
-      (mockedAxios.get as jest.MockedFunction<typeof axios.get>).mockResolvedValue(mockResponse);
+      (mockScrapingResult as any).success = false;
+      (mockScrapingResult as any).error = '物件要素が見つかりませんでした';
 
       const result = await scraper.scrapeAthome('https://example.com');
 
@@ -95,9 +89,8 @@ describe('SimpleScraper', () => {
     }, 30000);
 
     it('ネットワークエラーを適切に処理すること', async () => {
-      (mockedAxios.get as jest.MockedFunction<typeof axios.get>).mockRejectedValue(
-        new Error('HTTP 500 Server Error')
-      );
+      (mockScrapingResult as any).success = false;
+      (mockScrapingResult as any).error = 'HTTP 500 Server Error';
 
       const result = await scraper.scrapeAthome('https://example.com');
 
@@ -105,24 +98,16 @@ describe('SimpleScraper', () => {
       expect(result.error).toContain('HTTP 500 Server Error');
     }, 30000); // タイムアウトを30秒に増加
 
-    it('リトライ機能が動作すること', async () => {
-      const mockSuccessResponse: AxiosResponse = {
-        data: '<html><body><div class="property">物件1</div></body></html>',
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config: {} as any,
-      };
-      (mockedAxios.get as jest.MockedFunction<typeof axios.get>)
-        .mockRejectedValueOnce(new Error('HTTP 503 Service Unavailable'))
-        .mockRejectedValueOnce(new Error('HTTP 503 Service Unavailable'))
-        .mockResolvedValue(mockSuccessResponse);
+    it('Puppeteerの成功結果に追随すること', async () => {
+      (mockScrapingResult as any).success = true;
+      (mockScrapingResult as any).count = 1;
+      (mockScrapingResult as any).hash = 'hash-retry-ok';
+      (mockScrapingResult as any).properties = [{}];
 
       const result = await scraper.scrapeAthome('https://example.com');
 
       expect(result.success).toBe(true);
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(mockedAxios.get).toHaveBeenCalledTimes(3);
+      expect(result.count).toBe(1);
     }, 30000); // タイムアウトを30秒に設定
   });
 
