@@ -46,6 +46,7 @@
     
     /* Completeness */
     "skipLibCheck": true,
+    "types": ["node", "jest"],
     
     /* Projects */
     "composite": false,

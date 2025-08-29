@@ -37,6 +37,7 @@ const mockCommand = jest.fn((name: string, handler: (ctx: any) => any) => {
   registeredCommands[name] = handler;
 });
 const mockCatch = jest.fn();
+const mockOn = jest.fn();
 
 const MockBot = jest.fn(() => ({
   api: {
@@ -47,11 +48,18 @@ const MockBot = jest.fn(() => ({
   catch: mockCatch,
   start: mockStart,
   stop: mockStop,
+  on: mockOn,
 }));
 
 // grammyをモック
 jest.unstable_mockModule('grammy', () => ({
   Bot: MockBot,
+  webhookCallback: jest.fn(() => {
+    const handler = (_req: unknown, _res: unknown, next?: () => void) => {
+      if (typeof next === 'function') next();
+    };
+    return handler as unknown as import('express').RequestHandler;
+  }),
 }));
 
 // モック後に対象を動的インポート

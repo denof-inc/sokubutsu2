@@ -19,6 +19,12 @@ const MockBot = jest.fn(() => ({
 // grammyのモック
 jest.unstable_mockModule('grammy', () => ({
   Bot: MockBot,
+  webhookCallback: jest.fn(() => {
+    const handler = (_req: unknown, _res: unknown, next?: () => void) => {
+      if (typeof next === 'function') next();
+    };
+    return handler as unknown as import('express').RequestHandler;
+  }),
 }));
 
 // vibeLoggerのモック

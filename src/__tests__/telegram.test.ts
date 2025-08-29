@@ -25,6 +25,13 @@ const MockBot = jest.fn(() => ({
 // grammy のモック
 jest.unstable_mockModule('grammy', () => ({
   Bot: MockBot,
+  // webhookCallbackはExpress用のハンドラを返すダミー関数で十分
+  webhookCallback: jest.fn(() => {
+    const handler = (_req: unknown, _res: unknown, next?: () => void) => {
+      if (typeof next === 'function') next();
+    };
+    return handler as unknown as import('express').RequestHandler;
+  }),
 }));
 
 // モックの後でインポート
