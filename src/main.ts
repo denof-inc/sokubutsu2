@@ -153,6 +153,15 @@ async function main(): Promise<void> {
         '✅ 監視スケジューラー起動要求を送信しました（初回チェックはバックグラウンドで実行）'
       );
 
+      // 再起動・起動時のウェルカム（運用開始）通知
+      try {
+        await telegram.sendStartupNotice();
+      } catch (e) {
+        vibeLogger.warn('multiuser.main.startup_notice_failed', '起動通知送信に失敗', {
+          context: { error: e instanceof Error ? e.message : String(e) },
+        });
+      }
+
       console.log();
 
       vibeLogger.info('multiuser.main.startup_complete', 'マルチユーザーモード起動完了', {

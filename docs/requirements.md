@@ -93,8 +93,7 @@ Telegram Bot コマンド：
 
 - `/start`: ユーザー登録と利用開始  
 - `/add <URL> <名前>`: 新規監視URL登録  
-- `/list`: 登録済みURL一覧表示  
-- `/pause <URL-ID>`: URL監視を一時停止  
+- `/status`: 監視状況と登録URL一覧  
 - `/resume <URL-ID>`: URL監視を再開  
 - `/delete <URL-ID>`: URL削除  
 

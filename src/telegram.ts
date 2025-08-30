@@ -3,6 +3,7 @@ import type { RequestHandler } from 'express';
 import { NotificationData, Statistics, UrlStatistics } from './types.js';
 import { vibeLogger } from './logger.js';
 import { config } from './config.js';
+import { UserService } from './services/UserService.js';
 
 /**
  * Telegram通知サービス
@@ -51,6 +52,7 @@ export class TelegramNotifier {
   private readonly bot: Bot;
   private readonly chatId: string;
   private readonly maxRetries = 3;
+  private readonly userService = new UserService();
 
   constructor(botToken: string, chatId: string) {
     this.bot = new Bot(botToken);
@@ -76,15 +78,17 @@ export class TelegramNotifier {
   }
 
   /**
-   * 管理画面リンク作成
+   * 監視名を対象URLにリンクさせる（HTML）
    */
-  private createAdminLink(name: string): string {
+  private createUrlLink(name: string, url: string): string {
     const escapedName = this.escapeHtml(name);
-    const publicUrl = config.admin?.publicUrl;
-    if (publicUrl) {
-      return `<a href="${this.escapeHtml(publicUrl)}">${escapedName}</a>`;
-    }
-    return `${escapedName}`;
+    const safeUrl = this.escapeHtml(url);
+    return `<a href="${safeUrl}">${escapedName}</a>`;
+  }
+
+  private shortId(id: string): string {
+    const compact = id.replace(/-/g, '');
+    return compact.slice(0, 4);
   }
 
   /**
@@ -120,7 +124,7 @@ export class TelegramNotifier {
 
     const message = `🆕 <b>新着物件あり</b>
 
-📍 監視名: ${this.createAdminLink(displayName)}
+📍 監視名: ${this.createUrlLink(displayName, data.url)}
 ⏰ 検知時刻: ${this.escapeHtml(new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))}`;
 
     await this.sendMessage(message);
@@ -151,7 +155,7 @@ export class TelegramNotifier {
 
     const message = `⚠️ <b>監視エラーのお知らせ</b>
 
-📍 監視名: ${this.createAdminLink(displayName)}
+📍 監視名: ${this.createUrlLink(displayName, url)}
 ⏰ 時間: ${this.escapeHtml(new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))}
 🔢 エラー数: 3回連続（15分間）
 ❌ エラー内容: ${this.escapeHtml(userFriendlyError)}
@@ -207,17 +211,15 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
 
 `;
 
-      // 5分ごとの履歴を表示
+      // 履歴（間隔に依存しない表現）
       if (stats.hourlyHistory && stats.hourlyHistory.length > 0) {
-        message += `📝 5分ごとの結果:
+        message += `📝 検知結果:
 `;
         for (const entry of stats.hourlyHistory) {
-          let icon = '✅';
-          if (entry.status === 'あり') {
-            icon = '🆕';
-          } else if (entry.status === 'エラー') {
-            icon = '❌';
-          }
+          // アイコン統一: あり=✅ / なし=❌ / エラー=⚠️
+          let icon = '❌';
+          if (entry.status === 'あり') icon = '✅';
+          else if (entry.status === 'エラー') icon = '⚠️';
           message += `• ${this.escapeHtml(entry.time)} ${icon} ${this.escapeHtml(entry.status)}
 `;
         }
@@ -236,7 +238,7 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
       }
 
       message += `
-🔗 ${this.createAdminLink(stats.name)}`;
+🔗 ${this.createUrlLink(stats.name, stats.url)}`;
 
       await this.sendMessage(message);
 
@@ -410,6 +412,32 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   setupCommandHandlers(scheduler: IMonitoringScheduler): void {
+    // 受信メッセージの観測ログ（診断用）: ログのみ。処理は command ハンドラへ委譲
+    this.bot.on('message:text', async (ctx, next) => {
+      const text = ctx.message?.text ?? '';
+      const chat = ctx.chat?.type ?? 'unknown';
+      vibeLogger.info('telegram.update_received', 'テキストメッセージ受信', {
+        context: { text, chat, from: ctx.from?.id },
+      });
+      await next();
+    });
+
+    // コマンドメニューをTelegram側に登録（クライアントのコマンド一覧に出す）
+    void this.bot.api
+      .setMyCommands([
+        { command: 'help', description: 'ヘルプ' },
+        { command: 'status', description: '監視状況を表示' },
+        { command: 'stats', description: '各URLの統計を表示' },
+        { command: 'check', description: '手動チェックを実行' },
+        { command: 'add', description: 'URLを追加 (/add <URL> <名前>)' },
+        { command: 'resume', description: '監視を再開 (/resume <ID>)' },
+        { command: 'delete', description: 'URL削除 (/delete <ID>)' },
+      ])
+      .catch(e => {
+        vibeLogger.warn('telegram.set_my_commands_failed', 'コマンドメニュー登録に失敗', {
+          context: { error: e instanceof Error ? e.message : String(e) },
+        });
+      });
     // Bot全体のエラーハンドリング（予期せぬ例外の可視化）
     this.bot.catch(err => {
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -420,150 +448,109 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
       });
     });
 
-    // 受信メッセージの観測ログ（診断用）
-    this.bot.on('message:text', async ctx => {
+    this.bot.command('resume', async ctx => {
       try {
         const text = ctx.message?.text ?? '';
-        const chat = ctx.chat?.type ?? 'unknown';
-        vibeLogger.info('telegram.update_received', 'テキストメッセージ受信', {
-          context: { text, chat, from: ctx.from?.id },
-        });
-
-        // コマンド文字列を抽出（/cmd または /cmd@botname 形式に対応）
-        if (text.startsWith('/')) {
-          const raw = (text.split(' ')[0] ?? '').trim();
-          const name = raw.split('@')[0] ?? raw;
-          switch (name) {
-            case '/help': {
-              const message = [
-                '📚 利用可能なコマンド',
-                '',
-                '/status - 現在の監視状況を表示',
-                '/stats  - 詳細な統計情報を表示',
-                '/check  - 手動でチェックを実行',
-                '/help   - このヘルプメッセージを表示',
-              ].join('\n');
-              await ctx.reply(message, { parse_mode: 'HTML' });
-              vibeLogger.info('telegram.cmd_received', 'helpコマンドに応答しました');
-              return;
-            }
-            case '/status': {
-              try {
-                const status = await scheduler.getStatus();
-                const message = [
-                  '📊 監視状況',
-                  '',
-                  `⏱ 稼働状態: ${status.isRunning ? '✅ 稼働中' : '⏸ 停止中'}`,
-                  `📍 監視URL数: ${status.urlCount}件`,
-                  `⏰ 最終チェック: ${status.lastCheck ? new Date(String(status.lastCheck)).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : 'なし'}`,
-                  `📈 成功率: ${status.successRate}%`,
-                  `🧪 総チェック数: ${status.totalChecks}`,
-                ].join('\n');
-                await ctx.reply(message, { parse_mode: 'HTML' });
-                vibeLogger.info('telegram.cmd_received', 'statusコマンドに応答しました');
-              } catch (error) {
-                await ctx.reply('❌ ステータス取得に失敗しました');
-                vibeLogger.error('telegram.command.status_error', 'statusコマンドエラー', {
-                  context: { error: error instanceof Error ? error.message : String(error) },
-                });
-              }
-              return;
-            }
-            case '/stats': {
-              try {
-                const stats = scheduler.getStatistics();
-                const message = [
-                  '📈 統計情報',
-                  '',
-                  `総チェック数: ${stats.totalChecks}`,
-                  `エラー数: ${stats.errors}`,
-                  `新着検知: ${stats.newListings}`,
-                  `最終チェック: ${stats.lastCheck.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`,
-                  `平均実行時間: ${stats.averageExecutionTime.toFixed(1)}秒`,
-                  `成功率: ${stats.successRate}%`,
-                ].join('\n');
-                await ctx.reply(message, { parse_mode: 'HTML' });
-                vibeLogger.info('telegram.cmd_received', 'statsコマンドに応答しました');
-              } catch (error) {
-                await ctx.reply('❌ 統計取得に失敗しました');
-                vibeLogger.error('telegram.command.stats_error', 'statsコマンドエラー', {
-                  context: { error: error instanceof Error ? error.message : String(error) },
-                });
-              }
-              return;
-            }
-            case '/check': {
-              await ctx.reply('🔍 手動チェックを開始します...');
-              try {
-                const result = await scheduler.runManualCheck();
-                const message = [
-                  '✅ 手動チェック完了',
-                  '',
-                  `  • チェックしたURL: ${result.urlCount}件`,
-                  `  • 成功: ${result.successCount}件`,
-                  `  • エラー: ${result.errorCount}件`,
-                  `  • 新着検知: ${result.newPropertyCount > 0 ? `🆕 ${result.newPropertyCount}件` : 'なし'}`,
-                  `  • 実行時間: ${(result.executionTime / 1000).toFixed(1)}秒`,
-                ].join('\n');
-                await ctx.reply(message, { parse_mode: 'HTML' });
-                vibeLogger.info('telegram.cmd_received', 'checkコマンドに応答しました');
-              } catch (error) {
-                await ctx.reply('❌ 手動チェック中にエラーが発生しました');
-                vibeLogger.error('telegram.command.check_error', 'checkコマンドエラー', {
-                  context: { error: error instanceof Error ? error.message : String(error) },
-                });
-              }
-              return;
-            }
-          }
+        const id = text.split(/\s+/)[1];
+        if (!id) {
+          await ctx.reply('❌ 形式: /resume <URL-ID>');
+          return;
         }
-      } catch {
-        // 受信観測のみ
-      }
-    });
-
-    // /status - 現在の監視状況
-    this.bot.command('status', async ctx => {
-      try {
-        const status = await scheduler.getStatus();
-        // MarkdownV2はエスケープが厳しいため、まずはMarkdownで安定送信
-        const message = [
-          '📊 監視状況',
-          '',
-          `⏱ 稼働状態: ${status.isRunning ? '✅ 稼働中' : '⏸ 停止中'}`,
-          `📍 監視URL数: ${status.urlCount}件`,
-          `⏰ 最終チェック: ${status.lastCheck ? new Date(String(status.lastCheck)).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : 'なし'}`,
-          `🔄 総チェック数: ${status.totalChecks}回`,
-          `✅ 成功率: ${status.successRate.toFixed(1)}%`,
-        ].join('\n');
-        await ctx.reply(message, { parse_mode: 'HTML' });
+        const chatId = String(ctx.chat?.id ?? '');
+        const username = ctx.from?.username;
+        const user = await this.userService.registerOrGetUser(chatId, username);
+        const urls = await this.userService.getUserUrls(user.id);
+        const target = urls.find(u => this.shortId(u.id) === id || u.id.startsWith(id));
+        if (!target) {
+          await ctx.reply('❌ 指定IDのURLが見つかりません');
+          return;
+        }
+        if (target.isMonitoring) {
+          await ctx.reply(`✅ 既に稼働中です: ${target.name}`);
+          return;
+        }
+        const result = await this.userService.toggleUrlMonitoring(user.id, id);
+        if (result.success) {
+          await ctx.reply(`▶️ 監視を再開しました: ${target.name}`);
+        } else {
+          await ctx.reply(`❌ エラー: ${result.message}`);
+        }
       } catch (error) {
-        await ctx.reply('❌ ステータス取得中にエラーが発生しました');
-        vibeLogger.error('telegram.command.status_error', 'statusコマンドエラー', {
+        vibeLogger.error('telegram.command.resume_error', 'resumeコマンドエラー', {
           context: { error: error instanceof Error ? error.message : String(error) },
         });
+        await ctx.reply('❌ 再開に失敗しました');
       }
     });
 
-    // /stats - 統計情報表示
+    // /delete - URL削除（4文字ID対応）
+    this.bot.command('delete', async ctx => {
+      try {
+        const text = ctx.message?.text ?? '';
+        const id = text.split(/\s+/)[1];
+        if (!id) {
+          await ctx.reply('❌ 形式: /delete <URL-ID>');
+          return;
+        }
+        const chatId = String(ctx.chat?.id ?? '');
+        const username = ctx.from?.username;
+        const user = await this.userService.registerOrGetUser(chatId, username);
+        const urls = await this.userService.getUserUrls(user.id);
+        const target = urls.find(u => this.shortId(u.id) === id || u.id.startsWith(id));
+        if (!target) {
+          await ctx.reply('❌ 指定IDのURLが見つかりません');
+          return;
+        }
+        const result = await this.userService.deleteUrl(user.id, target.id);
+        if (result.success) {
+          await ctx.reply('🗑️ URLを削除しました');
+        } else {
+          await ctx.reply(`❌ エラー: ${result.message}`);
+        }
+      } catch (error) {
+        vibeLogger.error('telegram.command.delete_error', 'deleteコマンドエラー', {
+          context: { error: error instanceof Error ? error.message : String(error) },
+        });
+        await ctx.reply('❌ 削除に失敗しました');
+      }
+    });
+
+    // /stats - 登録URLごとの統計一覧
     this.bot.command('stats', async ctx => {
       try {
-        const stats = scheduler.getStatistics();
-        const message = [
-          '📈 統計情報',
-          '',
-          '📊 パフォーマンス',
-          `  • 総チェック数: ${stats.totalChecks}回`,
-          `  • 成功率: ${stats.successRate}%`,
-          `  • 平均実行時間: ${stats.averageExecutionTime.toFixed(2)}秒`,
-          '',
-          '🏠 検知実績',
-          `  • 新着検知数: ${stats.newListings}回`,
-          `  • エラー数: ${stats.errors}回`,
-          '',
-          `⏰ 最終チェック: ${stats.lastCheck.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`,
-        ].join('\n');
-        await ctx.reply(message, { parse_mode: 'HTML' });
+        const chatId = String(ctx.chat?.id ?? '');
+        const username = ctx.from?.username;
+        const user = await this.userService.registerOrGetUser(chatId, username);
+        const urls = await this.userService.getUserUrls(user.id);
+
+        const lines: string[] = ['📈 統計情報', ''];
+        if (urls.length === 0) {
+          lines.push('登録URLがありません');
+        } else {
+          for (const u of urls) {
+            const nameLink = `<a href="${this.escapeHtml(u.url)}">${this.escapeHtml(u.name)}</a>`;
+            const total = u.totalChecks;
+            const errors = u.errorCount;
+            const success = Math.max(0, total - errors);
+            const rate = total > 0 ? ((success / total) * 100).toFixed(1) : '—';
+            const last = u.lastCheckedAt
+              ? new Date(String(u.lastCheckedAt)).toLocaleString('ja-JP', {
+                  timeZone: 'Asia/Tokyo',
+                })
+              : '—';
+            lines.push(
+              `${nameLink}`,
+              `  • 総チェック数: ${total}回`,
+              `  • エラー数: ${errors}回`,
+              `  • 新着検知: ${u.newListingsCount}回`,
+              `  • 成功率: ${rate}%`,
+              `  • 監視間隔: ${this.escapeHtml(config.monitoring.interval)}`,
+              `  • 最終チェック: ${this.escapeHtml(last)}`,
+              ''
+            );
+          }
+        }
+        await ctx.reply(lines.join('\n'.replace('\\n', '\n')), { parse_mode: 'HTML' });
       } catch (error) {
         await ctx.reply('❌ 統計情報取得中にエラーが発生しました');
         vibeLogger.error('telegram.command.stats_error', 'statsコマンドエラー', {
@@ -571,27 +558,117 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
         });
       }
     });
-
-    // /check - 手動チェック実行
+    // /check - 手動チェック実行（Webhookをブロックしない非同期実行）
     this.bot.command('check', async ctx => {
       try {
         await ctx.reply('🔍 手動チェックを開始します...');
-        const result = await scheduler.runManualCheck();
-
-        const message = [
-          '✅ 手動チェック完了',
-          '',
-          '📊 結果',
-          `  • チェックしたURL: ${result.urlCount}件`,
-          `  • 成功: ${result.successCount}件`,
-          `  • エラー: ${result.errorCount}件`,
-          `  • 新着検知: ${result.newPropertyCount > 0 ? `🆕 ${result.newPropertyCount}件` : 'なし'}`,
-          `  • 実行時間: ${(result.executionTime / 1000).toFixed(1)}秒`,
-        ].join('\n');
-        await ctx.reply(message, { parse_mode: 'HTML' });
+        void (async () => {
+          try {
+            const result = await scheduler.runManualCheck();
+            const message = [
+              '✅ 手動チェック完了',
+              '',
+              '📊 結果',
+              `  • チェックしたURL: ${result.urlCount}件`,
+              `  • 成功: ${result.successCount}件`,
+              `  • エラー: ${result.errorCount}件`,
+              `  • 新着検知: ${result.newPropertyCount > 0 ? `🆕 ${result.newPropertyCount}件` : 'なし'}`,
+              `  • 実行時間: ${(result.executionTime / 1000).toFixed(1)}秒`,
+            ].join('\n'.replace('\\n', '\n'));
+            await ctx.reply(message, { parse_mode: 'HTML' });
+          } catch (err) {
+            await ctx.reply('❌ 手動チェックのバックグラウンド実行でエラーが発生しました');
+            vibeLogger.error('telegram.command.check_error_bg', 'checkコマンドBGエラー', {
+              context: { error: err instanceof Error ? err.message : String(err) },
+            });
+          }
+        })();
       } catch (error) {
-        await ctx.reply('❌ 手動チェック中にエラーが発生しました');
+        await ctx.reply('❌ 手動チェックの開始に失敗しました');
         vibeLogger.error('telegram.command.check_error', 'checkコマンドエラー', {
+          context: { error: error instanceof Error ? error.message : String(error) },
+        });
+      }
+    });
+
+    // /add - 監視URL追加（名前必須）
+    this.bot.command('add', async ctx => {
+      try {
+        const text = ctx.message?.text ?? '';
+        const parts = text.split(/\s+/).slice(1);
+        const urlIndex = parts.findIndex(p => /^https?:\/\//i.test(p));
+        if (urlIndex === -1) {
+          await ctx.reply('❌ 形式: /add <URL> <名前>');
+          return;
+        }
+        const url = String(parts[urlIndex] ?? '');
+        const name = parts
+          .slice(urlIndex + 1)
+          .join(' ')
+          .trim();
+        if (!name) {
+          await ctx.reply('❌ 名前を指定してください。形式: /add <URL> <名前>');
+          return;
+        }
+        const match = url.match(/\/(chintai|buy_other)\/([^/]+)\//);
+        const prefecture = match?.[2] ?? 'unknown';
+        const displayName = name || prefecture;
+
+        const chatId = String(ctx.chat?.id ?? '');
+        const username = ctx.from?.username;
+        const user = await this.userService.registerOrGetUser(chatId, username);
+        const result = await this.userService.registerUrl(user.id, url, displayName, prefecture);
+        if (result.success && result.userUrl) {
+          await ctx.reply(
+            [
+              '✅ 監視URL追加完了',
+              `ID: ${this.shortId(result.userUrl.id)}`,
+              `📍 名前: ${result.userUrl.name}`,
+              `🔗 URL: ${result.userUrl.url}`,
+              '🕐 監視間隔: 5分',
+            ].join('\n'),
+            { parse_mode: 'HTML' }
+          );
+        } else {
+          await ctx.reply(`❌ エラー: ${result.message}`);
+        }
+      } catch (error) {
+        vibeLogger.error('telegram.command.add_error', 'addコマンドエラー', {
+          context: { error: error instanceof Error ? error.message : String(error) },
+        });
+        await ctx.reply('❌ 追加に失敗しました');
+      }
+    });
+
+    // /status - 現在の監視状況（各監視の要約一覧）
+    this.bot.command('status', async ctx => {
+      try {
+        const lines: string[] = ['📊 監視状況', ''];
+        const chatId = String(ctx.chat?.id ?? '');
+        const username = ctx.from?.username;
+        const user = await this.userService.registerOrGetUser(chatId, username);
+        const urls = await this.userService.getUserUrls(user.id);
+        if (urls.length === 0) {
+          lines.push('（登録なし）');
+        } else {
+          urls.forEach((u, idx) => {
+            const state = u.isMonitoring ? '✅' : '⏸️';
+            const idShort = this.shortId(u.id);
+            const nameLink = `<a href="${this.escapeHtml(u.url)}">${this.escapeHtml(u.name)}</a>`;
+            const last = u.lastCheckedAt
+              ? new Date(String(u.lastCheckedAt)).toLocaleString('ja-JP', {
+                  timeZone: 'Asia/Tokyo',
+                })
+              : '—';
+            lines.push(
+              `${idx + 1}. ${state} ID: ${idShort} | ${nameLink} | 最終チェック: ${this.escapeHtml(last)}`
+            );
+          });
+        }
+        await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' });
+      } catch (error) {
+        await ctx.reply('❌ ステータス取得に失敗しました');
+        vibeLogger.error('telegram.command.status_error', 'statusコマンドエラー', {
           context: { error: error instanceof Error ? error.message : String(error) },
         });
       }
@@ -602,10 +679,14 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
       const message = [
         '📚 利用可能なコマンド',
         '',
-        '/status - 現在の監視状況を表示',
-        '/stats  - 詳細な統計情報を表示',
-        '/check  - 手動でチェックを実行',
-        '/help   - このヘルプメッセージを表示',
+        '/status - 監視状況と登録URL一覧',
+        '/stats  - 詳細な統計情報',
+        '/check  - 手動チェックを実行',
+        // HTMLモードのため山括弧はエスケープ
+        '/add &lt;URL&gt; &lt;名前&gt;    - URLを追加',
+        '/resume &lt;ID&gt;         - 監視を再開',
+        '/delete &lt;ID&gt;         - URLを削除',
+        '/help   - このヘルプを表示',
         '',
         '🔔 自動通知について',
         '• 新着物件検知時: 即座に通知',
@@ -637,14 +718,23 @@ ${stats.successRate >= 95 ? '✅ システムは正常に動作しています' 
     this.bot.on('message:text', async ctx => {
       const text = ctx.message?.text ?? '';
       if (text.startsWith('/')) {
-        const known = ['/status', '/stats', '/check', '/help', '/start'];
+        const known = [
+          '/status',
+          '/stats',
+          '/check',
+          '/help',
+          '/start',
+          '/add',
+          '/resume',
+          '/delete',
+        ];
         const name = (text.split(' ')[0] ?? '').trim();
         if (!known.includes(name)) {
           const msg = [
             '❓ 不明なコマンドです。',
             '',
             '利用可能なコマンド:',
-            '/status, /stats, /check, /help, /start',
+            '/status, /stats, /check, /add, /resume, /delete, /help, /start',
           ].join('\n');
           await ctx.reply(msg, { parse_mode: 'HTML' });
         }

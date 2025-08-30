@@ -820,6 +820,7 @@ export class MultiUserMonitoringScheduler {
   private isRunning = false;
   private consecutiveErrors = 0;
   private readonly maxConsecutiveErrors = 5;
+  private readonly firstRunSeen: Set<string> = new Set();
   private readonly urlErrorCounts: Map<string, number> = new Map();
 
   // 集計用（/status, /stats応答向けの簡易統計）
@@ -887,6 +888,7 @@ export class MultiUserMonitoringScheduler {
     });
 
     // 初回実行
+    this.firstRunSeen.clear();
     vibeLogger.info('multiuser.monitoring.initial_check', '初回チェックを実行します...', {});
     await this.runMonitoringCycle();
     vibeLogger.info('multiuser.monitoring.initial_check_complete', '初回チェック完了', {
@@ -1228,6 +1230,13 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
 
     // ハッシュ値の管理（RFP 2.1.1準拠: コンテンツ変更検知）
     const previousHash = userUrl.lastHash;
+    // プロセス起動直後の最初のチェックでは新着とみなさない
+    if (!this.firstRunSeen.has(userUrl.id)) {
+      this.firstRunSeen.add(userUrl.id);
+      this.addUrlHistory(urlKey, currentTime, 'なし');
+      await this.updateUrlHash(userUrl, result.hash);
+      return;
+    }
     if (!previousHash) {
       // 初回チェック
       this.addUrlHistory(urlKey, currentTime, 'なし');
@@ -1262,15 +1271,15 @@ ${this.escapeMarkdownV2(recoveryMsg)}`
       // ユーザー個別通知を送信
       const telegram = this.getTelegramService(userUrl.user.telegramChatId);
       if (telegram) {
-        const escapedName = this.escapeMarkdownV2(userUrl.name);
-        const currentTimeStr = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
-        const escapedTime = this.escapeMarkdownV2(currentTimeStr);
-
-        const message = `🆕 新着があります！
-
-📍 監視名: [${escapedName}](http://localhost:3005)
-検知時刻: ${escapedTime}`;
-        await telegram.sendMessage(message);
+        const now = new Date();
+        const data = {
+          currentCount: result.count,
+          previousCount: result.count,
+          detectedAt: now,
+          url: userUrl.url,
+          executionTime: (result.executionTime || 0) / 1000,
+        } as import('./types.js').NotificationData;
+        await telegram.sendNewListingNotification(data, userUrl.name);
       }
 
       // ハッシュを更新

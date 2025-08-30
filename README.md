@@ -10,7 +10,7 @@
 
 - ✅ **ESMモジュールシステム**: 完全ESM対応
 - ✅ **Puppeteer-first戦略**: 認証回避・指紋対策込み（実測: 約5秒/回）
-- ✅ **Telegram通知（grammy + Webhook）**: Cloudflare Tunnelで常時HTTPS公開
+- ✅ **Telegram通知（grammy + Webhook）**: Tailscale Funnel推奨（Cloudflare Tunnelも可）
 - ✅ **TypeScript**: 型安全・Jestテスト完備
 - ✅ **Docker対応**: 自宅サーバ向け最適化
 
@@ -45,15 +45,12 @@ npm run manual:test
 npm run start:dev
 ```
 
-### 4. 本番稼働
+### 4. 本番稼働（Dockerのみ）
 ```bash
-# Docker環境で起動
+# Docker Compose で起動（本番想定）
 npm run docker:run
-
-# または直接起動
-npm run build
-npm start
 ```
+注: 本番は Docker 前提です。`npm start` による直接起動はサポートしません（開発用途のみ）。
 
 ## 📋 環境変数設定（主要）
 
@@ -84,15 +81,38 @@ npm run lint               # ESLint実行・自動修正
 npm run lint:check         # ESLint実行（修正なし）
 npm run quality:check      # 品質チェック（lint+test+build）
 
-# ビルド・起動
-npm run build              # TypeScriptビルド
-npm start                  # 本番モード起動
+# ビルド（開発用途）
+npm run build              # TypeScriptビルド（ローカル検証用）
+# 本番起動は Docker を使用
 
 # Docker
 npm run docker:build       # Dockerイメージビルド
 npm run docker:run         # Docker Compose起動
 npm run docker:stop        # Docker Compose停止
 ```
+
+### 運用スクリプト（自動復旧・一括デプロイ）
+
+```
+# 一括デプロイ（ビルド→起動→Tailscale公開→Webhook設定→検証）
+bash scripts/ops/deploy-all.sh
+
+# Tailscale Serve/Funnel を 3002 に有効化し、公開URLを .env* に同期
+bash scripts/ops/ensure-funnel.sh
+
+# コンテナ内の環境で Webhook を登録（pending破棄込み）
+bash scripts/ops/ensure-webhook.sh
+
+# Health / WebhookInfo / Webhook入出力ログをまとめて確認
+bash scripts/ops/verify.sh
+```
+
+### コミット時の品質チェック
+- Huskyのpre-commitで以下を自動実行します:
+  - lint-staged（差分のみの整形/ESLint修正）
+  - `npm run typecheck`（型チェック）
+  - `npm run test`（全テスト）
+→ 失敗時はコミットをブロックします。
 
 ## 📊 パフォーマンス目標
 
@@ -185,6 +205,13 @@ Docker では `3002:3002` を公開しているため、リバースプロキシ
 
 補足: Cloudflareでゾーン管理ができない／DNSを変更できない場合は、Tailscale Funnel（無料）で安定HTTPSの公開URL（例: `https://<host>.<tailnet>.ts.net`）を取得できます。詳細手順は「docs/運用・デプロイガイド.md > Webhook公開（ゾーン未委譲時の代替：Tailscale Funnel）」を参照してください。
 
+### Tailscale Funnel（推奨）クイック手順
+- Tailscaleをインストールしてログイン
+- Funnelを有効化: `tailscale funnel --bg 3002`
+- 発行URLを `ADMIN_PUBLIC_URL` に設定（例: `https://<host>.<tailnet>.ts.net`）
+- コンテナ起動: `docker-compose up -d`
+- Webhook確認: `curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"`
+
 ### Webhook自己修復ガード（安定運用のための自動復旧）
 - 機能: TelegramのWebHook URLを定期検証し、不一致や解除を検知したら自動で再設定します。
 - 設定:
@@ -194,6 +221,16 @@ Docker では `3002:3002` を公開しているため、リバースプロキシ
 - 期待効果: 起動直後の一時的な失敗や外部要因でWebHookが外れても、自動で復旧し通知断を最小化します。
 
 注意: 旧ロングポーリング実装（`bot.start()`）は使用しません。
+
+### 表示整形（HTML）とリンク方針
+- `parse_mode: 'HTML'` を使用
+- 改行は全て `\n` で結合（バックスラッシュ表示になる `\\n` を使わない）
+- 監視名は「監視URL」へリンク（青字タップで対象URLへ遷移）
+
+### Webhook入出力ログ（可観測性）
+- 受信: `admin.webhook.request`
+- 応答: `admin.webhook.response`
+→ 届いていないのか、返せていないのかを即時に判別可能
 
 ## 🔧 トラブルシューティング
 
@@ -252,12 +289,12 @@ cat logs/sokubutsu-$(date +%Y-%m-%d).log
 # 最新版取得
 git pull origin main
 
-# 依存関係更新
+# 依存関係更新（ビルドはDockerで実行）
 npm install
 
-# 再ビルド・再起動
-npm run build
-docker-compose restart
+# Dockerイメージ再ビルド＆再起動
+npm run docker:build
+docker-compose up -d
 ```
 
 ## 🤝 開発参加

@@ -5,4 +5,18 @@ npm run precommit || {
   exit 1
 }
 
+# 型チェック（迅速）
+echo "🔎 Typecheck (tsc --noEmit)"
+npm run typecheck || {
+  echo "❌ Typecheck failed. Fix errors before committing."
+  exit 1
+}
+
+# 単体テスト（コミット時に全テスト実行）
+echo "🧪 Running unit tests..."
+npm run test || {
+  echo "❌ Tests failed. Fix failing tests before committing."
+  exit 1
+}
+
 echo "✅ All checks passed!"
