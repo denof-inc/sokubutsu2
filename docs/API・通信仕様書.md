@@ -221,12 +221,12 @@ WEBHOOK_DOMAIN=https://your-domain.com
 新着物件通知サービスに登録しました。
 以下のコマンドが利用できます：
 
-📝 /add <URL> <名前> - 監視URL追加
-📋 /list - 登録済みURL一覧
-⏸️ /pause <ID> - 監視一時停止
-▶️ /resume <ID> - 監視再開
-🗑️ /delete <ID> - URL削除
+📝 /add <URL> <名前> - 監視URL追加（名前必須）
+📊 /status - 監視状況と登録URL一覧（IDは4文字表示、監視名はリンク）
+▶️ /resume <ID> - 監視再開（4文字ID対応）
+🗑️ /delete <ID> - URL削除（4文字ID対応）
 ℹ️ /help - ヘルプ表示
+（補足）/stats: 詳細統計、/check: 手動チェック
 ```
 
 #### /add - 監視URL追加
@@ -256,27 +256,27 @@ WEBHOOK_DOMAIN=https://your-domain.com
 正しい形式で再入力してください。
 ```
 
-#### /list - 登録済みURL一覧
+#### /status - 監視状況と登録URL一覧
 **コマンド**
 ```
-/list
+/status
 ```
 
-**Bot応答**
+**Bot応答（例）**
 ```
-📋 監視URL一覧
+📊 監視状況
 
-1️⃣ ID: 1 | ✅ 稼働中
-📍 新宿エリア
-🔗 https://www.athome.co.jp/chintai/...
-🕐 最終チェック: 14:45 (5分前)
+⏱ 稼働状態: ✅ 稼働中
+📍 監視URL数: 2件
+⏰ 最終チェック: 15:00
+🔄 総チェック数: 12回
+✅ 成功率: 95.0%
 
-2️⃣ ID: 2 | ⏸️ 一時停止
-📍 渋谷エリア  
-🔗 https://www.athome.co.jp/chintai/...
-🕐 最終チェック: 昨日 18:30
-
-合計: 2件（稼働中: 1件）
+📋 登録URL一覧
+1. ✅ ID: 1a2b | <a href="https://...">新宿エリア</a>
+   最終チェック: 14:55
+2. ⏸️ ID: 5e6f | <a href="https://...">渋谷エリア</a>
+   最終チェック: 14:30
 ```
 
 ### 通知メッセージ仕様
