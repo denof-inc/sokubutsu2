@@ -12,11 +12,19 @@ npm run typecheck || {
   exit 1
 }
 
-# 単体テスト（コミット時に全テスト実行）
+# 単体テスト（差分に関連するテストを優先実行。該当なしなら全件）
 echo "🧪 Running unit tests..."
-npm run test || {
-  echo "❌ Tests failed. Fix failing tests before committing."
-  exit 1
-}
+STAGED=$(git diff --name-only --cached | tr '\n' ' ')
+if [ -n "$STAGED" ]; then
+  npx jest --bail --findRelatedTests $STAGED || {
+    echo "❌ Related tests failed. Fix failing tests before committing."
+    exit 1
+  }
+else
+  npm run test || {
+    echo "❌ Tests failed. Fix failing tests before committing."
+    exit 1
+  }
+fi
 
 echo "✅ All checks passed!"
