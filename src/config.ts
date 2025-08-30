@@ -27,6 +27,11 @@ export const config: Config = {
   },
   scraping: {
     strategy: process.env.SCRAPE_STRATEGY === 'http_first' ? 'http_first' : 'puppeteer_first',
+    // デフォルトはOFF（運用で明示的にONにする）
+    persistentSessionEnabled: process.env.PERSISTENT_BROWSER_ENABLED === 'true',
+    sessionTtlMinutes: parseInt(process.env.PERSISTENT_BROWSER_TTL_MINUTES ?? '120', 10),
+    maxConsecutiveAuth: parseInt(process.env.AUTH_CONSECUTIVE_MAX ?? '2', 10),
+    blockMediaResources: process.env.BLOCK_MEDIA_RESOURCES !== 'false',
   },
   app: {
     port: parseInt(process.env.PORT ?? '3000', 10),

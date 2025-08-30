@@ -3,6 +3,9 @@ import { ScrapingResult } from './types.js';
 import { vibeLogger } from './logger.js';
 import { PuppeteerScraper } from './scraper-puppeteer.js';
 import { config } from './config.js';
+import * as cheerio from 'cheerio';
+import * as crypto from 'crypto';
+import { sessionManager } from './utils/session-manager.js';
 
 /**
  * 軽量HTTPスクレイパー（戦略準拠）
@@ -57,6 +60,43 @@ export class SimpleScraper {
     const startTime = Date.now();
 
     try {
+      // 持続セッションが有効なら、まず軽量reloadで取得を試みる
+      if (config.scraping?.persistentSessionEnabled) {
+        try {
+          const { html, authDetected } = await sessionManager.reloadAndGetContent(url);
+          if (!authDetected && html) {
+            const result = this.extractFromHtml(html);
+            if (result.count > 0) {
+              const exec = Date.now() - startTime;
+              vibeLogger.info(
+                'scraping.success.persistent',
+                '持続セッションでのスクレイピング成功',
+                {
+                  context: { url, propertiesCount: result.count, executionTime: exec },
+                }
+              );
+              return { success: true, hash: result.hash, count: result.count, executionTime: exec };
+            }
+          }
+          // 認証検出または抽出失敗時はPuppeteerにフォールバック
+          vibeLogger.warn(
+            'scraping.persistent_fallback',
+            '持続セッションで抽出できず、Puppeteerへフォールバック',
+            {
+              context: { url },
+            }
+          );
+        } catch (e) {
+          vibeLogger.warn(
+            'scraping.persistent_error',
+            '持続セッションでの取得に失敗。フォールバック実施',
+            {
+              context: { url, error: e instanceof Error ? e.message : String(e) },
+            }
+          );
+        }
+      }
+
       // Puppeteer-only戦略（HTTP-firstフォールバック削除）
       vibeLogger.info('scraping.start', `Puppeteer単体スクレイピング開始: ${url}`, {
         context: { url, method: 'Puppeteer-only' },
@@ -120,6 +160,40 @@ export class SimpleScraper {
         executionTime,
         memoryUsage: Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100,
       };
+    }
+  }
+
+  /**
+   * HTMLから物件の存在を簡易判定し、プロパティ数とハッシュを算出
+   */
+  private extractFromHtml(html: string): { count: number; hash: string } {
+    try {
+      const $ = cheerio.load(html);
+      // セレクタ群（サイト構造に応じて拡張）
+      const selectors = [
+        'athome-search-result-list-item',
+        'athome-buy-other-object-list-item',
+        '[class*="bukken"]',
+        '[class*="property-list"]',
+        '.item-cassette',
+      ];
+      let items: string[] = [];
+      for (const sel of selectors) {
+        const nodes = $(sel);
+        if (nodes.length > 0) {
+          items = nodes
+            .slice(0, 20)
+            .map((_, el) => $(el).text().trim())
+            .get()
+            .filter(Boolean);
+          if (items.length > 0) break;
+        }
+      }
+      // 最低限のハッシュ（テキストベース）
+      const hash = crypto.createHash('md5').update(items.join('|')).digest('hex');
+      return { count: items.length, hash };
+    } catch {
+      return { count: 0, hash: '' };
     }
   }
 

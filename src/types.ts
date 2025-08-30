@@ -110,6 +110,10 @@ export interface Config {
   };
   scraping?: {
     strategy: 'puppeteer_first' | 'http_first';
+    persistentSessionEnabled?: boolean;
+    sessionTtlMinutes?: number;
+    maxConsecutiveAuth?: number;
+    blockMediaResources?: boolean;
   };
   app: {
     port: number;
