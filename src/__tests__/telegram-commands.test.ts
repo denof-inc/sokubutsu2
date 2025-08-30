@@ -31,6 +31,7 @@ const registeredCommands: Record<string, (ctx: any) => any> = {};
 // grammy Botモック
 const mockGetMe = jest.fn<() => Promise<any>>();
 const mockSendMessage = jest.fn<() => Promise<any>>();
+const mockSetMyCommands = jest.fn<(_cmds?: any) => Promise<any>>();
 const mockStart = jest.fn<() => Promise<void>>();
 const mockStop = jest.fn<() => void>();
 const mockCommand = jest.fn((name: string, handler: (ctx: any) => any) => {
@@ -43,6 +44,7 @@ const MockBot = jest.fn(() => ({
   api: {
     getMe: mockGetMe,
     sendMessage: mockSendMessage,
+    setMyCommands: mockSetMyCommands,
   },
   command: mockCommand,
   catch: mockCatch,
@@ -78,6 +80,7 @@ describe('TelegramNotifier command handlers', () => {
     });
     mockSendMessage.mockResolvedValue({ ok: true });
     mockStart.mockResolvedValue();
+    mockSetMyCommands.mockResolvedValue({ ok: true });
   });
 
   it('registers and responds to basic commands', async () => {
@@ -137,5 +140,11 @@ describe('TelegramNotifier command handlers', () => {
       }
       reply.mockClear();
     }
+
+    // helpの内容（山括弧がエスケープされていること）
+    const reply = jest.fn();
+    await registeredCommands['help']?.({ reply });
+    const helpText = (reply.mock.calls[0]?.[0] ?? '') as string;
+    expect(helpText).toContain('/add &lt;URL&gt; &lt;名前&gt;');
   });
 });

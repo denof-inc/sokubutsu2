@@ -5,6 +5,7 @@ import { NotificationData, Statistics, UrlStatistics } from '../types.js';
 const mockGetMe = jest.fn<() => Promise<any>>();
 const mockSendMessage = jest.fn<() => Promise<any>>();
 const mockDeleteWebhook = jest.fn<() => Promise<any>>();
+const mockSetMyCommands = jest.fn<(_cmds?: any) => Promise<any>>();
 const mockStart = jest.fn<() => Promise<void>>();
 const mockStop = jest.fn<() => Promise<void>>();
 const mockCommand = jest.fn<(name: string, handler: (ctx: any) => any) => void>();
@@ -15,6 +16,7 @@ const MockBot = jest.fn(() => ({
     getMe: mockGetMe,
     sendMessage: mockSendMessage,
     deleteWebhook: mockDeleteWebhook,
+    setMyCommands: mockSetMyCommands,
   },
   start: mockStart,
   stop: mockStop,
@@ -57,6 +59,7 @@ describe('TelegramNotifier', () => {
       chat: { id: -123456789, type: 'group' },
       text: 'Test message',
     });
+    mockSetMyCommands.mockResolvedValue({ ok: true });
 
     notifier = new TelegramNotifier('test-token', 'test-chat-id');
   });
@@ -169,10 +172,12 @@ describe('TelegramNotifier', () => {
 
       expect(sentMessage).toContain('1時間サマリー');
       expect(sentMessage).toContain('tokyo');
-      expect(sentMessage).toContain('5分ごとの結果');
-      expect(sentMessage).toContain('10:00 ✅ なし');
-      expect(sentMessage).toContain('10:10 🆕 あり');
-      expect(sentMessage).toContain('10:15 ❌ エラー');
+      // 見出しが『検知結果』に変更
+      expect(sentMessage).toContain('検知結果');
+      // アイコン仕様: あり=✅ / なし=❌ / エラー=⚠️
+      expect(sentMessage).toContain('10:00 ❌ なし');
+      expect(sentMessage).toContain('10:10 ✅ あり');
+      expect(sentMessage).toContain('10:15 ⚠️ エラー');
       expect(sentMessage).toContain('成功率: 83.3%');
     });
   });

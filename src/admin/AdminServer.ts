@@ -1,4 +1,9 @@
-import express, { type RequestHandler } from 'express';
+import express, {
+  type Request,
+  type Response,
+  type NextFunction,
+  type RequestHandler,
+} from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { UserService } from '../services/UserService.js';
@@ -110,6 +115,47 @@ export class AdminServer {
 
   // Webhookなど外部からのハンドラ登録用
   registerPost(path: string, handler: RequestHandler): void {
-    this.app.post(path, handler);
+    this.app.post(
+      path,
+      (req: Request, res: Response, next: NextFunction) => {
+        const started = Date.now();
+        const ua = req.headers['user-agent'];
+        const ip =
+          (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
+        vibeLogger.info('admin.webhook.request', 'Webhookリクエスト受信', {
+          context: {
+            method: req.method,
+            path: req.path,
+            ip,
+            ua,
+            contentType: req.headers['content-type'],
+          },
+        });
+        res.on('finish', () => {
+          vibeLogger.info('admin.webhook.response', 'Webhookレスポンス送信', {
+            context: {
+              status: res.statusCode,
+              durationMs: Date.now() - started,
+            },
+          });
+        });
+        next();
+      },
+      handler,
+      (err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+        vibeLogger.error('admin.webhook.error', 'Webhook処理中にエラー', {
+          context: { error: err instanceof Error ? err.message : String(err) },
+        });
+        // 使っていることを明示して未使用警告を回避
+        void _next;
+        try {
+          res.status(200).end(); // Telegram側の再送を避ける
+        } catch (e) {
+          vibeLogger.warn('admin.webhook.error.response', 'エラーレスポンス送信に失敗', {
+            context: { error: e instanceof Error ? e.message : String(e) },
+          });
+        }
+      }
+    );
   }
 }

@@ -91,6 +91,22 @@ npm run docker:run         # Docker Compose起動
 npm run docker:stop        # Docker Compose停止
 ```
 
+### 運用スクリプト（自動復旧・一括デプロイ）
+
+```
+# 一括デプロイ（ビルド→起動→Tailscale公開→Webhook設定→検証）
+bash scripts/ops/deploy-all.sh
+
+# Tailscale Serve/Funnel を 3002 に有効化し、公開URLを .env* に同期
+bash scripts/ops/ensure-funnel.sh
+
+# コンテナ内の環境で Webhook を登録（pending破棄込み）
+bash scripts/ops/ensure-webhook.sh
+
+# Health / WebhookInfo / Webhook入出力ログをまとめて確認
+bash scripts/ops/verify.sh
+```
+
 ## 📊 パフォーマンス目標
 
 | 指標 | 目標値 | 実測値確認方法 |
@@ -198,6 +214,16 @@ Docker では `3002:3002` を公開しているため、リバースプロキシ
 - 期待効果: 起動直後の一時的な失敗や外部要因でWebHookが外れても、自動で復旧し通知断を最小化します。
 
 注意: 旧ロングポーリング実装（`bot.start()`）は使用しません。
+
+### 表示整形（HTML）とリンク方針
+- `parse_mode: 'HTML'` を使用
+- 改行は全て `\n` で結合（バックスラッシュ表示になる `\\n` を使わない）
+- 監視名は「監視URL」へリンク（青字タップで対象URLへ遷移）
+
+### Webhook入出力ログ（可観測性）
+- 受信: `admin.webhook.request`
+- 応答: `admin.webhook.response`
+→ 届いていないのか、返せていないのかを即時に判別可能
 
 ## 🔧 トラブルシューティング
 
