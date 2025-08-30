@@ -184,7 +184,7 @@ describe('TelegramNotifier spec commands', () => {
     await registeredCommands['status']?.({ reply, chat: { id: 'chat' }, from: { id: 1 } });
     const text = (reply.mock.calls[0]?.[0] ?? '') as string;
     expect(text).toContain('ID: abcd');
-    expect(text).toContain('<a href="https://example.com">東京都全域監視</a>');
+    expect(text).toContain('<a href="https://x">東京都全域監視</a>');
     expect(text).toContain('最終チェック');
   });
 
@@ -206,7 +206,7 @@ describe('TelegramNotifier spec commands', () => {
     const reply = jest.fn();
     await registeredCommands['stats']?.({ reply, chat: { id: 'chat' }, from: { id: 1 } });
     const text = (reply.mock.calls[0]?.[0] ?? '') as string;
-    expect(text).toContain('<a href="https://example.com">東京都全域監視</a>');
+    expect(text).toContain('<a href="https://x">東京都全域監視</a>');
     expect(text).toContain('総チェック数: 17回');
     expect(text).toContain('エラー数: 0回');
     expect(text).toContain('新着検知: 1回');
